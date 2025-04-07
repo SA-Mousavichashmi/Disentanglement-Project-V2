@@ -48,7 +48,7 @@ class DSprites(datasets.base.DisentangledDataset):
         "https://github.com/deepmind/dsprites-dataset/blob/master/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz?raw=true"
     }
     files = {"train": "dsprite_train.npz"}
-    factor_names = ('color', 'shape', 'scale', 'orientation', 'posX', 'posY')
+    factor_names = ('color', 'shape', 'scale', 'orientation', 'posX', 'posY') # TODO: keep in mind to change the factor_names to lat_names based on the original script
     factor_sizes = np.array([1, 3, 6, 40, 32, 32])
     img_size = (1, 64, 64)
     background_color = datasets.COLOUR_BLACK
