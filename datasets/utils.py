@@ -17,6 +17,7 @@ import time
 import torch
 from tqdm import tqdm
 import yaml
+from utils.io import find_optimal_num_workers
 
 
 # import datasets.base
@@ -92,26 +93,55 @@ def get_dataloaders(
     dataset, shuffle=False, device=torch.device('cuda'), logger=logging.Logger(__name__), root='n/a', 
     batch_size=256, num_workers=4, return_pairs=False, k_range=[1, -1], constraints_filepath=None,
     correlations_filepath=None):
-    """A generic data loader
+    """Creates and returns PyTorch dataloaders for the specified dataset.
+
+    Handles dataset instantiation, optional constraining, correlation sampling,
+    and pairing for weakly supervised learning.
 
     Parameters
     ----------
-    dataset : {"mnist", "fashion", "dsprites", "celeba", "chairs"}
-        Name of the dataset to load
+    dataset : str
+        Name of the dataset to load (e.g., "mnist", "dsprites").
+    shuffle : bool, optional
+        Whether to shuffle the dataset. Defaults to False. Ignored if
+        `correlations_filepath` is provided.
+    device : torch.device, optional
+        Device to use for pin_memory. Defaults to 'cuda'.
+    logger : logging.Logger, optional
+        Logger instance. Defaults to a new logger.
+    root : str, optional
+        Path to the dataset root directory. Defaults to 'n/a', which uses
+        the dataset's default root.
+    batch_size : int, optional
+        Number of samples per batch. Defaults to 256.
+    num_workers : int, optional
+        Number of subprocesses to use for data loading. Defaults to 4.
+        If set to -1, attempts to find the optimal number.
+    return_pairs : bool, optional
+        Whether to return pairs of samples for weakly supervised learning.
+        Requires the dataset to have ground truth factors. Defaults to False.
+    k_range : list[int], optional
+        Range [min, max] for the number of unshared factors when `return_pairs`
+        is True. Defaults to [1, -1] (meaning 1 to num_factors - 1).
+    constraints_filepath : str or None, optional
+        Path to a YAML file defining constraints to filter the dataset.
+        Can include a constraint set name (e.g., 'path/to/constraints.yaml:set1').
+        Defaults to None.
+    correlations_filepath : str or None, optional
+        Path to a YAML file defining correlations between factors of variation
+        to introduce sampling bias. Can include a correlation set name
+        (e.g., 'path/to/correlations.yaml:corr1'). If provided, a
+        WeightedRandomSampler is used, and `shuffle` is ignored. Defaults to None.
 
-    root : str
-        Path to the dataset root. If `None` uses the default one.
-
-    kwargs :
-        Additional arguments to `DataLoader`. Default values are modified.
+    Returns
+    -------
+    torch.utils.data.DataLoader
+        The DataLoader instance for the dataset.
+    dict
+        A dictionary containing logging information about constraints applied.
     """
     pin_memory = True if device.type != 'cpu' else False
     log_summary = {}
-
-    # Handle -1 for num_workers
-    # if num_workers == -1: # TODO check this later
-    #     from utils.helpers import get_optimal_workers_num
-    #     num_workers = get_optimal_workers_num()
 
     if root == 'n/a':
         dataset = get_dataset(dataset)(logger=logger)
@@ -129,7 +159,6 @@ def get_dataloaders(
         if shuffle:
             correlation_sampler, correlation_weights = provide_correlation_sampler(
                 dataset=dataset, correlations_filepath=correlations_filepath)
-            # Turn shuffle of when using a custom sampler.
             shuffle = False
 
     if return_pairs:
@@ -139,7 +168,11 @@ def get_dataloaders(
         dataset = PairedDataset(
             dataset=dataset, 
             k_range=k_range,
-            correlation_weights=correlation_weights)  
+            correlation_weights=correlation_weights) 
+
+    if num_workers == -1: # Getting optimal num of workers for dataloader
+        num_workers = find_optimal_num_workers(
+            dataset=dataset, batch_size=batch_size, pin_memory=True)
 
     return torch.utils.data.DataLoader(
         dataset,
