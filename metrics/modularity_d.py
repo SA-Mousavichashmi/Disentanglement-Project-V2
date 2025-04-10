@@ -19,28 +19,33 @@ ORIGINAL CODE WAS CHANGED AS FOLLOWS:
 - Integration as a mergable BaseMetric that can be combined with multiple other metrics for efficient computation.
 - Efficiency improvements through parallelization.
 - Function and variable renaming.
+- Moved mutual information calculation to utils.math module.
 """
+from joblib import Parallel, delayed
 import numpy as np
 import torch
 import sklearn.preprocessing
-from pyitlib import discrete_random_variable as drv
+from tqdm import trange
 
 from .basemetric import BaseMetric
+from utils.math import calculate_mutual_information
 
-class Modularityd(BaseMetric):
-    def __init__(self, num_bins=20, **kwargs):
+class Modularityd(BaseMetric): # TODO: check the correctness of this metric the result is not valid acroos different disentanglement level
+    def __init__(self, num_bins=20, num_workers=8, mi_method='sklearn', **kwargs):
         super().__init__(**kwargs)
         self.num_bins = num_bins
+        self.num_workers = num_workers
+        self.mi_method = mi_method
 
     @property
     def _requires(self):
-        return ['stats_qzx', 'gt_factors']
+        return ['latent_reps', 'gt_factors']
 
     @property
     def _mode(self):
         return 'full'
 
-    def __call__(self, stats_qzx, gt_factors, **kwargs):
+    def __call__(self, latent_reps, gt_factors, **kwargs):
         """Compute Modularity Score as proposed in [1] (eq.2).
 
         References
@@ -48,27 +53,43 @@ class Modularityd(BaseMetric):
            [1] Ridgeway et al. "Learning deep disentangled embeddings with the f-statistic loss", 
            Advances in Neural Information Processing Systems. 2018.
         """
-        if isinstance(stats_qzx, torch.Tensor):
-            stats_qzx = [x.detach().cpu().numpy() for x in stats_qzx.unbind(-1)]
-        mean_qzx = stats_qzx[0]
+        if isinstance(latent_reps, torch.Tensor):
+            latent_reps = latent_reps.detach().cpu().numpy()
+        
         if isinstance(gt_factors, torch.Tensor):
             gt_factors = gt_factors.detach().cpu().numpy()
 
-        num_latents = mean_qzx.shape[-1]
+        num_latents = latent_reps.shape[-1]
         num_factors = gt_factors.shape[-1]
 
-        mean_qzx = sklearn.preprocessing.minmax_scale(mean_qzx)
+        latent_reps = sklearn.preprocessing.minmax_scale(latent_reps)
         gt_factors = sklearn.preprocessing.minmax_scale(gt_factors)
 
         bins = np.linspace(0, 1, self.num_bins + 1)
-        mean_qzx = np.digitize(mean_qzx, bins[:-1], right=False).astype(int)
+        latent_reps = np.digitize(latent_reps, bins[:-1], right=False).astype(int)
         gt_factors = np.digitize(gt_factors, bins[:-1], right=False).astype(int)
 
-        mutual_info_scores = np.zeros((num_factors, num_latents))
-        for factor_id in range(num_factors):
+        def compute_mutual_info_for_factor(factor_id):
+            factor_mutual_info_scores = []
             for latent_id in range(num_latents):
-                mutual_info_scores[factor_id, latent_id] = drv.information_mutual(mean_qzx[:, latent_id], gt_factors[:, factor_id], cartesian_product=True, base=np.e)
-
+                factor_mutual_info_scores.append(
+                    calculate_mutual_information(latent_reps[:, latent_id], gt_factors[:, factor_id], method=self.mi_method)
+                )
+            return factor_mutual_info_scores
+        
+        if self.num_workers == 1:
+            mutual_info_scores = []
+            for factor_id in trange(num_factors, desc='Computing MI for ground truth factors...', leave=False):
+                mutual_info_scores.append(compute_mutual_info_for_factor(factor_id))
+        else:
+            mutual_info_scores = Parallel(n_jobs=self.num_workers)(
+                delayed(compute_mutual_info_for_factor)(factor_id) 
+                for factor_id in trange(num_factors, desc='Computing MI for ground truth factors...', leave=False)
+            )
+            
+        # Convert the results to the expected numpy array shape for further processing
+        mutual_info_scores = np.array(mutual_info_scores)
+        
         modularity = 0
         for latent_id in range(num_latents):
             factor_mutual_info_scores = mutual_info_scores[:, latent_id]

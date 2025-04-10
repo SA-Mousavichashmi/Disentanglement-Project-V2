@@ -16,7 +16,7 @@ from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim, **kwargs):
+    def __init__(self, img_size, latent_dim=10, **kwargs):
         """
         Class which defines model and forward pass.
 

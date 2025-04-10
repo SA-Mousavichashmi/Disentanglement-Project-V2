@@ -58,7 +58,7 @@ class Encoder(BaseEncoder):
                                      **cnn_kwargs)
 
         # Fully connected layers
-        self.lin1 = nn.Linear(np.product(self.reshape), hidden_dim)
+        self.lin1 = nn.Linear(np.prod(self.reshape), hidden_dim)
         self.lin2 = nn.Linear(hidden_dim, hidden_dim)
 
     def _encode_features(self, x):

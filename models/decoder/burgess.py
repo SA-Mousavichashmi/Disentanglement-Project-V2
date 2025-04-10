@@ -53,7 +53,7 @@ class Decoder(BaseDecoder):
         # Fully connected layers
         self.lin1 = nn.Linear(latent_dim, hidden_dim)
         self.lin2 = nn.Linear(hidden_dim, hidden_dim)
-        self.lin3 = nn.Linear(hidden_dim, np.product(self.reshape))
+        self.lin3 = nn.Linear(hidden_dim, np.prod(self.reshape))
 
         # Convolutional layers
         cnn_kwargs = dict(stride=2, padding=1)

@@ -19,18 +19,16 @@ ORIGINAL CODE WAS CHANGED AS FOLLOWS:
 - Integration as a mergable BaseMetric that can be combined with multiple other metrics for efficient computation.
 - Efficiency improvements through parallelization.
 - Function and variable renaming.
+- Moved mutual information and entropy calculation to utils.math module.
 """
 from joblib import Parallel, delayed
 import numpy as np
-from pyitlib import discrete_random_variable as drv
 import sklearn.preprocessing
-import sklearn.metrics
-import sklearn.feature_selection
 import torch
 from tqdm import trange
-from scipy import stats
 
 from .basemetric import BaseMetric
+from utils.math import calculate_mutual_information, calculate_entropy
 
 class MIG(BaseMetric):
     def __init__(self, num_bins=20, num_workers=8, mi_method='sklearn', entropy_method='scipy', **kwargs):
@@ -48,87 +46,6 @@ class MIG(BaseMetric):
     def _mode(self):
         return 'full'
     
-    # TODO the mutual information methods and entropy methods should be moved to a math file in the utils folder 
-    def _mutual_information_pyitlib(self, x, y):
-        """Calculate mutual information using pyitlib."""
-        return drv.information_mutual(x, y, cartesian_product=True, base=np.e)
-    
-    def _mutual_information_sklearn(self, x, y):
-        """Calculate mutual information using sklearn."""
-        return sklearn.metrics.mutual_info_score(x, y)
-    
-    def _mutual_information_numpy(self, x, y):
-        """Calculate mutual information using numpy-based implementation for already digitized data."""
-        # Find unique values in x and y
-        unique_x = np.unique(x)
-        unique_y = np.unique(y)
-        
-        # Create a contingency table/joint counts matrix based on actual values
-        joint_counts = np.zeros((len(unique_x), len(unique_y)), dtype=np.int64)
-        
-        # Create mappings from values to indices
-        x_map = {val: idx for idx, val in enumerate(unique_x)}
-        y_map = {val: idx for idx, val in enumerate(unique_y)}
-        
-        # Populate joint counts
-        for i, j in zip(x, y):
-            joint_counts[x_map[i], y_map[j]] += 1
-        
-        # Calculate joint probability
-        total = len(x)
-        joint_prob = joint_counts / total
-        
-        # Calculate marginal probabilities
-        px = np.sum(joint_prob, axis=1)
-        py = np.sum(joint_prob, axis=0)
-        
-        # Calculate mutual information
-        mi = 0
-        for i in range(len(px)):
-            for j in range(len(py)):
-                if joint_prob[i, j] > 0:
-                    mi += joint_prob[i, j] * np.log(joint_prob[i, j] / (px[i] * py[j]))
-        return mi
-    
-    # TODO the mutual information methods and entropy methods should be moved to a math file in the utils folder
-    def _entropy_pyitlib(self, x):
-        """Calculate entropy using pyitlib."""
-        return drv.entropy(x, base=np.e)
-    
-    def _entropy_scipy(self, x):
-        """Calculate entropy using scipy."""
-        value, counts = np.unique(x, return_counts=True)
-        probs = counts / len(x)
-        return stats.entropy(probs, base=np.e)
-    
-    def _entropy_numpy(self, x):
-        """Calculate entropy using numpy-based implementation."""
-        value, counts = np.unique(x, return_counts=True)
-        probs = counts / len(x)
-        return -np.sum(probs * np.log(probs + 1e-10))
-    
-    def calculate_mutual_information(self, x, y):
-        """Calculate mutual information using the selected method."""
-        if self.mi_method == 'pyitlib':
-            return self._mutual_information_pyitlib(x, y)
-        elif self.mi_method == 'sklearn':
-            return self._mutual_information_sklearn(x, y)
-        elif self.mi_method == 'numpy':
-            return self._mutual_information_numpy(x, y)
-        else:
-            raise ValueError(f"Unknown mutual information method: {self.mi_method}")
-    
-    def calculate_entropy(self, x):
-        """Calculate entropy using the selected method."""
-        if self.entropy_method == 'pyitlib':
-            return self._entropy_pyitlib(x)
-        elif self.entropy_method == 'scipy':
-            return self._entropy_scipy(x)
-        elif self.entropy_method == 'numpy':
-            return self._entropy_numpy(x)
-        else:
-            raise ValueError(f"Unknown entropy method: {self.entropy_method}")
-
     def __call__(self, latent_reps, gt_factors, **kwargs):
         """Compute the mutual information gap as in [1].
 
@@ -157,10 +74,11 @@ class MIG(BaseMetric):
             factor_mutual_info_scores = []
             for latent_id in range(num_latents):
                 factor_mutual_info_scores.append(
-                    self.calculate_mutual_information(latent_reps[:, latent_id], gt_factors))
+                    calculate_mutual_information(latent_reps[:, latent_id], gt_factors, method=self.mi_method)
+                )
             sorted_factor_mutual_info_scores = sorted(factor_mutual_info_scores)
             mutual_info_gap = sorted_factor_mutual_info_scores[-1] - sorted_factor_mutual_info_scores[-2]
-            factor_entropy = self.calculate_entropy(gt_factors)
+            factor_entropy = calculate_entropy(gt_factors, method=self.entropy_method)
             normalized_mutual_info_gap = 1. / factor_entropy * mutual_info_gap
             return normalized_mutual_info_gap
         
@@ -169,6 +87,9 @@ class MIG(BaseMetric):
             for factor_id in trange(num_factors, desc='Computing MI for ground truth factors...', leave=False):
                 mig.append(compute_mutual_info(latent_reps, gt_factors[:, factor_id])) 
         else:
-            mig = Parallel(n_jobs=self.num_workers)(delayed(compute_mutual_info)(latent_reps, gt_factors[:, factor_id]) for factor_id in trange(num_factors, desc='Computing MI for ground truth factors...', leave=False))
+            mig = Parallel(n_jobs=self.num_workers)(
+                delayed(compute_mutual_info)(latent_reps, gt_factors[:, factor_id]) 
+                for factor_id in trange(num_factors, desc='Computing MI for ground truth factors...', leave=False)
+            )
 
         return np.mean(mig)
