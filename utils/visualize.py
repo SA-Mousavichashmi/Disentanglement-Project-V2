@@ -3,7 +3,7 @@ from scipy import stats
 import torch
 
 
-class visualizer():
+class Visualizer():
     def __init__(self, vae_model, dataset, max_traversal_type='probability', max_traversal=0.475):
         """Initializes the visualizer class.
 
