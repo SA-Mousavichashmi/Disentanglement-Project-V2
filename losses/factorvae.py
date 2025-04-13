@@ -32,7 +32,7 @@ class Loss(baseloss.BaseLoss):
 
     References
     ----------
-        [1] Kim, Hyunjik, and Andriy Mnih. "Disentangling by factorising."
+        [1] Kim, Hyunjik, and Andriy Mnih. "Disentangling by factorizing."
         arXiv preprint arXiv:1802.05983 (2018).
     """
 
@@ -78,7 +78,7 @@ class Loss(baseloss.BaseLoss):
         log_data['kl_loss'] = kl_loss.item()
 
         d_z = self.discriminator(model_out1['samples_qzx'])
-        # We want log(p_true/p_false). If not using logisitc regression but softmax
+        # We want log(p_true/p_false). If not using logistic regression but softmax
         # then p_true = exp(logit_true) / Z; p_false = exp(logit_false) / Z
         # so log(p_true/p_false) = logit_true - logit_false
         tc_loss = (d_z[:, 0] - d_z[:, 1]).mean()
@@ -115,7 +115,7 @@ class Loss(baseloss.BaseLoss):
         # with sigmoid would be :
         # d_tc_loss = 0.5 * (self.bce(d_z.flatten(), ones) + self.bce(d_z_perm.flatten(), 1 - ones))
 
-        # TO-DO: check ifshould also anneals discriminator if not becomes too good ???
+        # TO-DO: check if should also anneals discriminator if not becomes too good ???
         #d_tc_loss = anneal_reg * d_tc_loss
 
         # Compute discriminator gradients
@@ -160,7 +160,7 @@ class FactorDiscriminator(nn.Module):
         - Output 2 logits
 
         References:
-            [1] Kim, Hyunjik, and Andriy Mnih. "Disentangling by factorising."
+            [1] Kim, Hyunjik, and Andriy Mnih. "Disentangling by factorizing."
             arXiv preprint arXiv:1802.05983 (2018).
 
         """

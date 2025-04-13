@@ -75,7 +75,7 @@ class Loss(baseloss.BaseLoss):
 
         # (Optional) Apply minibatch stratified sampling (c.f. Eq. S6) to log_qzx_cross[i, j, :].
         # In essence, we estimate q(z) using a minibatch {x_1, ..., x_m} for a z that was originally sampled from q(z|x_*).
-        # See alse Eq. S5 for a derivation.
+        # See else Eq. S5 for a derivation.
         if self.is_mss:
             N, M = self.n_data, batch_size - 1
             M = batch_size - 1

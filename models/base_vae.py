@@ -84,26 +84,44 @@ class BaseVAE(nn.Module):
             Batch of data. Shape (batch_size, n_chan, height, width)
         """
         stats_qzx = self.encoder(x)['stats_qzx']
-        samples_qzx = self.reparameterize(*stats_qzx.unbind(-1))['samples_qzx']
+        mean, logvar = stats_qzx.unbind(-1)
+
+        # Reparameterization trick
+        samples_qzx = self.reparameterize(mean, logvar)['samples_qzx']
+
+        # Decode the latent samples
         reconstructions = self.decoder(samples_qzx)['reconstructions']
+
         return {
             'reconstructions': reconstructions, 
             'stats_qzx': stats_qzx, 
-            'samples_qzx': samples_qzx}
+            'samples_qzx': samples_qzx,
+            'samples_qzx_mean': mean,
+            }
 
     def reset_parameters(self):
         """Reset parameters using weight_init."""
         self.apply(utils.initialization.weights_init)
 
-    def sample_qzx(self, x):
+    def sample_qzx(self, x, type='stochastic'):
         """
-        Returns a sample z from the latent distribution q(z|x).
+        Returns a sample z from the latent distribution q(z|x) based on the type of sampling (stochastic or deterministic).
 
         Parameters
         ----------
         x : torch.Tensor
             Batch of data. Shape (batch_size, n_chan, height, width)
+        type : str
+            Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
         """
         stats_qzx = self.encoder(x)['stats_qzx']
-        samples_qzx = self.reparameterize(*stats_qzx.unbind(-1))['samples_qzx']
+        mean, logvar = stats_qzx.unbind(-1)
+
+        if type == 'stochastic':
+            samples_qzx = self.reparameterize(mean, logvar)['samples_qzx']
+        elif type == 'deterministic':
+            samples_qzx = mean
+        else:
+            raise ValueError(f"Unknown sampling type: {type}")
+        
         return samples_qzx
