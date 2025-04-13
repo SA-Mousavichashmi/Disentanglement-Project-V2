@@ -204,8 +204,83 @@ class Visualizer():
         
         return images, reconstructions
     
-    def plot_reconstructions(self, ref_imgs, reconstructions, n_cols=5):
-        pass
+    def plot_reconstructions(self, imgs, reconstructions, figsize=(10, 3)):
+        """Plots original images and their reconstructions side-by-side.
+
+        Creates a matplotlib figure displaying the original images in the top row
+        and their corresponding reconstructions in the bottom row.
+
+        Parameters
+        ----------
+        imgs : list of torch.Tensor
+            A list of original image tensors (on CPU).
+        reconstructions : list of torch.Tensor
+            A list of reconstructed image tensors (on CPU).
+        figsize : tuple, optional
+            The size of the matplotlib figure. Defaults to (10, 3).
+        """
+        num_images = len(imgs)
+        fig, axes = plt.subplots(2, num_images, figsize=figsize)
+
+        # Handle case where num_images is 1, axes is not a 2D array
+        if num_images == 1:
+            axes = axes.reshape(2, 1)
+
+        for i in range(num_images):
+            # Plot original image
+            ax = axes[0, i]
+            img = imgs[i].permute(1, 2, 0).numpy() # Convert CHW to HWC for plotting
+            ax.imshow(img)
+            ax.axis('off')
+            if i == 0:
+                ax.set_title('Original', fontsize=10)
+
+            # Plot reconstructed image
+            ax = axes[1, i]
+            recon = reconstructions[i].permute(1, 2, 0).numpy() # Convert CHW to HWC
+            ax.imshow(recon)
+            ax.axis('off')
+            if i == 0:
+                ax.set_title('Reconstruction', fontsize=10)
+
+        plt.tight_layout(pad=0.1)
+        plt.show()
+    
+    def plot_random_reconstructions(self, num_samples=10, figsize=(10, 3)):
+        """Randomly selects and plots a specified number of images and their reconstructions.
+
+        This method combines the functionality of `random_reconstruct_sub_dataset` and
+        `plot_reconstructions` to display a set of randomly chosen images alongside
+        their VAE reconstructions.
+
+        Parameters
+        ----------
+        num_samples : int, optional
+            The number of random images to select and reconstruct. Defaults to 10.
+        figsize : tuple, optional
+            The size of the matplotlib figure. Defaults to (10, 3).
+        """
+        imgs, reconstructions = self.random_reconstruct_sub_dataset(num_samples)
+        self.plot_reconstructions(imgs, reconstructions, figsize)
+    
+    def plot_reconstructions_sub_dataset(self, img_indices, figsize=(10, 3)):
+        """Reconstructs and plots images from the dataset specified by their indices.
+
+        This method combines the functionality of `reconstruct_sub_dataset` and
+        `plot_reconstructions` to display a set of images alongside their VAE
+        reconstructions.
+
+        Parameters
+        ----------
+        img_indices : list of int or torch.Tensor
+            A list or tensor containing the indices of the images to reconstruct
+            from the dataset.
+        figsize : tuple, optional
+            The size of the matplotlib figure. Defaults to (10, 3).
+        """
+        imgs, reconstructions = self.reconstruct_sub_dataset(img_indices)
+        self.plot_reconstructions(imgs, reconstructions, figsize)
+
 
 
 
