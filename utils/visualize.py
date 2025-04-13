@@ -159,7 +159,7 @@ class Visualizer():
               by the VAE model (on CPU).
         """
         # Get the images from the dataset
-        images = [self.dataset[i] for i in img_indices]
+        images = [self.dataset[i][0] for i in img_indices]
         # Stack images into a single tensor
         images = torch.stack(images, dim=0) 
         
@@ -203,6 +203,9 @@ class Visualizer():
         images, reconstructions = self.reconstruct_sub_dataset(img_indices)
         
         return images, reconstructions
+    
+    def plot_reconstructions(self, ref_imgs, reconstructions, n_cols=5):
+        pass
 
 
 
