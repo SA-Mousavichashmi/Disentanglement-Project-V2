@@ -142,7 +142,7 @@ class Visualizer():
         plt.tight_layout(pad=0.1)
         plt.show()
     
-    def plot_random_reconstructions(self, num_samples=10, figsize=(10, 3)):
+    def plot_random_reconstructions(self, num_samples=10, mode='mean', figsize=(10, 3)):
         """Randomly selects and plots a specified number of images and their reconstructions.
 
         This method combines the functionality of `random_reconstruct_sub_dataset` and
@@ -153,14 +153,15 @@ class Visualizer():
         ----------
         num_samples : int, optional
             The number of random images to select and reconstruct. Defaults to 10.
+        mode : str, optional
+            Mode for reconstruction. Options are 'mean' or 'sample'. Defaults to 'mean'.
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        # Use the imported function from models.utils
-        imgs, reconstructions = model_utils.random_reconstruct_sub_dataset(self.vae_model, self.dataset, num_samples)
+        imgs, reconstructions = model_utils.random_reconstruct_sub_dataset(self.vae_model, self.dataset, num_samples, mode=mode)
         self.plot_reconstructions(imgs, reconstructions, figsize)
     
-    def plot_reconstructions_sub_dataset(self, img_indices, figsize=(10, 3)):
+    def plot_reconstructions_sub_dataset(self, img_indices, mode='mean', figsize=(10, 3)):
         """Reconstructs and plots images from the dataset specified by their indices.
 
         This method combines the functionality of `reconstruct_sub_dataset` and
@@ -172,11 +173,12 @@ class Visualizer():
         img_indices : list of int or torch.Tensor
             A list or tensor containing the indices of the images to reconstruct
             from the dataset.
+        mode : str, optional
+            Mode for reconstruction. Options are 'mean' or 'sample'. Defaults to 'mean'.
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        # Use the imported function from models.utils
-        imgs, reconstructions = model_utils.reconstruct_sub_dataset(self.vae_model, self.dataset, img_indices)
+        imgs, reconstructions = model_utils.reconstruct_sub_dataset(self.vae_model, self.dataset, img_indices, mode=mode)
         self.plot_reconstructions(imgs, reconstructions, figsize)
 
 
