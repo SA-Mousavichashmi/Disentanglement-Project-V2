@@ -15,7 +15,7 @@ def get_device(model):
     """
     return next(model.parameters()).device
 
-def reconstruct_ref_imgs(vae_model, ref_imgs):
+def reconstruct_ref_imgs(vae_model, ref_imgs, mode):
     """Reconstructs a list of reference images using the VAE model.
 
     Takes a list of image tensors, passes them through the VAE model to obtain
@@ -27,6 +27,8 @@ def reconstruct_ref_imgs(vae_model, ref_imgs):
         The VAE model used for reconstruction.
     ref_imgs : list of torch.Tensor
         A list containing the reference image tensors, each with shape (C, H, W).
+    mode : str
+        Mode for reconstruction. Options are 'mean' or 'sample'.
 
     Returns
     -------
@@ -45,7 +47,7 @@ def reconstruct_ref_imgs(vae_model, ref_imgs):
 
     # Reconstruct the images using the VAE model within no_grad context
     with torch.no_grad():
-        reconstructions = vae_model(images)['reconstructions']
+        reconstructions = vae_model.reconstruct(images, mode)
 
     # Move reconstructions back to CPU
     reconstructions = reconstructions.cpu()
@@ -56,7 +58,7 @@ def reconstruct_ref_imgs(vae_model, ref_imgs):
 
     return images_list, reconstructions_list
 
-def reconstruct_sub_dataset(vae_model, dataset, img_indices):
+def reconstruct_sub_dataset(vae_model, dataset, img_indices, mode):
     """Reconstructs specific images from the dataset using the VAE model.
 
     Fetches images specified by their indices from the dataset, passes them
@@ -72,6 +74,8 @@ def reconstruct_sub_dataset(vae_model, dataset, img_indices):
     img_indices : list of int or torch.Tensor
         A list or tensor containing the indices of the images to reconstruct
         from the dataset.
+    mode : str
+        Mode for reconstruction. Options are 'mean' or 'sample'.
 
     Returns
     -------
@@ -92,7 +96,7 @@ def reconstruct_sub_dataset(vae_model, dataset, img_indices):
 
     # Reconstruct the images using the VAE model within no_grad context
     with torch.no_grad():
-        reconstructions = vae_model(images)['reconstructions']
+        reconstructions = vae_model.reconstruct(images, mode)
 
     # Move reconstructions back to CPU and return
     reconstructions = reconstructions.cpu()
@@ -102,7 +106,7 @@ def reconstruct_sub_dataset(vae_model, dataset, img_indices):
 
     return images_list, reconstructions_list
 
-def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10):
+def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10, mode='mean'):
     """Reconstructs a specified number of randomly selected images from the dataset.
 
     Randomly selects indices from the dataset, retrieves the corresponding images,
@@ -116,6 +120,8 @@ def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10):
         The dataset from which images will be sampled.
     num_samples : int, optional
         The number of random images to select and reconstruct. Defaults to 10.
+    mode : str, optional
+        Mode for reconstruction. Options are 'mean' or 'sample'. Defaults to 'mean'.
 
     Returns
     -------
@@ -128,6 +134,6 @@ def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10):
     img_indices = torch.randint(0, len(dataset), (num_samples,))
 
     # Reconstruct the images using the VAE model
-    images, reconstructions = reconstruct_sub_dataset(vae_model, dataset, img_indices)
+    images, reconstructions = reconstruct_sub_dataset(vae_model, dataset, img_indices, mode)
 
     return images, reconstructions

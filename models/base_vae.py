@@ -102,6 +102,30 @@ class BaseVAE(nn.Module):
     def reset_parameters(self):
         """Reset parameters using weight_init."""
         self.apply(utils.initialization.weights_init)
+    
+    def reconstruct(self, x, mode):
+        """
+        Reconstructs the input data x using the VAE model.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Batch of data. Shape (batch_size, n_chan, height, width)
+        mode : str
+            Mode for reconstruction. Options are 'mean' or 'sample'.
+        """
+        stats_qzx = self.encoder(x)['stats_qzx']
+        mean, logvar = stats_qzx.unbind(-1)
+
+        if mode == 'mean':
+            reconstructions = self.decoder(mean)['reconstructions']
+        elif mode == 'sample':
+            samples_qzx = self.reparameterize(mean, logvar)['samples_qzx']
+            reconstructions = self.decoder(samples_qzx)['reconstructions']
+        else:
+            raise ValueError(f"Unknown reconstruction mode: {mode}")
+
+        return reconstructions
 
     def sample_qzx(self, x, type='stochastic'):
         """
