@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from scipy import stats
 import torch
-
+from models import utils as model_utils # Import the models utils
 
 class Visualizer():
     def __init__(self, vae_model, dataset, max_traversal_type='probability', max_traversal=0.475):
@@ -93,117 +93,13 @@ class Visualizer():
             the image channels, height, and width.
         """
         latent_samples = latent_samples.to(self.device)
-        return self.model.decoder(latent_samples)['reconstructions'].cpu()
+        return self.vae_model.decoder(latent_samples)['reconstructions'].cpu()
     
     ############# Latent Traversal Methods #############
 
     
     ############# Reconstruction Methods #############
 
-    def reconstruct_ref_imgs(self, ref_imgs):
-        """Reconstructs a list of reference images using the VAE model.
-
-        Takes a list of image tensors, passes them through the VAE model to obtain
-        reconstructions, and returns both the original images and their reconstructions.
-
-        Parameters
-        ----------
-        ref_imgs : list of torch.Tensor
-            A list containing the reference image tensors, each with shape (C, H, W).
-
-        Returns
-        -------
-        tuple of (list of torch.Tensor, list of torch.Tensor)
-            A tuple containing two lists:
-            - The first list holds the original reference images (on CPU).
-            - The second list holds the corresponding reconstructed images generated
-              by the VAE model (on CPU).
-        """
-        # Stack images into a single tensor
-        images = torch.stack(ref_imgs, dim=0) 
-        
-        # Move images to the device
-        images = images.to(self.device)
-        
-        # Reconstruct the images using the VAE model within no_grad context
-        with torch.no_grad():
-            reconstructions = self.vae_model(images)['reconstructions']
-        
-        # Move reconstructions back to CPU
-        reconstructions = reconstructions.cpu()
-
-        # Unbind tensors back into lists
-        reconstructions_list = reconstructions.unbind(0)
-
-        return reconstructions_list
-
-    def reconstruct_sub_dataset(self, img_indices):
-        """Reconstructs specific images from the dataset using the VAE model.
-
-        Fetches images specified by their indices from the dataset, passes them
-        through the VAE model to obtain reconstructions, and returns both the
-        original images and their reconstructions.
-
-        Parameters
-        ----------
-        img_indices : list of int or torch.Tensor
-            A list or tensor containing the indices of the images to reconstruct
-            from the dataset.
-
-        Returns
-        -------
-        tuple of (list of torch.Tensor, list of torch.Tensor)
-            A tuple containing two lists:
-            - The first list holds the original images fetched from the dataset (on CPU).
-            - The second list holds the corresponding reconstructed images generated
-              by the VAE model (on CPU).
-        """
-        # Get the images from the dataset
-        images = [self.dataset[i][0] for i in img_indices]
-        # Stack images into a single tensor
-        images = torch.stack(images, dim=0) 
-        
-        # Move images to the device
-        images = images.to(self.device)
-        
-        # Reconstruct the images using the VAE model within no_grad context
-        with torch.no_grad():
-            reconstructions = self.vae_model(images)['reconstructions']
-        
-        # Move reconstructions back to CPU and return
-        reconstructions = reconstructions.cpu()
-
-        reconstructions = reconstructions.unbind(0)
-        images = images.cpu().unbind(0) # Also move original images to CPU before unbinding
-
-        return images, reconstructions
-    
-    def random_reconstruct_sub_dataset(self, num_samples=10):
-        """Reconstructs a specified number of randomly selected images from the dataset.
-
-        Randomly selects indices from the dataset, retrieves the corresponding images,
-        and uses the `reconstruct` method to generate their VAE reconstructions.
-
-        Parameters
-        ----------
-        num_samples : int, optional
-            The number of random images to select and reconstruct. Defaults to 10.
-
-        Returns
-        -------
-        tuple of (list of torch.Tensor, list of torch.Tensor)
-            A tuple containing two lists, similar to the `reconstruct` method:
-            - The first list holds the randomly selected original images (on CPU).
-            - The second list holds their corresponding reconstructions (on CPU).
-        """
-        # Get random indices from the dataset
-        img_indices = torch.randint(0, len(self.dataset), (num_samples,))
-        
-        # Reconstruct the images using the VAE model
-        images, reconstructions = self.reconstruct_sub_dataset(img_indices)
-        
-        return images, reconstructions
-    
     def plot_reconstructions(self, imgs, reconstructions, figsize=(10, 3)):
         """Plots original images and their reconstructions side-by-side.
 
@@ -260,7 +156,8 @@ class Visualizer():
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        imgs, reconstructions = self.random_reconstruct_sub_dataset(num_samples)
+        # Use the imported function from models.utils
+        imgs, reconstructions = model_utils.random_reconstruct_sub_dataset(self.vae_model, self.dataset, num_samples)
         self.plot_reconstructions(imgs, reconstructions, figsize)
     
     def plot_reconstructions_sub_dataset(self, img_indices, figsize=(10, 3)):
@@ -278,7 +175,8 @@ class Visualizer():
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        imgs, reconstructions = self.reconstruct_sub_dataset(img_indices)
+        # Use the imported function from models.utils
+        imgs, reconstructions = model_utils.reconstruct_sub_dataset(self.vae_model, self.dataset, img_indices)
         self.plot_reconstructions(imgs, reconstructions, figsize)
 
 
