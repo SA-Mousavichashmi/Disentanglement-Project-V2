@@ -36,7 +36,10 @@ def decode_latents(vae_model, latent_samples):
     """
     device = get_device(vae_model)
     latent_samples = latent_samples.to(device)
-    return vae_model.decoder(latent_samples)['reconstructions'].cpu()
+    # Ensure decoder runs in inference mode
+    with torch.no_grad():
+        reconstructions = vae_model.decoder(latent_samples)['reconstructions']
+    return reconstructions.cpu()
 
 ########################## Reconstruction Functions #########################
 
@@ -225,7 +228,7 @@ def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traver
     device = get_device(vae_model)
 
     # Get the traversal range (assuming standard normal prior, mean=0, std=1)
-    min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
+    min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1) # TODO : Check the case for using Posterior mean and std
 
     # Create a base latent vector (mean of the prior)
     base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
