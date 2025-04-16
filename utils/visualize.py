@@ -74,8 +74,8 @@ class Visualizer():
             ax.imshow(img)
             ax.axis('off')
 
-        fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12)
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
+        fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12, y=0.95)  # Adjust title position
+        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
         plt.show()
 
     def plot_all_latent_traversals(self, num_samples=10, figsize=(10, 3)):

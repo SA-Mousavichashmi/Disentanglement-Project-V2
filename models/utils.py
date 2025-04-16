@@ -201,7 +201,7 @@ def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
     # symmetrical traversals
     return (-1 * traversal_limit, traversal_limit)
 
-def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples=10):
+def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples=10): # TODO Add ability to do latent traversal along specific data
     """
     Latent traversal for single latent dim based on the traversal range.
 
@@ -228,7 +228,7 @@ def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traver
     device = get_device(vae_model)
 
     # Get the traversal range (assuming standard normal prior, mean=0, std=1)
-    min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1) # TODO : Check the case for using Posterior mean and std
+    min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
 
     # Create a base latent vector (mean of the prior)
     base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
