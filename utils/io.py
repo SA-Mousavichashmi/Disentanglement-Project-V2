@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader, Dataset
 def find_optimal_num_workers(
     dataset: Dataset,
     batch_size: int,
-    max_workers: int = None,
-    num_batches_to_test: int = 100,
-    num_warmup_batches: int = 5,  # Added warm-up parameter
+    max_workers: int | None = None,
+    num_batches_to_test: int | str = 200, # Use 'all' to process the entire dataset
+    num_warmup_batches: int = 5,
     pin_memory: bool = True,
     **kwargs
 ) -> int:
@@ -81,13 +81,27 @@ def find_optimal_num_workers(
             # Start actual timing after warm-up
             start_time = time.time()
             batches_loaded = 0
-            while batches_loaded < num_batches_to_test:
-                try:
-                    next(loader_iter)
-                    batches_loaded += 1
-                except StopIteration:
-                    print(f"  Warning: Dataset exhausted after {batches_loaded} batches for num_workers={num_workers}.")
-                    break  # Dataset is smaller than num_batches_to_test
+            # Process all batches if num_batches_to_test is 'all', otherwise process the specified number
+            if num_batches_to_test == 'all':
+                print(f"Processing entire dataset...")
+                while True:
+                    try:
+                        next(loader_iter)
+                        batches_loaded += 1
+                    except StopIteration:
+                        print(f"  num_workers={num_workers}: Processed {batches_loaded} batches (entire dataset).")
+                        break # Dataset exhausted
+            else:
+                print(f"Processing {num_batches_to_test} batches...")
+                while batches_loaded < num_batches_to_test:
+                    try:
+                        next(loader_iter)
+                        batches_loaded += 1
+                    except StopIteration:
+                        print(f"  Warning: Dataset exhausted after {batches_loaded} batches. Requested {num_batches_to_test} batches.")
+                        break  # Dataset is smaller than num_batches_to_test
+                if batches_loaded == num_batches_to_test:
+                    print(f"num_workers={num_workers}: Successfully processed {batches_loaded} batches.")
             end_time = time.time()
             elapsed_time = end_time - start_time
 

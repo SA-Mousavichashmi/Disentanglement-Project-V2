@@ -43,7 +43,7 @@ class BaseTrainer():
                  scheduler,
                  device,
                  is_progress_bar=True,
-                 progress_bar_log_interval=10  # Add log_interval parameter for updating progress bar based iterations
+                 progress_bar_log_interval=50  # Add log_interval parameter for updating progress bar losses based iterations
                  ): 
 
         self.device = device
