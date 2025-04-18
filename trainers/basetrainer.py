@@ -55,7 +55,7 @@ class BaseTrainer():
         else:
             self.scheduler = scheduler
 
-    def train(self, data_loader, epochs): 
+    def train(self, data_loader, num_epochs): 
         """
         Trains the model.
 
@@ -68,7 +68,7 @@ class BaseTrainer():
         """
         self.model.train()
 
-        for epoch in range(epochs): 
+        for epoch in range(num_epochs): 
             self.epoch = epoch
             mean_epoch_loss = self._train_epoch(data_loader, epoch)
             self.scheduler.step()
