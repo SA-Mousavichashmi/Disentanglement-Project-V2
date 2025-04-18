@@ -47,7 +47,7 @@ class BaseTrainer():
         self.scheduler = scheduler
         self.is_progress_bar = is_progress_bar  # Store is_progress_bar
 
-    def __call__(self, data_loader, epochs): 
+    def train(self, data_loader, epochs): 
         """
         Trains the model.
 
