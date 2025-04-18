@@ -34,9 +34,9 @@ class BaseTrainer():
 
     def __init__(self,
                  model,
+                 loss_fn,
                  optimizer,
                  scheduler,
-                 loss_fn,
                  device,
                  is_progress_bar=True): 
 
@@ -44,8 +44,16 @@ class BaseTrainer():
         self.model = model.to(self.device)
         self.loss_f = loss_fn
         self.optimizer = optimizer
-        self.scheduler = scheduler
         self.is_progress_bar = is_progress_bar  # Store is_progress_bar
+
+        if scheduler is None:
+            ### Using constant scheduler with no warmup
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer,
+                lr_lambda=lambda epoch: 1.0,
+            )
+        else:
+            self.scheduler = scheduler
 
     def train(self, data_loader, epochs): 
         """
