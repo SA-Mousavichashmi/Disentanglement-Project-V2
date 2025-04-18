@@ -36,13 +36,13 @@ class BaseTrainer():
                  model,
                  optimizer,
                  scheduler,
-                 loss_f,
+                 loss_fn,
                  device,
                  is_progress_bar=True): 
 
         self.device = device
         self.model = model.to(self.device)
-        self.loss_f = loss_f
+        self.loss_f = loss_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.is_progress_bar = is_progress_bar  # Store is_progress_bar
