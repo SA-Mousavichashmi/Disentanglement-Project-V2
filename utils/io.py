@@ -83,7 +83,7 @@ def find_optimal_num_workers(
             batches_loaded = 0
             # Process all batches if num_batches_to_test is 'all', otherwise process the specified number
             if num_batches_to_test == 'all':
-                print(f"Processing entire dataset...")
+                print(f"  num_workers={num_workers}: Processing entire dataset...")
                 while True:
                     try:
                         next(loader_iter)
@@ -92,16 +92,16 @@ def find_optimal_num_workers(
                         print(f"  num_workers={num_workers}: Processed {batches_loaded} batches (entire dataset).")
                         break # Dataset exhausted
             else:
-                print(f"Processing {num_batches_to_test} batches...")
+                print(f"  num_workers={num_workers}: Processing {num_batches_to_test} batches...")
                 while batches_loaded < num_batches_to_test:
                     try:
                         next(loader_iter)
                         batches_loaded += 1
                     except StopIteration:
-                        print(f"  Warning: Dataset exhausted after {batches_loaded} batches. Requested {num_batches_to_test} batches.")
+                        print(f"  Warning: Dataset exhausted after {batches_loaded} batches for num_workers={num_workers}. Requested {num_batches_to_test} batches.")
                         break  # Dataset is smaller than num_batches_to_test
                 if batches_loaded == num_batches_to_test:
-                    print(f"num_workers={num_workers}: Successfully processed {batches_loaded} batches.")
+                    print(f"  num_workers={num_workers}: Successfully processed {batches_loaded} batches.")
             end_time = time.time()
             elapsed_time = end_time - start_time
 
