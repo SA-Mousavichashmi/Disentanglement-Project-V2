@@ -9,7 +9,7 @@ LICENSE file in the root directory of this source tree.
 LOSS_LIST = ['betavae', 'annealedvae', 'vae', 'factorvae', 'betatcvae', 'adagvae', 'factorizedsupportvae', 'factorizedsupporttcvae']
 RECON_DISTS = ["bernoulli", "laplace", "gaussian"]
 
-def select(device, name, **kwargs):
+def select(name, device, **kwargs):
     """Return the correct loss function given the arguments."""
     if name == "betavae":
         from losses.betavae import Loss
@@ -22,7 +22,7 @@ def select(device, name, **kwargs):
         return Loss(**kwargs)
     if name == "factorvae":
         from losses.factorvae import Loss
-        return Loss(device, **kwargs)
+        return Loss(**kwargs)
     if name == "betatcvae":
         from losses.betatcvae import Loss
         return Loss(**kwargs)
