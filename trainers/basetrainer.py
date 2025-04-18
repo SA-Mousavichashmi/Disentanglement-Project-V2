@@ -8,7 +8,8 @@ LICENSE file in the root directory of this source tree.
 import numpy as np
 import torch
 from torch.nn import functional as F
-from tqdm import trange  # Added import
+from tqdm import trange
+import collections
 
 class BaseTrainer():
     """
@@ -29,7 +30,7 @@ class BaseTrainer():
         Device on which to run the code.
 
     is_progress_bar: bool, optional
-        Whether to use a progress bar for training (Note: progress bar functionality removed).
+        Whether to use a progress bar for training
     """
 
     def __init__(self,
@@ -42,7 +43,7 @@ class BaseTrainer():
 
         self.device = device
         self.model = model.to(self.device)
-        self.loss_f = loss_fn
+        self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.is_progress_bar = is_progress_bar  # Store is_progress_bar
 
@@ -91,7 +92,8 @@ class BaseTrainer():
         mean_epoch_loss: float
             Mean loss per image
         """
-        epoch_losses = []
+        epoch_to_log = collections.defaultdict(list)
+
         # Added kwargs for trange
         kwargs = dict(desc="Epoch {}".format(epoch + 1),
                       leave=False,
@@ -100,12 +102,15 @@ class BaseTrainer():
         with trange(len(data_loader), **kwargs) as t:
             for _, data_out in enumerate(data_loader):
                 data = data_out[0]
-                iter_loss, to_log = self._train_iteration(data)
-                epoch_losses.append(iter_loss)
-                t.set_postfix(**to_log)
+                iter_out = self._train_iteration(data)
+                
+                for key, item in iter_out['to_log'].items():
+                    epoch_to_log[key].append(item)
+
+                t.set_postfix(**iter_out['to_log'])
                 t.update()
 
-        return np.mean(epoch_losses)
+        return {key: np.mean(item) for key, item in epoch_to_log.items()} # take the mean of the logged values for each epoch
 
     def _train_iteration(self, samples):
         """
@@ -124,7 +129,7 @@ class BaseTrainer():
         samples = samples.to(self.device)
         loss = None 
 
-        if self.loss_f.mode == 'post_forward':
+        if self.loss_fn.mode == 'post_forward':
             model_out = self.model(samples)
             inputs = {
                 'data': samples,
@@ -132,29 +137,30 @@ class BaseTrainer():
                 **model_out,
             }
 
-            loss_out = self.loss_f(**inputs)
+            loss_out = self.loss_fn(**inputs)
             loss = loss_out['loss']
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-        elif self.loss_f.mode == 'pre_forward':
+        elif self.loss_fn.mode == 'pre_forward':
             inputs = {
                 'model': self.model,
                 'data': samples,
                 'is_train': self.model.training
             }
-            loss_out = self.loss_f(**inputs)
+            loss_out = self.loss_fn(**inputs)
             loss = loss_out['loss']
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-        elif self.loss_f.mode == 'optimizes_internally':
-            loss_out = self.loss_f(samples, self.model, self.optimizer)
+        elif self.loss_fn.mode == 'optimizes_internally':
+            loss_out = self.loss_fn(samples, self.model, self.optimizer)
             loss = loss_out['loss']
 
         # Extract any logged metrics and return both loss and logs
         to_log = loss_out.get('to_log', {})
         loss_val = loss.item() if loss is not None else 0.0
-        return loss_val, to_log
+        
+        return {"loss": loss_val, "to_log": to_log}

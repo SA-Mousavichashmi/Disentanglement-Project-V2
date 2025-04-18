@@ -41,18 +41,23 @@ class Loss(baseloss.BaseLoss):
         if isinstance(stats_qzx, torch.Tensor):
             stats_qzx = stats_qzx.unbind(-1)     
 
-        log_data = {}
+        # 1. Calculate all values first
         rec_loss = _reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
-        log_data['rec_loss'] = rec_loss.item()
+        kl_components = _kl_normal_loss(*stats_qzx, return_components=True)
+        kl_total = kl_components.sum()
+        loss = rec_loss + self.beta * kl_total
 
-        kl_loss = _kl_normal_loss(*stats_qzx, return_components=True)
-        if self.log_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-        kl_loss = kl_loss.sum()
-        log_data['kl_loss'] = kl_loss.item()
+        # 2. Initialize the dictionary
+        log_data = {}
 
-        loss = rec_loss + self.beta * kl_loss
+        # 3. Add items in the desired order
         log_data['loss'] = loss.item()
+        log_data['rec_loss'] = rec_loss.item()
+        log_data['kl_loss'] = kl_total.item()
+
+        if self.log_components:
+            # Add individual components last (or wherever you prefer)
+            for i, value in enumerate(kl_components):
+                 log_data[f'kl_loss_{i}'] = value.item()
 
         return {'loss': loss, 'to_log': log_data}
