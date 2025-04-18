@@ -100,10 +100,9 @@ class BaseTrainer():
         with trange(len(data_loader), **kwargs) as t:
             for _, data_out in enumerate(data_loader):
                 data = data_out[0]
-                iter_loss = self._train_iteration(data)
+                iter_loss, to_log = self._train_iteration(data)
                 epoch_losses.append(iter_loss)
-                # Update progress bar postfix and step
-                t.set_postfix(loss=iter_loss)
+                t.set_postfix(**to_log)
                 t.update()
 
         return np.mean(epoch_losses)
@@ -155,4 +154,7 @@ class BaseTrainer():
             loss_out = self.loss_f(samples, self.model, self.optimizer)
             loss = loss_out['loss']
 
-        return loss.item() if loss is not None else 0.0
+        # Extract any logged metrics and return both loss and logs
+        to_log = loss_out.get('to_log', {})
+        loss_val = loss.item() if loss is not None else 0.0
+        return loss_val, to_log
