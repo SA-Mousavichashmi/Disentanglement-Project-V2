@@ -48,7 +48,6 @@ class BaseTrainer():
                  optimizer,
                  scheduler,
                  device,
-                 max_steps: int,
                  train_step_unit: str = 'epoch',  # Renamed from step_unit
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
@@ -64,7 +63,6 @@ class BaseTrainer():
         if train_step_unit not in ['epoch', 'iteration']:
             raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
         self.train_step_unit = train_step_unit  # Renamed from step_unit
-        self.max_steps = max_steps
 
         if scheduler is None:
             ### Using constant scheduler with no warmup
@@ -75,19 +73,21 @@ class BaseTrainer():
         else:
             self.scheduler = scheduler
 
-    def train(self, data_loader):
+    def train(self, data_loader, max_steps: int):
         """
         Trains the model based on the mode specified in the constructor.
 
         Parameters
         ----------
         data_loader: torch.utils.data.DataLoader
+        max_steps: int
+            The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
         """
         self.model.train()
 
         if self.train_step_unit == 'epoch':  # Renamed from step_unit
             # --- Epoch-based training ---
-            num_epochs = self.max_steps
+            num_epochs = max_steps
             for epoch in range(num_epochs):
                 self.epoch = epoch
                 mean_epoch_loss = self._train_epoch(data_loader, epoch)
@@ -96,12 +96,14 @@ class BaseTrainer():
 
         elif self.train_step_unit == 'iteration':  # Renamed from step_unit
             # --- Iteration-based training ---
-            total_iterations = self.max_steps
+            total_iterations = max_steps
             iteration_to_log = collections.defaultdict(list)
             # Get the initial iterator for the DataLoader
             data_iterator = iter(data_loader)
+            num_batches_per_epoch = len(data_loader) # Get number of batches per epoch
+            approx_epochs = total_iterations / num_batches_per_epoch
 
-            kwargs = dict(desc=f"Training for {total_iterations} iterations",
+            kwargs = dict(desc=f"Training for {total_iterations} iterations ({approx_epochs:.1f} epochs)", 
                           total=total_iterations,
                           leave=False,
                           disable=not self.is_progress_bar)
