@@ -83,7 +83,7 @@ def find_optimal_num_workers(
             batches_loaded = 0
             # Process all batches if num_batches_to_test is 'all', otherwise process the specified number
             if num_batches_to_test == 'all':
-                print(f"  num_workers={num_workers}: Processing entire dataset...")
+                print(f"  num_workers={num_workers}:")
                 while True:
                     try:
                         next(loader_iter)
