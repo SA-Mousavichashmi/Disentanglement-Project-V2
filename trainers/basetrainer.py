@@ -29,6 +29,12 @@ class BaseTrainer():
     device: torch.device, optional
         Device on which to run the code.
 
+    train_step_unit: str, optional
+        Specifies the unit for `max_steps`. Either 'epoch' or 'iteration'. Defaults to 'epoch'.
+
+    max_steps: int
+        The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
+
     is_progress_bar: bool, optional
         Whether to use a progress bar for training
 
@@ -42,16 +48,23 @@ class BaseTrainer():
                  optimizer,
                  scheduler,
                  device,
+                 max_steps: int,
+                 train_step_unit: str = 'epoch',  # Renamed from step_unit
                  is_progress_bar=True,
-                 progress_bar_log_interval=50  # Add log_interval parameter for updating progress bar losses based iterations
-                 ): 
+                 progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
+                 ):
 
         self.device = device
         self.model = model.to(self.device)
         self.loss_fn = loss_fn
         self.optimizer = optimizer
-        self.is_progress_bar = is_progress_bar  # Store is_progress_bar
-        self.progress_bar_log_interval = progress_bar_log_interval # Store log_interval
+        self.is_progress_bar = is_progress_bar
+        self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
+
+        if train_step_unit not in ['epoch', 'iteration']:
+            raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
+        self.train_step_unit = train_step_unit  # Renamed from step_unit
+        self.max_steps = max_steps
 
         if scheduler is None:
             ### Using constant scheduler with no warmup
@@ -62,23 +75,61 @@ class BaseTrainer():
         else:
             self.scheduler = scheduler
 
-    def train(self, data_loader, num_epochs): 
+    def train(self, data_loader):
         """
-        Trains the model.
+        Trains the model based on the mode specified in the constructor.
 
         Parameters
         ----------
         data_loader: torch.utils.data.DataLoader
-
-        num_epochs: int
-            Number of epochs to train the model for.
         """
         self.model.train()
 
-        for epoch in range(num_epochs): 
-            self.epoch = epoch
-            mean_epoch_loss = self._train_epoch(data_loader, epoch)
-            self.scheduler.step()
+        if self.train_step_unit == 'epoch':  # Renamed from step_unit
+            # --- Epoch-based training ---
+            num_epochs = self.max_steps
+            for epoch in range(num_epochs):
+                self.epoch = epoch
+                mean_epoch_loss = self._train_epoch(data_loader, epoch)
+                # Assuming scheduler steps per epoch if epoch-based training
+                self.scheduler.step()
+
+        elif self.train_step_unit == 'iteration':  # Renamed from step_unit
+            # --- Iteration-based training ---
+            total_iterations = self.max_steps
+            iteration_to_log = collections.defaultdict(list)
+            # Get the initial iterator for the DataLoader
+            data_iterator = iter(data_loader)
+
+            kwargs = dict(desc=f"Training for {total_iterations} iterations",
+                          total=total_iterations,
+                          leave=False,
+                          disable=not self.is_progress_bar)
+
+            with trange(total_iterations, **kwargs) as t:
+                for i in range(total_iterations):
+                    try:
+                        # Get next batch from the current iterator
+                        data_out = next(data_iterator)
+                    except StopIteration:
+                        # DataLoader exhausted, get a new iterator to restart
+                        data_iterator = iter(data_loader)
+                        data_out = next(data_iterator)
+
+                    data = data_out[0]  # Batch of data instead of label (factor values)
+                    iter_out = self._train_iteration(data)
+
+                    for key, item in iter_out['to_log'].items():
+                        iteration_to_log[key].append(item)
+
+                    if (i + 1) % self.progress_bar_log_iter_interval == 0 or (i + 1) == total_iterations:
+                        recent_logs = {k: np.mean(v[-(self.progress_bar_log_iter_interval):])
+                                       for k, v in iteration_to_log.items() if v}
+                        t.set_postfix(**recent_logs)
+                    t.update()
+
+                    # Step the scheduler after each iteration if iteration-based training
+                    self.scheduler.step()
 
         self.model.eval()
 
@@ -99,7 +150,7 @@ class BaseTrainer():
             Dictionary containing the mean of logged values for the epoch.
         """
         epoch_to_log = collections.defaultdict(list)
-        num_batches = len(data_loader) # Get total number of batches
+        num_batches = len(data_loader)  # Get total number of batches
 
         # Added kwargs for trange
         kwargs = dict(desc="Epoch {}".format(epoch + 1),
@@ -107,19 +158,22 @@ class BaseTrainer():
                       disable=not self.is_progress_bar)
         # Wrap loop with trange
         with trange(num_batches, **kwargs) as t:
-            for i, data_out in enumerate(data_loader): # Use enumerate to get iteration index 'i'
+            for i, data_out in enumerate(data_loader):  # Use enumerate to get iteration index 'i'
                 data = data_out[0]
                 iter_out = self._train_iteration(data)
-                
+
                 for key, item in iter_out['to_log'].items():
                     epoch_to_log[key].append(item)
 
-                # Update progress bar postfix only at progress_bar_log_interval or last iteration
-                if (i + 1) % self.progress_bar_log_interval == 0 or (i + 1) == num_batches:
-                    t.set_postfix(**iter_out['to_log'])
+                # Update progress bar postfix only at progress_bar_log_iter_interval or last iteration
+                if (i + 1) % self.progress_bar_log_iter_interval == 0 or (i + 1) == num_batches:
+                    # Calculate mean for the last interval
+                    interval_mean_logs = {key: np.mean(item[-(self.progress_bar_log_iter_interval):])
+                                          for key, item in epoch_to_log.items() if item} # Calculate mean over the last interval
+                    t.set_postfix(**interval_mean_logs) # Use interval mean for postfix
                 t.update()
 
-        return {key: np.mean(item) for key, item in epoch_to_log.items()} # take the mean of the logged values for each epoch
+        return {key: np.mean(item) for key, item in epoch_to_log.items()}  # Return the overall epoch mean
 
     def _train_iteration(self, samples):
         """
@@ -136,7 +190,7 @@ class BaseTrainer():
             Loss for the current iteration.
         """
         samples = samples.to(self.device)
-        loss = None 
+        loss = None
 
         if self.loss_fn.mode == 'post_forward':
             model_out = self.model(samples)
@@ -173,5 +227,5 @@ class BaseTrainer():
         # Extract any logged metrics and return both loss and logs
         to_log = loss_out.get('to_log', {})
         loss_val = loss.item() if loss is not None else 0.0
-        
+
         return {"loss": loss_val, "to_log": to_log}
