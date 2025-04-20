@@ -14,6 +14,7 @@ MODEL_LIST = [
     'vae_locatello_sbd',
     'vae_montero_small', 
     'vae_montero_large'
+    # Add models from s_vae here when available
 ]
 
 def select(name, img_size, **kwargs):
@@ -21,24 +22,26 @@ def select(name, img_size, **kwargs):
         err = "Unknown model.name = {}. Possible values: {}"
         raise ValueError(err.format(name, MODEL_LIST))
 
+    # Assuming models are now in n_vae
     if name == 'vae_burgess':
-        from .vae_burgess import Model
+        from .n_vae.vae_burgess import Model
         return Model(img_size, **kwargs)
     if name == 'vae_chen_mlp':
-        from .vae_chen_mlp import Model
+        from .n_vae.vae_chen_mlp import Model
         return Model(img_size, **kwargs)
     if name == 'vae_locatello':
-        from .vae_locatello import Model
+        from .n_vae.vae_locatello import Model
         return Model(img_size, **kwargs)
     if name == 'vae_locatello_sbd':
-        from .vae_locatello_sbd import Model
+        from .n_vae.vae_locatello_sbd import Model
         return Model(img_size, **kwargs)
     if name == 'vae_montero_small':
-        from .vae_montero_small import Model
+        from .n_vae.vae_montero_small import Model
         return Model(img_size, **kwargs)
     if name == 'vae_montero_large':
-        from .vae_montero_large import Model
+        from .n_vae.vae_montero_large import Model
         return Model(img_size, **kwargs)
-    if name == 'vae':
-        from .vae_locatello import Model
+    if name == 'vae': # Assuming 'vae' refers to vae_locatello in n_vae
+        from .n_vae.vae_locatello import Model
         return Model(img_size, **kwargs)
+    # Add logic for s_vae models here when available

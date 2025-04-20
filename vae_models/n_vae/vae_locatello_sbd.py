@@ -9,9 +9,8 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 
-import utils.initialization
-from .encoder.chen_mlp import Encoder
-from .decoder.chen_mlp import Decoder
+from ..encoder.locatello import Encoder
+from ..decoder.sbd import Decoder
 from .base_vae import BaseVAE
 
 
@@ -28,12 +27,12 @@ class Model(BaseVAE):
             Dimensionality of latent space.
         """
         super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, **kwargs)
-        
-        self.validate_img_size([[32, 32], [64, 64]])
+
+        self.validate_img_size([[64, 64]])
 
         self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
             img_size, self.latent_dim)
-        self.model_name = 'vae_chen_mlp'
+        self.model_name = 'vae_locatello_sbd'
         self.reset_parameters()

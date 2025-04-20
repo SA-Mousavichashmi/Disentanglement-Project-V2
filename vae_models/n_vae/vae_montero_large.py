@@ -9,9 +9,8 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 
-import utils.initialization
-from .encoder.montero_small import Encoder
-from .decoder.montero_small import Decoder
+from ..encoder.montero_large import Encoder
+from ..decoder.montero_large import Decoder
 from .base_vae import BaseVAE
 
 
@@ -35,5 +34,5 @@ class Model(BaseVAE):
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
             img_size, self.latent_dim)
-        self.model_name = 'vae_montero_small'
+        self.model_name = 'vae_montero_large'
         self.reset_parameters()

@@ -10,13 +10,13 @@ from torch import nn, optim
 from torch.nn import functional as F
 
 import utils.initialization
-from .encoder import select as select_encoder
-from .decoder import select as select_decoder
+from ..encoder.burgess import Encoder
+from ..decoder.burgess import Decoder
 from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, encoder_name='locatello', decoder_name='locatello', **kwargs):
+    def __init__(self, img_size, latent_dim=10, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -26,17 +26,14 @@ class Model(BaseVAE):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
-        encoder_name : str
-            Name of encoder architecture to use.
-        decoder_name : str
-            Name of decoder architecture to use.
         """
         super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, **kwargs)
+        
+        self.validate_img_size([[32, 32], [64, 64]])
 
-        self.encoder = select_encoder(encoder_name)(
+        self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
-        self.decoder = select_decoder(decoder_name)(
+        self.decoder = Decoder(
             img_size, self.latent_dim)
-
-        self.model_name = f'vae_encoder-{encoder_name}_decoder-{decoder_name}'
+        self.model_name = 'vae_burgess'
         self.reset_parameters()

@@ -9,14 +9,13 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 
-import utils.initialization
-from .encoder.locatello import Encoder
-from .decoder.locatello import Decoder
+from ..encoder.chen_mlp import Encoder
+from ..decoder.chen_mlp import Decoder
 from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, encoder_decay=0., decoder_decay=0., **kwargs):
+    def __init__(self, img_size, latent_dim=10, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -26,23 +25,14 @@ class Model(BaseVAE):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
-        encoder_decay : float
-            Weight decay for encoder parameters.
-        decoder_decay : float
-            Weight decay for decoder parameters.
         """
         super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, **kwargs)
-
-        self.validate_img_size([[64, 64]])
+        
+        self.validate_img_size([[32, 32], [64, 64]])
 
         self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
             img_size, self.latent_dim)
-        self.model_name = 'vae_locatello'
+        self.model_name = 'vae_chen_mlp'
         self.reset_parameters()
-        if encoder_decay or decoder_decay:
-            self.to_optim = [
-                {'params': self.encoder.parameters(), 'weight_decay': encoder_decay}, 
-                {'params': self.decoder.parameters(), 'weight_decay': decoder_decay}
-            ]
