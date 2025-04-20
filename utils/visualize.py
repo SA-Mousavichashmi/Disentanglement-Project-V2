@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
-from models import utils as model_utils # Import the models utils
+from vae_models import utils as model_utils # Import the vae_models utils
 
 class Visualizer():
     def __init__(self, vae_model, dataset, max_traversal_type='probability', max_traversal=0.475):
@@ -57,7 +57,7 @@ class Visualizer():
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        # Generate the traversal images using the function from models.utils
+        # Generate the traversal images using the function from vae_models.utils
         traversal_images = model_utils.traverse_single_latent(
             self.vae_model, latent_idx, self.max_traversal_type, self.max_traversal, num_samples
         )
@@ -94,7 +94,7 @@ class Visualizer():
             The base size of the matplotlib figure for a single row. The total height
             will be adjusted based on the number of latent dimensions. Defaults to (10, 3).
         """
-        # Generate the traversal images for all latent dimensions using the function from models.utils
+        # Generate the traversal images for all latent dimensions using the function from vae_models.utils
         all_traversals = model_utils.traverse_all_latents(
             self.vae_model, self.max_traversal_type, self.max_traversal, num_samples
         )

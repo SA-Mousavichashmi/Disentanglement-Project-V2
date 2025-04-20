@@ -23,7 +23,7 @@ class BaseTrainer():
 
     scheduler: torch.optim.lr_scheduler._LRScheduler
 
-    loss_f: dent.models.BaseLoss
+    loss_fn: losses.baseloss.BaseLoss
         Loss function.
 
     device: torch.device, optional

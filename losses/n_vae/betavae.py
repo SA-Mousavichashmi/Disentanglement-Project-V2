@@ -7,8 +7,9 @@
 
 import torch
 
-from losses import baseloss
-from losses.utils import _reconstruction_loss, _kl_normal_loss
+from .. import baseloss
+from ..reconstruction import reconstruction_loss
+from .kl_div import kl_normal_loss
 
 class Loss(baseloss.BaseLoss):
     """
@@ -42,8 +43,8 @@ class Loss(baseloss.BaseLoss):
             stats_qzx = stats_qzx.unbind(-1)     
 
         # 1. Calculate all values first
-        rec_loss = _reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
-        kl_components = _kl_normal_loss(*stats_qzx, return_components=True)
+        rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
+        kl_components = kl_normal_loss(*stats_qzx, return_components=True)
         kl_total = kl_components.sum()
         loss = rec_loss + self.beta * kl_total
 

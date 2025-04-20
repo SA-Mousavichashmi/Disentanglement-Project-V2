@@ -9,9 +9,11 @@ import math
 
 import torch
 
-from losses import baseloss
-from losses.utils import _reconstruction_loss, _kl_normal_loss, linear_annealing
-from utils import math as math_utils
+from .. import baseloss
+from ..reconstruction import reconstruction_loss
+from .kl_div import kl_normal_loss
+from .utils import linear_annealing
+from ...utils import math as math_utils
 
 class Loss(baseloss.BaseLoss):
     """
@@ -62,7 +64,7 @@ class Loss(baseloss.BaseLoss):
         log_data = {}
 
         ### Reconstruction Loss (i.e. E_q[log p(x_n|z)]) (Part 1 in Eq. 1).
-        rec_loss = _reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
+        rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
         
         ##### beta-TCVAE breaks down the standard KL-term in beta-VAE, KL[q(z|x_n)||p(z)], into multiple components including 
         ##### the total correlation, which the authors believe to be the most important aspect, and such which to scale independently:
@@ -119,7 +121,7 @@ class Loss(baseloss.BaseLoss):
         log_data['dim_kld'] = dim_kld.item()
 
         # computing this for storing and comparison purposes
-        kl_loss = _kl_normal_loss(*stats_qzx, return_components=True)
+        kl_loss = kl_normal_loss(*stats_qzx, return_components=True)
         if self.log_components:
             log_data.update(
                 {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})

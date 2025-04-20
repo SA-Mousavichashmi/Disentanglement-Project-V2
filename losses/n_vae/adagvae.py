@@ -23,8 +23,10 @@ ORIGINAL CODE WAS CHANGED AS FOLLOWS:
 """
 import torch
 
-from losses import baseloss
-from losses.utils import _reconstruction_loss, _kl_normal_loss, _kl_divergence, linear_annealing
+from .. import baseloss
+from ..reconstruction import reconstruction_loss
+from .kl_div import kl_normal_loss, kl_divergence
+from .utils import linear_annealing
 
 class Loss(baseloss.BaseLoss):
     """
@@ -123,14 +125,14 @@ class Loss(baseloss.BaseLoss):
         #Compute deltas between base and paired latents, either using 
         #(Symmetric) KL-Divergence or simple absolute distance of means.
         if self.thresh_mode == 'kl':
-            delta_latents = _kl_divergence(
+            delta_latents = kl_divergence(
                 mean_1=mean_qzx, logvar_1=logvar_qzx, 
                 mean_2=paired_mean_qzx, logvar_2=paired_logvar_qzx)
         elif self.thresh_mode == 'symmetric_kl':
-            kl_deltas_base_pair = _kl_divergence(
+            kl_deltas_base_pair = kl_divergence(
                 mean_1=mean_qzx, logvar_1=logvar_qzx, 
                 mean_2=paired_mean_qzx, logvar_2=paired_logvar_qzx)
-            kl_deltas_pair_base = _kl_divergence(
+            kl_deltas_pair_base = kl_divergence(
                 mean_1=paired_mean_qzx, logvar_1=paired_logvar_qzx, 
                 mean_2=mean_qzx, logvar_2=logvar_qzx)
             delta_latents = 0.5 * kl_deltas_pair_base + 0.5 * kl_deltas_base_pair
@@ -164,8 +166,8 @@ class Loss(baseloss.BaseLoss):
         paired_logvar_qzx = torch.where(shared_idcs, avg_logvar_qzx, paired_logvar_qzx)
         log_data['mean_num_shared'] = shared_idcs.sum(-1).float().mean(-1).item()
 
-        kl_loss_base = _kl_normal_loss(mean_qzx, logvar_qzx, return_components=True)
-        kl_loss_pair = _kl_normal_loss(paired_mean_qzx, paired_logvar_qzx, return_components=True)
+        kl_loss_base = kl_normal_loss(mean_qzx, logvar_qzx, return_components=True)
+        kl_loss_pair = kl_normal_loss(paired_mean_qzx, paired_logvar_qzx, return_components=True)
         kl_loss = 0.5 * (kl_loss_base + kl_loss_pair)
         if self.log_components:
             log_data.update(
@@ -180,8 +182,8 @@ class Loss(baseloss.BaseLoss):
         paired_samples_qzx = model.reparameterize(paired_mean_qzx, paired_logvar_qzx)['samples_qzx']        
         paired_reconstructions = model.decoder(paired_samples_qzx)['reconstructions']
 
-        rec_loss_base = _reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
-        rec_loss_pair = _reconstruction_loss(paired_data, paired_reconstructions, distribution=self.rec_dist)
+        rec_loss_base = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
+        rec_loss_pair = reconstruction_loss(paired_data, paired_reconstructions, distribution=self.rec_dist)
         rec_loss = 0.5 * (rec_loss_base + rec_loss_pair)
         log_data['rec_loss'] = rec_loss.item()
 

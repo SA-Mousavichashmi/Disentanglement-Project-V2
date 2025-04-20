@@ -9,9 +9,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from losses import baseloss
-from utils import initialization
-from losses.utils import _reconstruction_loss, _kl_normal_loss, _permute_dims
+from .. import baseloss
+from ...utils import initialization
+from ..reconstruction import reconstruction_loss
+from .kl_div import kl_normal_loss
+from .utils import _permute_dims
 
 
 class Loss(baseloss.BaseLoss):
@@ -65,12 +67,12 @@ class Loss(baseloss.BaseLoss):
         if isinstance(model_out1['stats_qzx'], torch.Tensor):
             model_out1['stats_qzx'] = model_out1['stats_qzx'].unbind(-1)
 
-        rec_loss = _reconstruction_loss(data1,
+        rec_loss = reconstruction_loss(data1,
                                         model_out1['reconstructions'],
                                         distribution=self.rec_dist)
         log_data['rec_loss'] = rec_loss.item()
 
-        kl_loss = _kl_normal_loss(*model_out1['stats_qzx'], return_components=True)
+        kl_loss = kl_normal_loss(*model_out1['stats_qzx'], return_components=True)
         if self.log_components:
             log_data.update(
                 {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
