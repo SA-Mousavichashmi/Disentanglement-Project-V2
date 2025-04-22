@@ -75,7 +75,7 @@ class Toroidal_VAE_Base(nn.Module):
               The sampled or mean latent vectors for each factor. Each factor's sample is on S^1 (a 2D vector).
         """
 
-        factorized_latent_sample = []
+        factorized_latent_samples = []
 
         for i in range(self.latent_factor_num):
             latent_factor_mu = latent_factors_dist_param[i][:, :2] # mu is the first two parameters
@@ -88,9 +88,14 @@ class Toroidal_VAE_Base(nn.Module):
                 # During evaluation, we use the mean of the distribution
                 sample_qzx = latent_factor_mu
 
-            factorized_latent_sample.append(sample_qzx)
+            factorized_latent_samples.append(sample_qzx)
+        
+        latent_samples = torch.stack(factorized_latent_samples, dim=1) # Shape: (batch_size, latent_factor_num, 2)
+        
+        # Flatten the last two dimensions to get the final shape (batch_size, latent_factor_num * 2)
+        latent_samples = latent_samples.flatten(start_dim=1) # Shape: (batch_size, latent_factor_num * 2)
 
-        return {'samples_qzx': torch.stack(factorized_latent_sample, dim=1).flatten(start_dim=1)}
+        return {'samples_qzx': latent_samples}
 
 
     def forward(self, x):
