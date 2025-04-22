@@ -124,6 +124,8 @@ class Toroidal_VAE_Base(nn.Module):
         # Reparameterization trick
         samples_qzx = self.reparameterize(latent_factors_dist_param)['samples_qzx']
 
+        print('samples_qzx shape:', samples_qzx.shape) # Debugging line
+
         # Decode the latent samples
         reconstructions = self.decoder(samples_qzx)['reconstructions']
 
