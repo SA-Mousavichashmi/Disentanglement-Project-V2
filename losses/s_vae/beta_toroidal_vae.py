@@ -9,7 +9,7 @@ import torch
 
 from .. import baseloss
 from ..reconstruction import reconstruction_loss
-from .kl_div import kl_toroidal_loss
+from .kl_div import kl_power_spherical_uniform_loss
 
 class BetaToroidalVAELoss(baseloss.BaseLoss):
     """
@@ -66,7 +66,7 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
 
         # 1. Calculate all values first
         rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
-        kl_components = kl_toroidal_loss(latent_factors_dist_param, return_components=True) # Returns shape (latent_factor_num,)
+        kl_components = kl_power_spherical_uniform_loss(latent_factors_dist_param, return_components=True) # Returns shape (latent_factor_num,)
         kl_total = kl_components.sum() # Scalar tensor
         loss = rec_loss + self.beta * kl_total
 
