@@ -90,7 +90,7 @@ class Toroidal_VAE_Base(nn.Module):
 
             factorized_latent_sample.append(sample_qzx)
 
-        return {'samples_qzx': torch.stack(factorized_latent_sample, dim=1)}
+        return {'samples_qzx': torch.stack(factorized_latent_sample, dim=1).flatten(start_dim=1)}
 
 
     def forward(self, x):
