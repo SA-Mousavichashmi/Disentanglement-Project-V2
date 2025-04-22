@@ -148,3 +148,22 @@ class BaseVAE(nn.Module):
             raise ValueError(f"Unknown sampling type: {type}")
         
         return samples_qzx
+
+    def generate(self, num_samples, device):
+        """
+        Generates new images by sampling from the prior distribution.
+
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to generate.
+        device : torch.device
+            Device to perform computations on.
+        """
+        # Sample latent vectors from the prior distribution (standard normal)
+        z = torch.randn(num_samples, self.latent_dim).to(device)
+
+        # Decode the latent samples to generate images
+        generated_images = self.decoder(z)['reconstructions']
+
+        return generated_images

@@ -9,7 +9,7 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 import utils.initialization
-from power_spherical import PowerSpherical
+from power_spherical import PowerSpherical  # type: ignore
 
 
 class Toroidal_VAE_Base(nn.Module):
@@ -188,3 +188,31 @@ class Toroidal_VAE_Base(nn.Module):
             raise ValueError(f"Unknown sampling type: {type}")
         
         return samples_qzx
+
+    def generate(self, num_samples, device):
+        """
+        Generates new images by sampling from the prior distribution (uniform on the N-Torus).
+
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to generate.
+        device : torch.device
+            Device to perform computations on.
+        """
+        # Sample angles uniformly from [0, 2*pi) for each factor
+        angles = torch.rand(num_samples, self.latent_factor_num, device=device) * 2 * torch.pi
+
+        # Convert angles to points on the unit circle (S^1)
+        # z_factor = (cos(angle), sin(angle))
+        z_unflattened = torch.stack([torch.cos(angles), torch.sin(angles)], dim=-1)
+        # z_unflattened shape: (num_samples, latent_factor_num, 2)
+
+        # Flatten the latent factors into a single vector per sample
+        z = z_unflattened.flatten(start_dim=1)
+        # z shape: (num_samples, latent_factor_num * 2)
+
+        # Decode the latent samples to generate images
+        generated_images = self.decoder(z)['reconstructions']
+
+        return generated_images

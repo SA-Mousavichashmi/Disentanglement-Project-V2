@@ -13,8 +13,11 @@ MODEL_LIST = [
     'vae_locatello', 
     'vae_locatello_sbd',
     'vae_montero_small', 
-    'vae_montero_large'
-    # Add models from s_vae here when available
+    'vae_montero_large',
+    # S-VAE models
+    'toroidal_vae',
+    'toroidal_vae_burgess',
+    'toroidal_vae_locatello',
 ]
 
 def select(name, img_size, **kwargs):
@@ -44,4 +47,13 @@ def select(name, img_size, **kwargs):
     if name == 'vae': # Assuming 'vae' refers to vae_locatello in n_vae
         from .n_vae.vae_locatello import Model
         return Model(img_size, **kwargs)
-    # Add logic for s_vae models here when available
+    # Add logic for s_vae models here
+    if name == 'toroidal_vae_burgess':
+        from .s_vae.toroidal_vae.toroidal_vae_burgess import Model
+        return Model(img_size, **kwargs)
+    if name == 'toroidal_vae_locatello':
+        from .s_vae.toroidal_vae.toroidal_vae_locatello import Model
+        return Model(img_size, **kwargs)
+    if name == 'toroidal_vae': # Generic toroidal VAE with selectable encoder/decoder
+        from .s_vae.toroidal_vae.toroidal_vae import Model
+        return Model(img_size, **kwargs)
