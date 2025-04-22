@@ -35,5 +35,9 @@ def select(name, **kwargs):
     if name == 'factorizedsupporttcvae':
         from losses.n_vae.factorizedsupporttcvae import Loss
         return Loss(**kwargs)
+    if name == 'beta_toroidal_vae':
+        from losses.s_vae.beta_toroidal_vae import BetaToroidalVAELoss
+        return BetaToroidalVAELoss(**kwargs)
+    
     err = "Unknown loss.name = {}. Possible values: {}"
     raise ValueError(err.format(name, LOSS_LIST))
