@@ -91,7 +91,7 @@ class Toroidal_VAE_Base(nn.Module):
             factorized_latent_samples.append(sample_qzx)
         
         latent_samples = torch.stack(factorized_latent_samples, dim=1) # Shape: (batch_size, latent_factor_num, 2)
-        
+
         # Flatten the last two dimensions to get the final shape (batch_size, latent_factor_num * 2)
         latent_samples = latent_samples.flatten(start_dim=1) # Shape: (batch_size, latent_factor_num * 2)
 
@@ -128,8 +128,6 @@ class Toroidal_VAE_Base(nn.Module):
 
         # Reparameterization trick
         samples_qzx = self.reparameterize(latent_factors_dist_param)['samples_qzx']
-
-        print('samples_qzx shape:', samples_qzx.shape) # Debugging line
 
         # Decode the latent samples
         reconstructions = self.decoder(samples_qzx)['reconstructions']
