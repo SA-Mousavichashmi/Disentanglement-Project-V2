@@ -51,6 +51,9 @@ class BaseTrainer():
                  train_step_unit: str = 'epoch',  # Renamed from step_unit
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
+                 return_log_loss=False,
+                 log_loss_interval_type='epoch', # 'epoch' or 'iteration' 
+                 log_loss_iter_interval=50, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
                  ):
 
         self.device = device
@@ -59,10 +62,19 @@ class BaseTrainer():
         self.optimizer = optimizer
         self.is_progress_bar = is_progress_bar
         self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
+        self.return_log_loss = return_log_loss
+        self.log_loss_interval_type = log_loss_interval_type
+        self.log_loss_iter_interval = log_loss_iter_interval
 
         if train_step_unit not in ['epoch', 'iteration']:
             raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
         self.train_step_unit = train_step_unit  # Renamed from step_unit
+
+        if log_loss_interval_type not in ['epoch', 'iteration']:
+            raise ValueError("log_loss_interval_type must be either 'epoch' or 'iteration'")
+
+        if self.train_step_unit == 'iteration' and self.log_loss_interval_type == 'epoch':
+             raise ValueError("When train_step_unit is 'iteration', log_loss_interval_type must also be 'iteration'")
 
         if scheduler is None:
             ### Using constant scheduler with no warmup
@@ -82,28 +94,45 @@ class BaseTrainer():
         data_loader: torch.utils.data.DataLoader
         max_steps: int
             The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
+
+        Returns
+        -------
+        list or None:
+            If `return_log_loss` is True, returns a list of dictionaries containing
+            the mean logged losses at specified intervals. Otherwise, returns None.
         """
         self.model.train()
+        all_logs = [] if self.return_log_loss else None
 
         if self.train_step_unit == 'epoch':  # Renamed from step_unit
             # --- Epoch-based training ---
             num_epochs = max_steps
             for epoch in range(num_epochs):
                 self.epoch = epoch
-                mean_epoch_loss = self._train_epoch(data_loader, epoch)
+                # _train_epoch returns dict if log_loss_interval_type=='epoch', list if 'iteration'
+                epoch_logs_out = self._train_epoch(data_loader, epoch)
+
+                if self.return_log_loss:
+                    if self.log_loss_interval_type == 'epoch':
+                        all_logs.append(epoch_logs_out) # Append dict
+                    elif self.log_loss_interval_type == 'iteration':
+                        all_logs.extend(epoch_logs_out) # Extend with list of dicts
+
                 # Assuming scheduler steps per epoch if epoch-based training
                 self.scheduler.step()
 
         elif self.train_step_unit == 'iteration':  # Renamed from step_unit
             # --- Iteration-based training ---
             total_iterations = max_steps
-            iteration_to_log = collections.defaultdict(list)
+            iteration_to_log = collections.defaultdict(list) # For progress bar
+            current_interval_logs = collections.defaultdict(list) # For return logs
+
             # Get the initial iterator for the DataLoader
             data_iterator = iter(data_loader)
             num_batches_per_epoch = len(data_loader) # Get number of batches per epoch
-            approx_epochs = total_iterations / num_batches_per_epoch
+            approx_epochs = total_iterations / num_batches_per_epoch if num_batches_per_epoch > 0 else float('inf')
 
-            kwargs = dict(desc=f"Training for {total_iterations} iterations ({approx_epochs:.1f} epochs)", 
+            kwargs = dict(desc=f"Training for {total_iterations} iterations ({approx_epochs:.1f} epochs)",
                           total=total_iterations,
                           leave=False,
                           disable=not self.is_progress_bar)
@@ -121,9 +150,24 @@ class BaseTrainer():
                     data = data_out[0]  # Batch of data instead of label (factor values)
                     iter_out = self._train_iteration(data)
 
+                    # Accumulate logs for progress bar
                     for key, item in iter_out['to_log'].items():
                         iteration_to_log[key].append(item)
 
+                    # Accumulate logs for returning if needed
+                    if self.return_log_loss:
+                        # log_loss_interval_type must be 'iteration' here due to __init__ check
+                        for key, item in iter_out['to_log'].items():
+                            current_interval_logs[key].append(item)
+
+                        # Check if interval is complete or it's the last iteration
+                        if (i + 1) % self.log_loss_iter_interval == 0 or (i + 1) == total_iterations:
+                            if current_interval_logs: # Ensure there are logs to process
+                                mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                                all_logs.append(mean_interval_logs)
+                                current_interval_logs = collections.defaultdict(list) # Reset for next interval
+
+                    # Update progress bar
                     if (i + 1) % self.progress_bar_log_iter_interval == 0 or (i + 1) == total_iterations:
                         recent_logs = {k: np.mean(v[-(self.progress_bar_log_iter_interval):])
                                        for k, v in iteration_to_log.items() if v}
@@ -134,6 +178,7 @@ class BaseTrainer():
                     self.scheduler.step()
 
         self.model.eval()
+        return all_logs
 
     def _train_epoch(self, data_loader, epoch):
         """
@@ -148,34 +193,57 @@ class BaseTrainer():
 
         Return
         ------
-        epoch_to_log: dict
-            Dictionary containing the mean of logged values for the epoch.
+        dict or list:
+            If `return_log_loss` is True and `log_loss_interval_type` is 'iteration',
+            returns a list of dictionaries containing mean logs per interval within the epoch.
+            Otherwise, returns a single dictionary containing the mean of logged values
+            for the entire epoch.
         """
-        epoch_to_log = collections.defaultdict(list)
-        num_batches = len(data_loader)  # Get total number of batches
+        epoch_to_log = collections.defaultdict(list) # For overall epoch mean / progress bar
+        num_batches = len(data_loader)
 
-        # Added kwargs for trange
+        # Variables for interval logging if needed
+        log_intervals = self.return_log_loss and self.log_loss_interval_type == 'iteration'
+        all_interval_logs = [] if log_intervals else None
+        current_interval_logs = collections.defaultdict(list) if log_intervals else None
+
         kwargs = dict(desc="Epoch {}".format(epoch + 1),
                       leave=False,
                       disable=not self.is_progress_bar)
-        # Wrap loop with trange
+
         with trange(num_batches, **kwargs) as t:
-            for i, data_out in enumerate(data_loader):  # Use enumerate to get iteration index 'i'
+            for i, data_out in enumerate(data_loader):
                 data = data_out[0]
                 iter_out = self._train_iteration(data)
 
+                # Accumulate logs for overall epoch / progress bar
                 for key, item in iter_out['to_log'].items():
                     epoch_to_log[key].append(item)
 
-                # Update progress bar postfix only at progress_bar_log_iter_interval or last iteration
+                # Accumulate logs for intervals if needed
+                if log_intervals:
+                    for key, item in iter_out['to_log'].items():
+                        current_interval_logs[key].append(item)
+
+                    # Check if interval is complete or it's the last iteration of the epoch
+                    if (i + 1) % self.log_loss_iter_interval == 0 or (i + 1) == num_batches:
+                         if current_interval_logs: # Ensure there are logs to process
+                            mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                            all_interval_logs.append(mean_interval_logs)
+                            current_interval_logs = collections.defaultdict(list) # Reset
+
+                # Update progress bar postfix
                 if (i + 1) % self.progress_bar_log_iter_interval == 0 or (i + 1) == num_batches:
-                    # Calculate mean for the last interval
                     interval_mean_logs = {key: np.mean(item[-(self.progress_bar_log_iter_interval):])
-                                          for key, item in epoch_to_log.items() if item} # Calculate mean over the last interval
-                    t.set_postfix(**interval_mean_logs) # Use interval mean for postfix
+                                          for key, item in epoch_to_log.items() if item}
+                    t.set_postfix(**interval_mean_logs)
                 t.update()
 
-        return {key: np.mean(item) for key, item in epoch_to_log.items()}  # Return the overall epoch mean
+        if log_intervals:
+            return all_interval_logs # Return list of interval log dicts
+        else:
+            # Return dict of overall epoch mean logs
+            return {key: np.mean(item) for key, item in epoch_to_log.items()}
 
     def _train_iteration(self, samples):
         """
@@ -229,5 +297,5 @@ class BaseTrainer():
         # Extract any logged metrics and return both loss and logs
         to_log = loss_out.get('to_log', {})
         loss_val = loss.item() if loss is not None else 0.0
-
+        
         return {"loss": loss_val, "to_log": to_log}
