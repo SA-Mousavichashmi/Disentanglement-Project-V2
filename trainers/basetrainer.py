@@ -21,7 +21,8 @@ class BaseTrainer():
 
     optimizer: torch.optim.Optimizer
 
-    scheduler: torch.optim.lr_scheduler._LRScheduler
+    lr_scheduler: torch.optim.lr_scheduler._LRScheduler
+        Learning rate scheduler.
 
     loss_fn: losses.baseloss.BaseLoss
         Loss function.
@@ -46,7 +47,7 @@ class BaseTrainer():
                  model,
                  loss_fn,
                  optimizer,
-                 scheduler,
+                 lr_scheduler,  # Renamed from scheduler
                  device,
                  train_step_unit: str = 'epoch',  # Renamed from step_unit
                  is_progress_bar=True,
@@ -76,14 +77,14 @@ class BaseTrainer():
         if self.train_step_unit == 'iteration' and self.log_loss_interval_type == 'epoch':
              raise ValueError("When train_step_unit is 'iteration', log_loss_interval_type must also be 'iteration'")
 
-        if scheduler is None:
+        if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer,
                 lr_lambda=lambda epoch: 1.0,
             )
         else:
-            self.scheduler = scheduler
+            self.scheduler = lr_scheduler  # Renamed from scheduler
 
     def train(self, data_loader, max_steps: int):
         """
@@ -114,8 +115,10 @@ class BaseTrainer():
 
                 if self.return_log_loss:
                     if self.log_loss_interval_type == 'epoch':
+                        # epoch_logs_out already includes 'epoch' key from _train_epoch
                         all_logs.append(epoch_logs_out) # Append dict
                     elif self.log_loss_interval_type == 'iteration':
+                        # epoch_logs_out is a list of dicts, each includes 'iteration' key
                         all_logs.extend(epoch_logs_out) # Extend with list of dicts
 
                 # Assuming scheduler steps per epoch if epoch-based training
@@ -164,6 +167,7 @@ class BaseTrainer():
                         if (i + 1) % self.log_loss_iter_interval == 0 or (i + 1) == total_iterations:
                             if current_interval_logs: # Ensure there are logs to process
                                 mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                                mean_interval_logs['iteration'] = i + 1 # Add iteration number
                                 all_logs.append(mean_interval_logs)
                                 current_interval_logs = collections.defaultdict(list) # Reset for next interval
 
@@ -229,6 +233,7 @@ class BaseTrainer():
                     if (i + 1) % self.log_loss_iter_interval == 0 or (i + 1) == num_batches:
                          if current_interval_logs: # Ensure there are logs to process
                             mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                            mean_interval_logs['iteration'] = i + 1 # Add iteration number for this interval
                             all_interval_logs.append(mean_interval_logs)
                             current_interval_logs = collections.defaultdict(list) # Reset
 
@@ -243,7 +248,9 @@ class BaseTrainer():
             return all_interval_logs # Return list of interval log dicts
         else:
             # Return dict of overall epoch mean logs
-            return {key: np.mean(item) for key, item in epoch_to_log.items()}
+            epoch_mean_logs = {key: np.mean(item) for key, item in epoch_to_log.items()}
+            epoch_mean_logs['epoch'] = epoch # Add epoch number
+            return epoch_mean_logs
 
     def _train_iteration(self, samples):
         """
