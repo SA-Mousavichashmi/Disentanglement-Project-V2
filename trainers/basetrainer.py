@@ -249,7 +249,7 @@ class BaseTrainer():
         else:
             # Return dict of overall epoch mean logs
             epoch_mean_logs = {key: np.mean(item) for key, item in epoch_to_log.items()}
-            epoch_mean_logs['epoch'] = epoch # Add epoch number
+            epoch_mean_logs['epoch'] = epoch + 1 # Add epoch number
             return epoch_mean_logs
 
     def _train_iteration(self, samples):
