@@ -28,14 +28,31 @@ import sklearn.metrics
 import sklearn.preprocessing
 import torch
 from tqdm import trange
+import math
 
 from .basemetric import BaseMetric
 
 class DCId(BaseMetric):
-    def __init__(self, num_train, num_test, backend='sklearn', num_workers=8, **kwargs):
+    def __init__(self, num_train=None, num_test=None, split_ratio=None, backend='sklearn', num_workers=8, **kwargs):
         super().__init__(**kwargs)
-        self.num_train = num_train
-        self.num_test = num_test
+
+        if split_ratio is not None:
+            if num_train is not None or num_test is not None:
+                raise ValueError("Cannot specify both split_ratio and num_train/num_test.")
+            if not (0 < split_ratio <= 1.0):
+                 raise ValueError("split_ratio must be between 0 (exclusive) and 1 (inclusive).")
+            self.num_train = None # Will be calculated later
+            self.num_test = None # Will be calculated later
+        elif num_train is not None and num_test is not None:
+             if num_train <= 0 or num_test < 0:
+                 raise ValueError("num_train must be positive and num_test must be non-negative.")
+             self.num_train = num_train
+             self.num_test = num_test
+        else:
+            raise ValueError("Must specify either split_ratio or both num_train and num_test.")
+
+        self.split_ratio = split_ratio
+
         if backend == 'sklearn':
             import sklearn.ensemble
             self.prediction_model = sklearn.ensemble.GradientBoostingClassifier
@@ -77,20 +94,38 @@ class DCId(BaseMetric):
         if isinstance(gt_factors, torch.Tensor):
             gt_factors = gt_factors.detach().cpu().numpy()
 
-        if len(latent_reps) < self.num_train + self.num_test:
-            raise ValueError(
-                f'Number of train- and test-samples {self.num_train}/{self.num_test} exceed total number of samples [{len(latent_reps)}]]')
-        
+        total_samples = len(latent_reps)
 
-        total_idcs = list(range(len(latent_reps)))
-
-        if self.num_test > 0:
-            train_idcs = np.random.choice(total_idcs, self.num_train, replace=False)
-            test_idcs = list(set(total_idcs) - set(list(train_idcs)))
-            test_idcs = np.random.choice(test_idcs, self.num_test, replace=False)
+        if self.split_ratio is not None:
+            num_train = math.ceil(total_samples * self.split_ratio)
+            if self.split_ratio == 1.0:
+                num_test = 0
+            else:
+                # Ensure at least one sample for testing if ratio is not 1
+                num_test = max(1, total_samples - num_train)
+                # Adjust num_train if necessary to not exceed total samples
+                num_train = total_samples - num_test
         else:
-            train_idcs = np.random.choice(total_idcs, self.num_train, replace=False)
-            test_idcs = train_idcs.copy()
+            num_train = self.num_train
+            num_test = self.num_test
+
+
+        if total_samples < num_train + num_test:
+            raise ValueError(
+                f'Number of train- and test-samples {num_train}/{num_test} exceed total number of samples [{total_samples}]')
+
+
+        total_idcs = list(range(total_samples))
+
+        if num_test > 0:
+            train_idcs = np.random.choice(total_idcs, num_train, replace=False)
+            test_idcs_pool = list(set(total_idcs) - set(list(train_idcs)))
+            # Ensure we don't request more test samples than available
+            actual_num_test = min(num_test, len(test_idcs_pool))
+            test_idcs = np.random.choice(test_idcs_pool, actual_num_test, replace=False)
+        else: # num_test is 0
+            train_idcs = np.random.choice(total_idcs, num_train, replace=False)
+            test_idcs = train_idcs.copy() # Test on training data as per original logic when num_test=0
 
         gt_factors = sklearn.preprocessing.minmax_scale(gt_factors)
         latent_reps = sklearn.preprocessing.minmax_scale(latent_reps)
