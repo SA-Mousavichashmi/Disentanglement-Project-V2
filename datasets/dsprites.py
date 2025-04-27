@@ -93,7 +93,8 @@ class DSprites(datasets.base.DisentangledDataset):
     def __init__(self,
                  selected_factors,
                  not_selected_factors_index_value,
-                 root='data/dsprites/', 
+                 root='data/dsprites/',
+                 drop_color_factor=True, # color has one value only and it is useless
                  **kwargs):
         """Initialize the DSprites dataset.
         
@@ -114,6 +115,10 @@ class DSprites(datasets.base.DisentangledDataset):
             
         root : str, default='data/dsprites/'
             Root directory where the dataset will be downloaded and stored.
+        
+        drop_color_factor : bool, default=True
+            If True, the color factor will be dropped from output of factor values in __getitem__.
+            This is useful because the color factor has only one value in this dataset.
             
         **kwargs : 
             Additional arguments passed to the parent class constructor.
@@ -131,7 +136,7 @@ class DSprites(datasets.base.DisentangledDataset):
                          not_selected_factors_index_value, 
                          [torchvision.transforms.ToTensor()], 
                          **kwargs)
-
+        self.drop_color_factor = drop_color_factor
         dataset_zip = np.load(self.train_data)
         self.imgs = dataset_zip['imgs']
         self.factor_values = dataset_zip['latents_values']
@@ -161,4 +166,7 @@ class DSprites(datasets.base.DisentangledDataset):
 
         # ToTensor transforms numpy.ndarray (H x W x C) in the range
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-        return self.transforms(sample), self.factor_values[idx]
+        if self.drop_color_factor:
+            return self.transforms(sample), self.factor_values[idx][1:]
+        else:
+            return self.transforms(sample), self.factor_values[idx]
