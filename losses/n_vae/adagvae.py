@@ -74,7 +74,7 @@ class Loss(baseloss.BaseLoss):
     """
 
     def __init__(self, thresh_mode="kl", average_mode="gvae", thresh_ratio=0.5, beta=1.0, annealing="higgins", 
-                 C_fin=25.0, C_init=0.0, gamma=1000.0, anneal_steps=100000, log_components=False, **kwargs):
+                 C_fin=25.0, C_init=0.0, gamma=1000.0, anneal_steps=100000, log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
         self.beta = beta
         self.annealing = annealing
@@ -85,7 +85,7 @@ class Loss(baseloss.BaseLoss):
         self.thresh_mode = thresh_mode
         self.thresh_ratio = thresh_ratio
         self.anneal_steps = anneal_steps        
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
         self.mode = 'pre_forward'
 
     def __call__(
@@ -168,11 +168,12 @@ class Loss(baseloss.BaseLoss):
 
         kl_loss_base = kl_normal_loss(mean_qzx, logvar_qzx, return_components=True)
         kl_loss_pair = kl_normal_loss(paired_mean_qzx, paired_logvar_qzx, return_components=True)
-        kl_loss = 0.5 * (kl_loss_base + kl_loss_pair)
-        if self.log_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-        kl_loss = kl_loss.sum()
+        kl_components = 0.5 * (kl_loss_base + kl_loss_pair) # Renamed from kl_loss to kl_components
+        if self.log_kl_components:
+            # log_data.update(
+            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+        kl_loss = kl_components.sum() # Sum after potential logging
         log_data['kl_loss'] = kl_loss.item()
 
         #Generate reconstructions from averaged latents.

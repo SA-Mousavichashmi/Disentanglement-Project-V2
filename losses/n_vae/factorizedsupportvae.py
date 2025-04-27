@@ -64,7 +64,7 @@ class Loss(baseloss.BaseLoss):
         temperature_2=1.,
         inner_prob_samples=5,
         outer_prob_samples=20,
-        log_components=False, 
+        log_kl_components=False, 
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -87,7 +87,7 @@ class Loss(baseloss.BaseLoss):
         self.temperature_2 = temperature_2
         self.inner_prob_samples = inner_prob_samples
         self.outer_prob_samples = outer_prob_samples
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
         self.eps = 1e-6
         self.avail_pairs_of_latents = None
 
@@ -202,11 +202,12 @@ class Loss(baseloss.BaseLoss):
         log_data['factorizedsupport_scale_reg'] = factorizedsupport_scale_reg.item()
 
         # Compute Standard Beta-VAE KL-Loss.
-        kl_loss = kl_normal_loss(*stats_qzx, return_components=True)
-        if self.log_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-        kl_loss = kl_loss.sum()
+        kl_components = kl_normal_loss(*stats_qzx, return_components=True) # Renamed from kl_loss to kl_components
+        if self.log_kl_components:
+            # log_data.update(
+            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+        kl_loss = kl_components.sum() # Sum after potential logging
         log_data['kl_loss'] = kl_loss.item()
         
         loss = rec_loss + self.beta * kl_loss + self.gamma * factorizedsupport_loss + self.delta * factorizedsupport_scale_reg

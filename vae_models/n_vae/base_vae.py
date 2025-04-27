@@ -167,3 +167,26 @@ class BaseVAE(nn.Module):
         generated_images = self.decoder(z)['reconstructions']
 
         return generated_images
+    
+    def get_representations(self, x, type='stochastic'):
+        """
+        Returns the latent representation of the input data x.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Batch of data. Shape (batch_size, n_chan, height, width)
+        type : str
+            Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
+        """
+        stats_qzx = self.encoder(x)['stats_qzx']
+        mean, logvar = stats_qzx.unbind(-1)
+
+        if type == 'stochastic':
+            z = self.reparameterize(mean, logvar)['samples_qzx']
+        elif type == 'deterministic':
+            z = mean
+        else:
+            raise ValueError(f"Unknown sampling type: {type}")
+
+        return z

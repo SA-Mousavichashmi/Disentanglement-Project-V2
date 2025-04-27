@@ -8,60 +8,9 @@ from ..reconstruction import reconstruction_loss
 from .. import select
 
 
-class Critic(nn.Module):
-    """
-    Critic network for the WGAN-GP loss in the group meaningful loss.
-    """
-    def __init__(self, input_channels_num, activation_fn):
-        super(Critic, self).__init__()
-
-        self.critic = nn.Sequential(
-            nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
-            activation_fn,
-            nn.Conv2d(32, 32, 4, stride=2, padding=1),  # 32x32x32 -> 16x16x32
-            activation_fn,
-            nn.Conv2d(32, 64, 4, stride=2, padding=1),  # 16x16x32 -> 8x8x64
-            activation_fn,
-            nn.Conv2d(64, 64, 4, stride=2, padding=1),  # 8x8x64 -> 4x4x64
-            activation_fn,
-            nn.Flatten(),
-            nn.Linear(4 * 4 * 64, 256),
-            activation_fn,
-            nn.Linear(256, 1)  # Output scalar value
-        )
-
-    def forward(self, x):
-        return self.critic(x)
-
-
-def _compute_gradient_penalty(critic, real_images, fake_images):
-    """
-    Compute the gradient penalty for WGAN-GP.
-    """
-    device = real_images.device
-    batch_size = real_images.size(0)
-
-    alpha = torch.rand(batch_size, 1, 1, 1, device=device)
-    alpha = alpha.expand_as(real_images)
-
-    interpolates = alpha * real_images + ((1 - alpha) * fake_images)
-    interpolates.requires_grad_(True)
-
-    disc_interpolates = critic(interpolates)
-
-    grad_outputs = torch.ones_like(disc_interpolates)
-    gradients = torch.autograd.grad(
-        outputs=disc_interpolates,
-        inputs=interpolates,
-        grad_outputs=grad_outputs,
-        create_graph=True
-    )[0]
-
-    gradients = gradients.view(batch_size, -1)
-    gradient_norm = gradients.norm(2, dim=1)
-    gradient_penalty = ((gradient_norm - 1) ** 2).mean()
-
-    return gradient_penalty
+from .utils import Critic
+# Import the moved functions
+from .utils import generate_random_latent_translation, apply_group_action_latent_space
 
 
 class Loss(BaseLoss):
@@ -114,27 +63,6 @@ class Loss(BaseLoss):
         self.critic = None
         self.critic_optimizer = None
     
-    def _generate_latent_transformation_random_parameters(self, batch_size, latent_dim, component_order):
-        """
-        Generate random parameters for latent transformation.
-        """
-        selected_components = torch.randperm(latent_dim)[:component_order]
-        transformation_parameters = torch.randn(batch_size, latent_dim)
-
-        mask = torch.zeros(latent_dim, dtype=torch.bool)
-        mask[selected_components] = True
-        transformation_parameters[:, ~mask] = 0  # set the components that will not be changed to 0
-
-        return transformation_parameters
-
-
-    def _apply_group_action_latent_space(self, transformation_parameters, latent_space):
-        """
-        Apply group action on latent space using transformation parameters.
-        """
-        transformed_latent_space = latent_space + transformation_parameters
-        return transformed_latent_space
-
     def _group_action_commutative_loss(self, data, model):
         """
         In this loss, we encourage that the group action in data space has commutative property:
@@ -172,21 +100,21 @@ class Loss(BaseLoss):
         gprime[:, gprime_comp] = torch.randn(batch_size, len(gprime_comp), device=z.device)
 
         # 5: Compute g.g'.x
-        x_g = model.reconstruction(self._apply_group_action_latent_space(g, z))
+        x_g = model.reconstruction(apply_group_action_latent_space(g, z))
         z_g = model.representation(x_g, deterministic=self.deterministic_rep)
-        x_ggprime = model.reconstruction(self._apply_group_action_latent_space(gprime, z_g))
+        x_ggprime = model.reconstruction(apply_group_action_latent_space(gprime, z_g))
 
         # 6: Compute g'.g.x
-        x_gprime = model.reconstruction(self._apply_group_action_latent_space(gprime, z))
+        x_gprime = model.reconstruction(apply_group_action_latent_space(gprime, z))
         z_gprime = model.representation(x_gprime, deterministic=self.deterministic_rep)
-        x_gprimeg = model.reconstruction(self._apply_group_action_latent_space(g, z_gprime))
+        x_gprimeg = model.reconstruction(apply_group_action_latent_space(g, z_gprime))
 
         # 7: Compute reconstruction loss
         # Use the imported reconstruction_loss
         commutative_loss = reconstruction_loss(x_ggprime, x_gprimeg, distribution='gaussian') # TODO Check the correctness of this it is used mse loss
         return commutative_loss
 
-    def _apply_multiple_group_actions_images(self, real_images, model):
+    def _apply_multiple_group_actions_images(self, real_images, model, kl_components, variance_components):
         """
         Applies multiple consecutive group actions on input images through latent space transformations.
         This function performs a series of encode-transform-decode operations, where each iteration:
@@ -197,6 +125,8 @@ class Loss(BaseLoss):
         Args:
             real_images (torch.Tensor): Input images to transform
             model: Model containing representation (encoder) and reconstruction (decoder) methods
+            kl_components (torch.Tensor): KL divergence per latent component.
+            variance_components (torch.Tensor): Variance per latent component.
         Returns:
             torch.Tensor: Transformed images after applying multiple group actions
         Note:
@@ -205,28 +135,32 @@ class Loss(BaseLoss):
         """
         fake_images = real_images.clone()
         batch_size = real_images.size(0)
-        
+        latent_dim = kl_components.size(0) # Get latent_dim from kl_components
+
         for _ in range(self.meaningful_transformation_order):
             # Encode
+            # Note: We get z again here, but kl_components and variance_components passed correspond to the *original* image encoding
             z = model.representation(fake_images, deterministic=self.deterministic_rep)
-            # Generate random transformation parameters for your chosen latent dims
-            transform_params = self._generate_latent_transformation_random_parameters(
-                batch_size, 
-                latent_dim=z.size(1),
-                component_order=self.meaningful_component_order
+            # Generate random transformation parameters using imported function
+            transform_params = generate_random_latent_translation(
+                batch_size=batch_size,
+                latent_dim=latent_dim,
+                component_order=self.meaningful_component_order,
+                kl_components=kl_components, # Pass kl_components
+                variance_components=variance_components # Pass variance_components
             )
-            # Apply group action in latent space
-            z_transformed = self._apply_group_action_latent_space(transform_params, z)
+            # Apply group action in latent space using imported function
+            z_transformed = apply_group_action_latent_space(transform_params, z)
             # Decode => next "fake_images"
             fake_images = model.reconstruction(z_transformed)
-        
-        return fake_images        
+
+        return fake_images
 
     def __call__(self, data, model, vae_optimizer, **kwargs):
         is_train = model.training
         self._pre_call(is_train)  # to match factor-vae style
         log_data = {}
-        base_loss_f = select(device=data.device, name=self.base_loss) # base loss function
+        base_loss_f = select(device=data.device, name=self.base_loss, log_components=True, **kwargs) # base loss function
         base_loss = 0
 
         if base_loss_f.mode == 'post_forward':
@@ -254,23 +188,27 @@ class Loss(BaseLoss):
         elif base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode.")
 
+        # Ensure kl_components and logvar are available from the base loss logging
+        # Assuming base loss logs 'kl_components' and 'logvar' when log_components=True
+        if 'kl_components' not in loss_out or 'logvar' not in loss_out:
+             # If using post_forward mode, try getting logvar from model_out as a fallback
+            if base_loss_f.mode == 'post_forward' and 'logvar' in model_out:
+                 loss_out['logvar'] = model_out['logvar'] # Add logvar to loss_out if missing
+            else:
+                raise ValueError("Base loss function did not log 'kl_components' and 'logvar', which are required for meaningful loss calculation.")
+
+        kl_components = loss_out['kl_components']
+        logvar = loss_out['logvar']
+        variance_components = torch.exp(logvar) # Calculate variance
 
         # Group action losses
-        group_loss=0
-
-        # Identity loss removed
-        log_data['g_identity_loss'] = 0
-
-        # Compatibility loss removed
-        log_data['g_compatibility_loss'] = 0
+        group_loss = 0
 
         # Commutative
         if self.commutative_weight > 0:
             g_commutative_loss = self._group_action_commutative_loss(data, model)
             log_data['g_commutative_loss'] = g_commutative_loss.item()
             group_loss += self.commutative_weight * g_commutative_loss
-        else:
-            log_data['g_commutative_loss'] = 0
 
         if self.meaningful_weight > 0:
             
@@ -289,13 +227,15 @@ class Loss(BaseLoss):
                 with torch.no_grad():
                     fake_images = self._apply_multiple_group_actions_images(
                         real_images=data,
-                        model=model
+                        model=model,
+                        kl_components=kl_components, # Pass kl_components
+                        variance_components=variance_components # Pass variance_components
                     )
 
                 critic_real = self.critic(data)
                 critic_fake = self.critic(fake_images)
 
-                gp = _compute_gradient_penalty(self.critic, data, fake_images)
+                gp = self.critic._compute_gradient_penalty(data, fake_images)
                 # WGAN-GP critic loss
                 d_loss = -(critic_real.mean() - critic_fake.mean()) \
                          + self.meaningful_critic_gradient_penalty_weight * gp
@@ -315,7 +255,9 @@ class Loss(BaseLoss):
             # Re-generate fake images (this time with grad) for the generator update
             fake_images = self._apply_multiple_group_actions_images(
                 real_images=data,
-                model=model
+                model=model,
+                kl_components=kl_components, # Pass kl_components
+                variance_components=variance_components # Pass variance_components
             )
 
             # WGAN generator loss (we want critic_fake to be high => negative sign)

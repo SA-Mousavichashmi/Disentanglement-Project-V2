@@ -38,7 +38,7 @@ class Loss(baseloss.BaseLoss):
         arXiv preprint arXiv:1802.05983 (2018).
     """
 
-    def __init__(self, device, gamma=6.4, discr_lr=5e-5, discr_betas=(0.5, 0.9), log_components=False, **kwargs):
+    def __init__(self, device, gamma=6.4, discr_lr=5e-5, discr_betas=(0.5, 0.9), log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
         self.gamma = gamma
         self.device = device
@@ -46,7 +46,7 @@ class Loss(baseloss.BaseLoss):
         self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(),
                                             lr=discr_lr,
                                             betas=discr_betas)
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
         self.mode = 'optimizes_internally'
 
     def __call__(self, data, model, optimizer, **kwargs):
@@ -73,9 +73,10 @@ class Loss(baseloss.BaseLoss):
         log_data['rec_loss'] = rec_loss.item()
 
         kl_loss = kl_normal_loss(*model_out1['stats_qzx'], return_components=True)
-        if self.log_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
+        if self.log_kl_components:
+            # log_data.update(
+            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
+            log_data['kl_components'] = kl_loss.cpu() # Log the tensor directly
         kl_loss = kl_loss.sum()
         log_data['kl_loss'] = kl_loss.item()
 

@@ -32,10 +32,10 @@ class Loss(baseloss.BaseLoss):
         a constrained variational framework." (2016).
     """
 
-    def __init__(self, beta=1.0, log_components=False, **kwargs):
+    def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
         self.beta = beta
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         self._pre_call(is_train)
@@ -56,9 +56,10 @@ class Loss(baseloss.BaseLoss):
         log_data['rec_loss'] = rec_loss.item()
         log_data['kl_loss'] = kl_total.item()
 
-        if self.log_components:
+        if self.log_kl_components:
             # Add individual components last (or wherever you prefer)
-            for i, value in enumerate(kl_components):
-                 log_data[f'kl_loss_{i}'] = value.item()
+            # for i, value in enumerate(kl_components):
+            #      log_data[f'kl_loss_{i}'] = value.item()
+            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
 
         return {'loss': loss, 'to_log': log_data}

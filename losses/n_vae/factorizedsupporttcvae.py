@@ -15,6 +15,7 @@ import torch
 from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from ...utils import math as math_utils
+from .kl_div import kl_normal_loss
 
 class Loss(baseloss.BaseLoss):
     """
@@ -66,7 +67,7 @@ class Loss(baseloss.BaseLoss):
         temperature_2=1.,
         inner_prob_samples=5,
         outer_prob_samples=20,
-        log_components=False, 
+        log_kl_components=False, 
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -92,7 +93,7 @@ class Loss(baseloss.BaseLoss):
         self.temperature_2 = temperature_2
         self.inner_prob_samples = inner_prob_samples
         self.outer_prob_samples = outer_prob_samples
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
         self.eps = 1e-6
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
@@ -233,7 +234,7 @@ class Loss(baseloss.BaseLoss):
             # Note the use of logsumexp, where the exp converts log(q((z_j)|x_i)) to q((z_j)|x_i) for marginalization.
             # I.e. we first marginalize out x_i from q(z_j|x_i) -> q(z_j) before computing prod_l q(z_l).
             log_qz_product = torch.logsumexp(importance_weight + log_qzx_cross, dim=1, keepdim=False).sum(1, keepdim=False)
-            # Compute the final log(q(z)) for the Total Correlation KL[q(z)||prod_l q(z_l)], which is given as
+            # Compute the final log(q(z)) for the Total Correlation KL[q(z)||prod_l q(z_l)] which is given as
             # log(sum_i(prod_l q(z(x_j)_l|x_i))) = log(sum_i(log(sum_l q(z(x_j)_l|x_i)))):
             log_qz = torch.logsumexp(importance_weight.squeeze(-1) + log_qzx_cross.sum(2), dim=1, keepdim=False)
             # log_qz = torch.logsumexp(log_qzx_cross.sum(dim=2, keepdim=False), dim=1, keepdim=False)
@@ -249,6 +250,13 @@ class Loss(baseloss.BaseLoss):
         mutual_information = (log_qzx - log_qz.unsqueeze(-1)).mean()
 
         ### Compute Dimension-wise KL (Part 3, Eq. 2): KL[q(z)||p(z)] instead of usual KL[q(z|x)||p(z))]
+        # computing this for storing and comparison purposes
+        kl_components = kl_normal_loss(*stats_qzx, return_components=True) # Renamed from kl_loss to kl_components
+        if self.log_kl_components:
+            # log_data.update(
+            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+
         zeros = torch.zeros_like(samples_qzx, device=samples_qzx.device)
         log_pz = math_utils.log_density_gaussian(samples_qzx, zeros, zeros).sum(1)
         dim_kld = (log_qz_product - log_pz).mean()

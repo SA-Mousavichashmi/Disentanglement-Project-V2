@@ -36,13 +36,13 @@ class Loss(baseloss.BaseLoss):
         $\beta$-VAE." arXiv preprint arXiv:1804.03599 (2018).
     """
 
-    def __init__(self, C_init=0.0, C_fin=5.0, gamma=100.0, anneal_steps=100000, log_components=False, **kwargs):
+    def __init__(self, C_init=0.0, C_fin=5.0, gamma=100.0, anneal_steps=100000, log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
         self.gamma = gamma
         self.C_init = C_init
         self.C_fin = C_fin
         self.anneal_steps = anneal_steps
-        self.log_components = log_components
+        self.log_kl_components = log_kl_components
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         self._pre_call(is_train)
@@ -54,11 +54,12 @@ class Loss(baseloss.BaseLoss):
         rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
         log_data['rec_loss'] = rec_loss.item()
 
-        kl_loss = kl_normal_loss(*stats_qzx, return_components=True)
-        if self.log_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-        kl_loss = kl_loss.sum()
+        kl_components = kl_normal_loss(*stats_qzx, return_components=True) # Renamed from kl_loss to kl_components
+        if self.log_kl_components:
+            # log_data.update(
+            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+        kl_loss = kl_components.sum() # Sum after potential logging
         log_data['kl_loss'] = kl_loss.item()
 
         C = (linear_annealing(self.C_init, self.C_fin, self.n_train_steps,
