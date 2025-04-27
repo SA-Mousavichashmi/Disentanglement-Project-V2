@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from tqdm import tqdm, trange
 
-from ..utils import math
+from utils import math
 from . import metrics
 
 METRICS = [
