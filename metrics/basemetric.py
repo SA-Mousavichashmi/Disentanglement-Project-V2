@@ -8,8 +8,7 @@ LICENSE file in the root directory of this source tree.
 import abc
 
 class BaseMetric(abc.ABC):
-    def __init__(self, device):
-        self.device = device
+    def __init__(self):
         self.available_modes = ['full', 'batch', 'instance']
     
     @property
