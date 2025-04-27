@@ -60,6 +60,6 @@ class Loss(baseloss.BaseLoss):
             # Add individual components last (or wherever you prefer)
             # for i, value in enumerate(kl_components):
             #      log_data[f'kl_loss_{i}'] = value.item()
-            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+            log_data['kl_components'] = kl_components.detach().cpu()
 
         return {'loss': loss, 'to_log': log_data}

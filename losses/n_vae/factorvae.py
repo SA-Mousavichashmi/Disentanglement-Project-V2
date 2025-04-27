@@ -76,7 +76,7 @@ class Loss(baseloss.BaseLoss):
         if self.log_kl_components:
             # log_data.update(
             #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-            log_data['kl_components'] = kl_loss.cpu() # Log the tensor directly
+            log_data['kl_components'] = kl_loss.detach().cpu() # Log the tensor directly
         kl_loss = kl_loss.sum()
         log_data['kl_loss'] = kl_loss.item()
 
