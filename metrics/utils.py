@@ -14,7 +14,8 @@ import torch
 from tqdm import tqdm, trange
 
 from utils import math
-from . import metrics
+import metrics
+
 
 METRICS = [
     'mig',
