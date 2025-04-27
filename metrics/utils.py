@@ -83,6 +83,7 @@ class MetricAggregator:
         Returns:
             tuple: A tuple containing the latent representations and ground truth factors in cpu
         """
+        model.to(device)
         model.eval()
         latent_reps = []
         gt_factors = []
@@ -93,7 +94,7 @@ class MetricAggregator:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                z = model.encode(inputs)
+                z = model.get_representations(inputs, type='deterministic')
                 latent_reps.append(z.cpu())
                 gt_factors.append(labels.cpu())
 
