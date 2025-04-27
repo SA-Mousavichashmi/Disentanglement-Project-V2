@@ -58,8 +58,8 @@ class Loss(baseloss.BaseLoss):
 
         if self.log_kl_components:
             # Add individual components last (or wherever you prefer)
-            # for i, value in enumerate(kl_components):
-            #      log_data[f'kl_loss_{i}'] = value.item()
-            log_data['kl_components'] = kl_components.detach().cpu()
+            for i, value in enumerate(kl_components):
+                 log_data[f'kl_loss_{i}'] = value.item()
+            # log_data['kl_components'] = kl_components.detach().cpu()
 
         return {'loss': loss, 'to_log': log_data}

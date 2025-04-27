@@ -55,10 +55,12 @@ class Loss(baseloss.BaseLoss):
         log_data['rec_loss'] = rec_loss.item()
 
         kl_components = kl_normal_loss(*stats_qzx, return_components=True) # Renamed from kl_loss to kl_components
+        
         if self.log_kl_components:
-            # log_data.update(
-            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
-            log_data['kl_components'] = kl_components.detach().cpu() # Log the tensor directly
+            log_data.update(
+                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            # log_data['kl_components'] = kl_components.detach().cpu() # Log the tensor directly
+
         kl_loss = kl_components.sum() # Sum after potential logging
         log_data['kl_loss'] = kl_loss.item()
 

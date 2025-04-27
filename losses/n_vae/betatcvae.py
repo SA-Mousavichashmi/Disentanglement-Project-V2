@@ -122,10 +122,11 @@ class Loss(baseloss.BaseLoss):
 
         # computing this for storing and comparison purposes
         kl_components = kl_normal_loss(*stats_qzx, return_components=True) # Renamed from kl_loss to kl_components
+        
         if self.log_kl_components:
-            # log_data.update(
-            #     {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
-            log_data['kl_components'] = kl_components.detach().cpu() # Log the tensor directly
+            log_data.update(
+                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_components)})
+            # log_data['kl_components'] = kl_components.detach().cpu() # Log the tensor directly
 
         return {'loss': loss, 'to_log': log_data}
 
