@@ -13,7 +13,7 @@ from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from .kl_div import kl_normal_loss
 from .utils import linear_annealing
-from ...utils import math as math_utils
+from utils import math as math_utils
 
 class Loss(baseloss.BaseLoss):
     """
