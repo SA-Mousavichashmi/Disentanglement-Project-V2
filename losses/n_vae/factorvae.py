@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .. import baseloss
-from ...utils import initialization
+from utils import initialization
 from ..reconstruction import reconstruction_loss
 from .kl_div import kl_normal_loss
 from .utils import _permute_dims

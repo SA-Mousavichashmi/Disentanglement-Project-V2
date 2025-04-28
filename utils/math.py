@@ -179,6 +179,7 @@ def calculate_entropy(x, method='scipy'):
     else:
         raise ValueError(f"Unknown entropy method: {method}")
 
+############################## Log Density #############################
 
 def matrix_log_density_gaussian(x, mu, logvar):
     """Calculates log density of a Gaussian for all combination of batch pairs of
