@@ -28,7 +28,7 @@ class Loss(BaseLoss):
     TODO: The discriminator must have the same architecture with Encoder
     """
     def __init__(self,
-                 base_loss,
+                 base_loss_name,
                  rec_dist,
                  device,
                  commutative_weight,
@@ -41,7 +41,7 @@ class Loss(BaseLoss):
                  meaningful_n_critic,
                  deterministic_rep):
         super(Loss, self).__init__()
-        self.base_loss = base_loss # Base loss function for the model (like beta-vae, factor-vae, etc.)
+        self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
         self.mode = 'optimizes_internally'
@@ -162,7 +162,7 @@ class Loss(BaseLoss):
         is_train = model.training
         self._pre_call(is_train)  # to match factor-vae style
         log_data = {}
-        base_loss_f = select(device=data.device, name=self.base_loss, log_components=True, **kwargs) # base loss function
+        base_loss_f = select(device=data.device, name=self.base_loss_name, log_components=True, **kwargs) # base loss function
         base_loss = 0
 
         if base_loss_f.mode == 'post_forward':
