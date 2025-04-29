@@ -6,7 +6,7 @@ This source code is licensed under the license found in the
 LICENSE file in the root directory of this source tree.
 """
 
-LOSS_LIST = ['betavae', 'annealedvae', 'vae', 'factorvae', 'betatcvae', 'adagvae', 'factorizedsupportvae', 'factorizedsupporttcvae']
+LOSS_LIST = ['betavae', 'annealedvae', 'vae', 'factorvae', 'betatcvae', 'adagvae', 'factorizedsupportvae', 'factorizedsupporttcvae', 'group_theory']
 RECON_DISTS = ["bernoulli", "laplace", "gaussian"]
 
 def select(name, **kwargs):
@@ -38,6 +38,9 @@ def select(name, **kwargs):
     if name == 'beta_toroidal_vae':
         from losses.s_vae.beta_toroidal_vae import BetaToroidalVAELoss
         return BetaToroidalVAELoss(**kwargs)
+    if name == 'group_theory':
+        from losses.group_theory.group_theory import Loss
+        return Loss(**kwargs)
     
     err = "Unknown loss.name = {}. Possible values: {}"
     raise ValueError(err.format(name, LOSS_LIST))
