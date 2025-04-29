@@ -43,6 +43,7 @@ class Loss(baseloss.BaseLoss):
         self.C_fin = C_fin
         self.anneal_steps = anneal_steps
         self.log_kl_components = log_kl_components
+        self.mode = 'post_forward'
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         self._pre_call(is_train)

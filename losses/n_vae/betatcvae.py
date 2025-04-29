@@ -55,6 +55,7 @@ class Loss(baseloss.BaseLoss):
         self.gamma = gamma
         self.is_mss = is_mss
         self.log_kl_components = log_kl_components
+        self.mode = 'post_forward'
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
         self._pre_call(is_train)

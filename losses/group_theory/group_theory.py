@@ -12,6 +12,8 @@ from .utils import Critic
 # Import the moved functions
 from .utils import generate_random_latent_translation, apply_group_action_latent_space
 
+from ..n_vae.kl_div import kl_normal_loss
+
 
 class Loss(BaseLoss):
     """
@@ -188,18 +190,10 @@ class Loss(BaseLoss):
         elif base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode.")
 
-        # Ensure kl_components and logvar are available from the base loss logging
-        # Assuming base loss logs 'kl_components' and 'logvar' when log_components=True
-        if 'kl_components' not in loss_out or 'logvar' not in loss_out:
-             # If using post_forward mode, try getting logvar from model_out as a fallback
-            if base_loss_f.mode == 'post_forward' and 'logvar' in model_out:
-                 loss_out['logvar'] = model_out['logvar'] # Add logvar to loss_out if missing
-            else:
-                raise ValueError("Base loss function did not log 'kl_components' and 'logvar', which are required for meaningful loss calculation.")
+        mean, logvar = model.encoder['stats_qzx'].unbind(-1)
 
-        kl_components = loss_out['kl_components']
-        logvar = loss_out['logvar']
-        variance_components = torch.exp(logvar) # Calculate variance
+        kl_components_raw = kl_normal_loss(mean, logvar, raw=True).detach() # shape: (batch_size, latent_dim)
+        variance_components = torch.exp(logvar).detach() # Variance is exp(logvar) (batch_size, latent_dim)
 
         # Group action losses
         group_loss = 0
@@ -228,7 +222,7 @@ class Loss(BaseLoss):
                     fake_images = self._apply_multiple_group_actions_images(
                         real_images=data,
                         model=model,
-                        kl_components=kl_components, # Pass kl_components
+                        kl_components=kl_components_raw, # Pass kl_components
                         variance_components=variance_components # Pass variance_components
                     )
 
@@ -256,7 +250,7 @@ class Loss(BaseLoss):
             fake_images = self._apply_multiple_group_actions_images(
                 real_images=data,
                 model=model,
-                kl_components=kl_components, # Pass kl_components
+                kl_components=kl_components_raw, # Pass kl_components
                 variance_components=variance_components # Pass variance_components
             )
 

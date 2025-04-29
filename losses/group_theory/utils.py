@@ -17,8 +17,8 @@ def generate_random_latent_translation(batch_size, latent_dim, component_order, 
         latent_dim (int): The total dimensionality of the latent space.
         component_order (int): The number of latent dimensions to randomly select
                                and modify (translate) based on the component order and probability derived (softmax) from kl_components.
-        kl_components (torch.Tensor): KL divergence values for each component based on that the probability for selecting components is chosen using softmax. Shape (latent_dim,).
-        variance_components (torch.Tensor): The variances for each components that is sampled from gaussian distribution with (mean 0, variance) for each component. Shape (latent_dim,).
+        kl_components (torch.Tensor): KL divergence values for each component based on that the probability for selecting components is chosen using softmax. Shape (batch, latent_dim).
+        variance_components (torch.Tensor): The variances for each components that is sampled from gaussian distribution with (mean 0, variance) for each component. Shape (batch, latent_dim).
 
     Returns:
         torch.Tensor: A tensor of shape (batch_size, latent_dim) containing the
@@ -68,28 +68,49 @@ def apply_group_action_latent_space(transformation_parameters, latent_space):
     transformed_latent_space = latent_space + transformation_parameters
     return transformed_latent_space
 
+################# Group Meaningful Loss Critic #################
 
 class Critic(nn.Module):
     """
     Critic network for the WGAN-GP loss in the group meaningful loss.
     """
-    def __init__(self, input_channels_num, activation_fn):
+    def __init__(self, input_channels_num, architecture='locatello'):
         super(Critic, self).__init__()
 
-        self.critic = nn.Sequential(
-            nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
-            activation_fn,
-            nn.Conv2d(32, 32, 4, stride=2, padding=1),  # 32x32x32 -> 16x16x32
-            activation_fn,
-            nn.Conv2d(32, 64, 4, stride=2, padding=1),  # 16x16x32 -> 8x8x64
-            activation_fn,
-            nn.Conv2d(64, 64, 4, stride=2, padding=1),  # 8x8x64 -> 4x4x64
-            activation_fn,
-            nn.Flatten(),
-            nn.Linear(4 * 4 * 64, 256),
-            activation_fn,
-            nn.Linear(256, 1)  # Output scalar value
-        )
+        if architecture == 'locatello':
+
+            self.critic = nn.Sequential(
+                nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
+                nn.ReLU(),
+                nn.Conv2d(32, 32, 4, stride=2, padding=1),  # 32x32x32 -> 16x16x32
+                nn.ReLU(),
+                nn.Conv2d(32, 64, 4, stride=2, padding=1),  # 16x16x32 -> 8x8x64
+                nn.ReLU(),
+                nn.Conv2d(64, 64, 4, stride=2, padding=1),  # 8x8x64 -> 4x4x64
+                nn.ReLU(),
+                nn.Flatten(),
+                nn.Linear(4 * 4 * 64, 256),
+                nn.ReLU(),
+                nn.Linear(256, 1)  # Output scalar value
+            )
+        
+        elif architecture == 'burgess':
+            self.critic = nn.Sequential(
+                nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
+                nn.ReLU(),
+                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 32x32x32 -> 16x16x32
+                nn.ReLU(),
+                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 16x16x32 -> 8x8x32
+                nn.ReLU(),
+                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 8x8x32 -> 4x4x32
+                nn.ReLU(),
+                nn.Flatten(),
+                nn.Linear(4 * 4 * 32, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),  # Output scalar value
+                nn.ReLU(),
+                nn.Linear(256, 1)  # Output scalar value
+            )
 
     def _compute_gradient_penalty(self, real_images, fake_images):
         """

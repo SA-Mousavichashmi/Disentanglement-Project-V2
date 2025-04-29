@@ -36,6 +36,7 @@ class Loss(baseloss.BaseLoss):
         super().__init__(**kwargs)
         self.beta = beta
         self.log_kl_components = log_kl_components
+        self.mode = 'post_forward'
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         self._pre_call(is_train)

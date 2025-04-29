@@ -95,7 +95,6 @@ class BaseVAE(nn.Module):
             'reconstructions': reconstructions, 
             'stats_qzx': stats_qzx, 
             'samples_qzx': samples_qzx,
-            'samples_qzx_mean': mean,
             }
 
     def reset_parameters(self):
