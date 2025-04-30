@@ -61,6 +61,7 @@ def generate_random_latent_translation(batch_size, latent_dim, component_order, 
     # scatter_(dim, index, src) -> self[index[i][j]][j] = src[i][j] for dim=0
     # scatter_(dim, index, src) -> self[i][index[i][j]] = src[i][j] for dim=1
 
+    print('variance_components.shape', variance_components.shape)
     print('transformation_parameters.shape', transformation_parameters.shape)
     print('selected_indices.shape', selected_indices.shape)
     print('transformation_values.shape', transformation_values.shape)
