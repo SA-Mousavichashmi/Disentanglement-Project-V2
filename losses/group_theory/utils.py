@@ -48,7 +48,7 @@ def generate_random_latent_translation(batch_size, latent_dim, component_order, 
     transformation_parameters = torch.zeros(batch_size, latent_dim, device=device)
 
     # Get the variances for the selected components
-    selected_variances = variance_components[selected_indices]
+    selected_variances = variance_components.gather(1, selected_indices)
     # selected_variances shape: (batch_size, component_order)
 
     # Sample from N(0, 1)
