@@ -125,6 +125,19 @@ class BaseVAE(nn.Module):
 
         return reconstructions
 
+    def reconstruct_latents(self, latent_z):
+        """
+        Reconstructs the input latent vector latent_z using the decoder.
+
+        Parameters
+        ----------
+        latent_z : torch.Tensor
+            Latent vector. Shape (batch_size, latent_dim)
+        """
+        reconstructions = self.decoder(latent_z)['reconstructions']
+        return reconstructions
+
+
     def sample_qzx(self, x, type='stochastic'):
         """
         Returns a sample z from the latent distribution q(z|x) based on the type of sampling (stochastic or deterministic).
@@ -167,7 +180,7 @@ class BaseVAE(nn.Module):
 
         return generated_images
     
-    def get_representations(self, x, type='stochastic'):
+    def get_representations(self, x, is_deterministic=False):
         """
         Returns the latent representation of the input data x.
 
@@ -175,17 +188,16 @@ class BaseVAE(nn.Module):
         ----------
         x : torch.Tensor
             Batch of data. Shape (batch_size, n_chan, height, width)
-        type : str
-            Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
+        is_deterministic : bool
+            If True, returns the deterministic mean of the latent distribution.
+            If False, returns a stochastic sample using the reparameterization trick.
         """
         stats_qzx = self.encoder(x)['stats_qzx']
         mean, logvar = stats_qzx.unbind(-1)
 
-        if type == 'stochastic':
-            z = self.reparameterize(mean, logvar)['samples_qzx']
-        elif type == 'deterministic':
+        if is_deterministic:
             z = mean
         else:
-            raise ValueError(f"Unknown sampling type: {type}")
+            z = self.reparameterize(mean, logvar)['samples_qzx']
 
         return z

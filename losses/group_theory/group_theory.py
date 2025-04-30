@@ -92,7 +92,7 @@ class Loss(BaseLoss):
         - Apply g to z_g', decode to x_g'g.
         7. Compute the reconstruction loss between x_gg' and x_g'g to ensure commutation.
         """
-        z = model.representation(data, deterministic=self.deterministic_rep)
+        z = model.get_representations(data, deterministic=self.deterministic_rep)
         batch_size, latent_dim = z.shape
 
         # 2 & 3: Pick components for g (first) and g' (remaining)
@@ -108,14 +108,14 @@ class Loss(BaseLoss):
         gprime[:, gprime_comp] = torch.randn(batch_size, len(gprime_comp), device=z.device)
 
         # 5: Compute g.g'.x
-        x_g = model.reconstruction(apply_group_action_latent_space(g, z))
-        z_g = model.representation(x_g, deterministic=self.deterministic_rep)
-        x_ggprime = model.reconstruction(apply_group_action_latent_space(gprime, z_g))
+        x_g = model.reconstruct_latents(apply_group_action_latent_space(g, z))
+        z_g = model.get_representations(x_g, deterministic=self.deterministic_rep)
+        x_ggprime = model.reconstruct_latents(apply_group_action_latent_space(gprime, z_g))
 
         # 6: Compute g'.g.x
-        x_gprime = model.reconstruction(apply_group_action_latent_space(gprime, z))
-        z_gprime = model.representation(x_gprime, deterministic=self.deterministic_rep)
-        x_gprimeg = model.reconstruction(apply_group_action_latent_space(g, z_gprime))
+        x_gprime = model.reconstruct_latents(apply_group_action_latent_space(gprime, z))
+        z_gprime = model.get_representations(x_gprime, deterministic=self.deterministic_rep)
+        x_gprimeg = model.reconstruct_latents(apply_group_action_latent_space(g, z_gprime))
 
         # 7: Compute reconstruction loss
         # Use the imported reconstruction_loss
@@ -148,7 +148,7 @@ class Loss(BaseLoss):
         for _ in range(self.meaningful_transformation_order):
             # Encode
             # Note: We get z again here, but kl_components and variance_components passed correspond to the *original* image encoding
-            z = model.representation(fake_images, deterministic=self.deterministic_rep)
+            z = model.get_representations(fake_images, deterministic=self.deterministic_rep)
             # Generate random transformation parameters using imported function
             transform_params = generate_random_latent_translation(
                 batch_size=batch_size,
@@ -160,7 +160,7 @@ class Loss(BaseLoss):
             # Apply group action in latent space using imported function
             z_transformed = apply_group_action_latent_space(transform_params, z)
             # Decode => next "fake_images"
-            fake_images = model.reconstruction(z_transformed)
+            fake_images = model.reconstruct_latents(z_transformed)
 
         return fake_images
 

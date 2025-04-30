@@ -94,7 +94,7 @@ class MetricAggregator:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                z = model.get_representations(inputs, type='deterministic')
+                z = model.get_representations(inputs, is_deterministic=True)
                 latent_reps.append(z.cpu())
                 gt_factors.append(labels.cpu())
 
