@@ -80,36 +80,36 @@ class Critic(nn.Module):
         if architecture == 'locatello':
 
             self.critic = nn.Sequential(
-                nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
-                nn.ReLU(),
-                nn.Conv2d(32, 32, 4, stride=2, padding=1),  # 32x32x32 -> 16x16x32
-                nn.ReLU(),
-                nn.Conv2d(32, 64, 4, stride=2, padding=1),  # 16x16x32 -> 8x8x64
-                nn.ReLU(),
-                nn.Conv2d(64, 64, 4, stride=2, padding=1),  # 8x8x64 -> 4x4x64
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(4 * 4 * 64, 256),
-                nn.ReLU(),
-                nn.Linear(256, 1)  # Output scalar value
+            nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(32, 32, 4, stride=2, padding=1),  # 32x32x32 -> 16x16x32
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(32, 64, 4, stride=2, padding=1),  # 16x16x32 -> 8x8x64
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(64, 64, 4, stride=2, padding=1),  # 8x8x64 -> 4x4x64
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(4 * 4 * 64, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 1)  # Output scalar value
             )
-        
+
         elif architecture == 'burgess':
             self.critic = nn.Sequential(
-                nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
-                nn.ReLU(),
-                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 32x32x32 -> 16x16x32
-                nn.ReLU(),
-                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 16x16x32 -> 8x8x32
-                nn.ReLU(),
-                nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 8x8x32 -> 4x4x32
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(4 * 4 * 32, 256),
-                nn.ReLU(),
-                nn.Linear(256, 256),  # Output scalar value
-                nn.ReLU(),
-                nn.Linear(256, 1)  # Output scalar value
+            nn.Conv2d(input_channels_num, 32, 4, stride=2, padding=1),  # 64x64xC -> 32x32x32
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 32x32x32 -> 16x16x32
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 16x16x32 -> 8x8x32
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(32, 32, 4, stride=2, padding=1),                  # 8x8x32 -> 4x4x32
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(4 * 4 * 32, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 256),  # Output scalar value
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 1)  # Output scalar value
             )
 
     def _compute_gradient_penalty(self, real_images, fake_images):

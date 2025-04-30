@@ -215,7 +215,7 @@ class Loss(BaseLoss):
             # Initialize critic if not already done based on the first data sample channel
             if  self.critic is None:
                 input_channels_num = data.shape[1]
-                self.critic = Critic(input_channels_num=input_channels_num, activation_fn=nn.LeakyReLU(0.2)).to(self.device)
+                self.critic = Critic(input_channels_num=input_channels_num).to(self.device)
                 self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.meaningful_critic_lr)
 
             #################################################################
