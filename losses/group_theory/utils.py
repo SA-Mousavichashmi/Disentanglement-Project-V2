@@ -60,6 +60,10 @@ def generate_random_latent_translation(batch_size, latent_dim, component_order, 
     # Place the sampled and scaled values into the transformation_parameters tensor
     # scatter_(dim, index, src) -> self[index[i][j]][j] = src[i][j] for dim=0
     # scatter_(dim, index, src) -> self[i][index[i][j]] = src[i][j] for dim=1
+
+    print('selected_indices.shape', selected_indices.shape)
+    print('transformation_values.shape', transformation_values.shape)
+
     transformation_parameters.scatter_(1, selected_indices, transformation_values)
 
     return transformation_parameters
