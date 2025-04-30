@@ -106,7 +106,7 @@ class Loss(BaseLoss):
 
         # 1: Select components randomly without replacement and its variances
         selected_comp_indices = select_latent_components(
-            self.commutative_component_order, kl_components, latent_dim=latent_dim
+            self.commutative_component_order, kl_components
         )
         selected_variances = variance_components.gather(1, selected_comp_indices)
 
