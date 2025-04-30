@@ -32,9 +32,10 @@ def kl_normal_loss(mean, logvar, return_components=False, raw=False):
     Returns
     -------
     torch.Tensor
-        If either raw=True or return_components=True: tensor of shape (latent_dim,)
-        containing per-dimension KL values. Otherwise: scalar tensor representing
-        total KL divergence across all latent dimensions.
+        If raw=True: tensor of shape (batch_size, latent_dim) containing per-dimension KL values for each batch item.
+        If return_components=True (and raw=False): tensor of shape (latent_dim,) containing batch-averaged per-dimension KL values.
+        Otherwise (raw=False and return_components=False): scalar tensor representing
+        total KL divergence across all latent dimensions and averaged over the batch.
 
     Notes
     -----
@@ -42,15 +43,20 @@ def kl_normal_loss(mean, logvar, return_components=False, raw=False):
     inference for diagonal Gaussian posteriors. The implementation uses numerically
     stable operations through PyTorch's tensor operations.
     """
-    # batch mean of kl for each latent dimension
-    latent_kl = 0.5 * (-1 - logvar + mean.pow(2) + logvar.exp()).mean(dim=0)
+    # KL divergence for each latent dimension and each batch item
+    latent_kl_components = 0.5 * (-1 - logvar + mean.pow(2) + logvar.exp())
 
     if raw:
-       return latent_kl
+       # Return per-batch, per-component KL values
+       return latent_kl_components
     else:
+        # Batch mean of KL for each latent dimension
+        latent_kl_mean_components = latent_kl_components.mean(dim=0)
         if return_components:
-            return latent_kl
-        return latent_kl.sum()
+            # Return batch-averaged per-component KL values
+            return latent_kl_mean_components
+        # Return total KL divergence averaged over batch and summed over components
+        return latent_kl_mean_components.sum()
 
 def kl_divergence(mean_1, mean_2, logvar_1, logvar_2):
   var_1 = torch.exp(logvar_1)

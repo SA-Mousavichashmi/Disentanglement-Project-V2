@@ -61,6 +61,11 @@ class Loss(BaseLoss):
         self.commutative_component_order = commutative_component_order
         self.meaningful_component_order = meaningful_component_order
 
+        # Assert that commutative_component_order is greater than 1
+        if self.commutative_component_order <= 1:
+            raise ValueError("commutative_component_order must be greater than 1 for the commutative loss calculation.")
+
+
         # The parameters for the group
         self.meaningful_transformation_order = meaningful_transformation_order
         self.meaningful_critic_gradient_penalty_weight = meaningful_critic_gradient_penalty_weight
@@ -98,6 +103,7 @@ class Loss(BaseLoss):
         # 2 & 3: Pick components for g (first) and g' (remaining)
         selected_components = torch.randperm(latent_dim)[:self.commutative_component_order]
         g_comp = selected_components[0]
+        # Ensure gprime_comp is a slice from index 1, resulting in an empty 1D tensor if only one component is selected
         gprime_comp = selected_components[1:]
 
         # 4: Generate transformations for g and g'
@@ -143,7 +149,8 @@ class Loss(BaseLoss):
         """
         fake_images = real_images.clone()
         batch_size = real_images.size(0)
-        latent_dim = kl_components.size(0) # Get latent_dim from kl_components
+        # Get latent_dim from the second dimension of kl_components
+        latent_dim = kl_components.size(1)
 
         for _ in range(self.meaningful_transformation_order):
             # Encode

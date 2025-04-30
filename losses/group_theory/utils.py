@@ -30,13 +30,19 @@ def generate_random_latent_translation(batch_size, latent_dim, component_order, 
     variance_components = variance_components.to(device)
 
     # Calculate selection probabilities using softmax
-    probs = F.softmax(kl_components, dim=0)
+    # Softmax should be applied across the latent dimensions (dim=1) for each item in the batch
+    probs = F.softmax(kl_components, dim=1)
 
     # Sample 'component_order' indices for each batch item based on probabilities
     # probs.repeat(batch_size, 1) creates a (batch_size, latent_dim) tensor of probabilities
     # replacement=False ensures unique indices are selected for each batch item if component_order < latent_dim
-    selected_indices = torch.multinomial(probs.repeat(batch_size, 1), component_order, replacement=False)
+    # probs already has shape (batch_size, latent_dim) after softmax
+    selected_indices = torch.multinomial(probs, component_order, replacement=False)
     # selected_indices shape: (batch_size, component_order)
+    
+    # Ensure selected_indices is 2D even if component_order is 1
+    if selected_indices.dim() < 2:
+        selected_indices = selected_indices.unsqueeze(1)
 
     # Initialize transformation parameters with zeros
     transformation_parameters = torch.zeros(batch_size, latent_dim, device=device)
