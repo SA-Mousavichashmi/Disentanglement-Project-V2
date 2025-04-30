@@ -10,7 +10,7 @@ from .. import select
 
 from .utils import Critic
 # Import the moved functions
-from .utils import generate_random_latent_translation, apply_group_action_latent_space
+from .utils import generate_latent_translations, apply_group_action_latent_space, select_latent_components, generate_latent_translations_selected_components
 
 from ..n_vae.kl_div import kl_normal_loss
 
@@ -57,6 +57,9 @@ class Loss(BaseLoss):
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
 
+        if self.commutative_weight == 0 and self.meaningful_weight == 0:
+            raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
+
         # Store the component orders
         self.commutative_component_order = commutative_component_order
         self.meaningful_component_order = meaningful_component_order
@@ -64,8 +67,7 @@ class Loss(BaseLoss):
         # Assert that commutative_component_order is greater than 1
         if self.commutative_component_order <= 1:
             raise ValueError("commutative_component_order must be greater than 1 for the commutative loss calculation.")
-
-
+             
         # The parameters for the group
         self.meaningful_transformation_order = meaningful_transformation_order
         self.meaningful_critic_gradient_penalty_weight = meaningful_critic_gradient_penalty_weight
@@ -76,42 +78,64 @@ class Loss(BaseLoss):
         self.critic = None
         self.critic_optimizer = None
     
-    def _group_action_commutative_loss(self, data, model):
+    def _group_action_commutative_loss(self, data, model, kl_components, variance_components):
         """
         In this loss, we encourage that the group action in data space has commutative property:
         g.g'.x = g'.g.x for all g, g' in G and x in X.
 
-        The procedure is:
-        1. Get the representation z of the input x (deterministic or stochastic).
-        2. Select 'component_order' latent components randomly without replacement.
-        3. Let the first selected component be the "single component group" (g), and the 
-        remaining selected components be the "group component group" (g').
-        4. Generate transformations for g and g' using generate_latent_transformation_random_parameters.
-        5. Compute g.g'.x:
-        - Apply g to z, decode to x_g.
-        - Encode x_g to get z_g.
-        - Apply g' to z_g, decode to x_gg'.
-        6. Compute g'.g.x:
-        - Apply g' to z, decode to x_g'.
-        - Encode x_g' to get z_g'.
-        - Apply g to z_g', decode to x_g'g.
-        7. Compute the reconstruction loss between x_gg' and x_g'g to ensure commutation.
+        Args:
+            data (torch.Tensor): Input data tensor of shape (batch_size, channels, height, width)
+            model (nn.Module): VAE model containing encoder/decoder and required methods
+            kl_components (torch.Tensor): KL divergence values per latent component (batch_size, latent_dim)
+            variance_components (torch.Tensor): Variance values per latent component (batch_size, latent_dim)
+
+        Returns:
+            torch.Tensor: Commutative loss value calculated as MSE between x_gg' and x_g'g
+
+        Note:
+            Procedure steps:
+            1. Get latent representation z from input data
+            2. Select components for group actions using KL divergences
+            3. Generate transformations g (single component) and g' (group components)
+            4. Compute x_gg' through sequential g->g' transformations
+            5. Compute x_g'g through sequential g'->g transformations
+            6. Calculate MSE between the two transformed reconstructions
         """
         z = model.get_representations(data, is_deterministic=self.deterministic_rep)
         batch_size, latent_dim = z.shape
 
-        # 2 & 3: Pick components for g (first) and g' (remaining)
-        selected_components = torch.randperm(latent_dim)[:self.commutative_component_order]
-        g_comp = selected_components[0]
-        # Ensure gprime_comp is a slice from index 1, resulting in an empty 1D tensor if only one component is selected
-        gprime_comp = selected_components[1:]
+        # 1: Select components randomly without replacement and its variances
+        selected_comp_indices = select_latent_components(
+            self.commutative_component_order, kl_components, latent_dim=latent_dim
+        )
+        selected_variances = variance_components.gather(1, selected_comp_indices)
 
-        # 4: Generate transformations for g and g'
-        g = torch.zeros(batch_size, latent_dim, device=z.device)
-        g[:, g_comp] = torch.randn(batch_size, device=z.device)
-        
-        gprime = torch.zeros(batch_size, latent_dim, device=z.device)
-        gprime[:, gprime_comp] = torch.randn(batch_size, len(gprime_comp), device=z.device)
+
+        # 2: select component index for g and g' based on the selected components
+        # Note: The first selected component is the "single component group" (g), and the remaining are the "group component group" (g')
+        g_comp_index = selected_comp_indices[:, 0].unsqueeze(1)  # First selected component (single component group)
+        g_comp_variance = selected_variances[:, 0].unsqueeze(1)  # Variance of the first selected component
+
+        gprime_comp_index = selected_comp_indices[:, 1:]  # Remaining selected components (group component group)
+        gprime_comp_variance = selected_variances[:, 1:]  # Variances of the remaining selected components
+
+
+        # Generate random transformation parameters using the selected components and their variances
+        # Note: The function generate_latent_translations_selected_components is assumed to be defined elsewhere
+        # and should generate random translations for the selected components based on their variances.
+
+        g = generate_latent_translations_selected_components(
+            batch_size=batch_size,
+            latent_dim=latent_dim,
+            selected_indices=g_comp_index,
+            selected_variances=g_comp_variance
+        )
+        gprime = generate_latent_translations_selected_components(
+            batch_size=batch_size,
+            latent_dim=latent_dim,
+            selected_indices=gprime_comp_index,
+            selected_variances=gprime_comp_variance
+        )
 
         # 5: Compute g.g'.x
         x_g = model.reconstruct_latents(apply_group_action_latent_space(g, z))
@@ -157,7 +181,7 @@ class Loss(BaseLoss):
             # Note: We get z again here, but kl_components and variance_components passed correspond to the *original* image encoding
             z = model.get_representations(fake_images, is_deterministic=self.deterministic_rep)
             # Generate random transformation parameters using imported function
-            transform_params = generate_random_latent_translation(
+            transform_params = generate_latent_translations(
                 batch_size=batch_size,
                 latent_dim=latent_dim,
                 component_order=self.meaningful_component_order,
@@ -203,17 +227,18 @@ class Loss(BaseLoss):
         elif base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode.")
 
-        mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
+        with torch.no_grad():
+            mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
 
-        kl_components_raw = kl_normal_loss(mean, logvar, raw=True).detach() # shape: (batch_size, latent_dim)
-        variance_components = torch.exp(logvar).detach() # Variance is exp(logvar) (batch_size, latent_dim)
+        kl_components_raw = kl_normal_loss(mean, logvar, raw=True) # shape: (batch_size, latent_dim)
+        variance_components = torch.exp(logvar) # Variance is exp(logvar) (batch_size, latent_dim)
 
         # Group action losses
         group_loss = 0
 
         # Commutative
         if self.commutative_weight > 0:
-            g_commutative_loss = self._group_action_commutative_loss(data, model)
+            g_commutative_loss = self._group_action_commutative_loss(data, model, kl_components_raw, variance_components)
             log_data['g_commutative_loss'] = g_commutative_loss.item()
             group_loss += self.commutative_weight * g_commutative_loss
 
@@ -273,13 +298,17 @@ class Loss(BaseLoss):
             log_data['generator_loss'] = g_loss.item()
 
             # Combine with the other group losses
-            total_group_loss = group_loss + self.meaningful_weight * g_loss
-            total_loss = base_loss + total_group_loss  # plus any base VAE loss
+            group_loss += self.meaningful_weight * g_loss
+            total_loss = base_loss + group_loss  # plus any base VAE loss
+
+            for p in self.critic.parameters(): p.requires_grad_(False)  # Freeze critic for generator update
 
             # Backprop through generator (i.e., the decoder) + group constraints
             vae_optimizer.zero_grad()
             total_loss.backward()
             vae_optimizer.step()
+
+            for p in self.critic.parameters(): p.requires_grad_(True)  # Unfreeze critic
 
             #################################################################
             # 3) Final combined loss for logging
@@ -290,12 +319,13 @@ class Loss(BaseLoss):
             log_data['loss'] = final_loss.item()
 
             return {'loss': final_loss, 'to_log': log_data}
-        else:
-            # Optimize group action losses only
-            total_loss = base_loss + group_loss
-            vae_optimizer.zero_grad()
-            total_loss.backward()
-            vae_optimizer.step()
+        
+        # Optimize group action losses only
+        total_loss = base_loss + group_loss
+        vae_optimizer.zero_grad()
+        total_loss.backward()
+        vae_optimizer.step()
 
-            log_data['loss'] = total_loss.item()
-            return {'loss': total_loss, 'to_log': log_data}
+        log_data['loss'] = total_loss.item()
+        return {'loss': total_loss, 'to_log': log_data}
+        
