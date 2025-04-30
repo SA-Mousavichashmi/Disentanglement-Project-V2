@@ -29,6 +29,7 @@ class Loss(BaseLoss):
     """
     def __init__(self,
                  base_loss_name,
+                 base_loss_kwargs,
                  rec_dist,
                  device,
                  commutative_weight,
@@ -39,9 +40,14 @@ class Loss(BaseLoss):
                  meaningful_critic_gradient_penalty_weight,
                  meaningful_critic_lr,
                  meaningful_n_critic,
-                 deterministic_rep):
-        super(Loss, self).__init__()
+                 deterministic_rep,
+                 **kwargs
+                 ):
+        
+        super(Loss, self).__init__(**kwargs)
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
+        self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
+
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
         self.mode = 'optimizes_internally'
@@ -158,11 +164,11 @@ class Loss(BaseLoss):
 
         return fake_images
 
-    def __call__(self, data, model, vae_optimizer, **kwargs):
+    def __call__(self, data, model, vae_optimizer):
         is_train = model.training
         self._pre_call(is_train)  # to match factor-vae style
         log_data = {}
-        base_loss_f = select(device=data.device, name=self.base_loss_name, log_components=True, **kwargs) # base loss function
+        base_loss_f = select(device=data.device, name=self.base_loss_name, **self.base_loss_kwargs) # base loss function
         base_loss = 0
 
         if base_loss_f.mode == 'post_forward':
