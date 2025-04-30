@@ -196,7 +196,7 @@ class Loss(BaseLoss):
         elif base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode.")
 
-        mean, logvar = model.encoder['stats_qzx'].unbind(-1)
+        mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
 
         kl_components_raw = kl_normal_loss(mean, logvar, raw=True).detach() # shape: (batch_size, latent_dim)
         variance_components = torch.exp(logvar).detach() # Variance is exp(logvar) (batch_size, latent_dim)
