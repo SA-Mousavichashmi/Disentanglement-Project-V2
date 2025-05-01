@@ -127,14 +127,14 @@ class Loss(BaseLoss):
         g = generate_latent_translations_selected_components(
             batch_size=batch_size,
             latent_dim=latent_dim,
-            selected_indices=g_comp_index,
-            selected_variances=g_comp_variance
+            selected_components_indices=g_comp_index,
+            selected_components_variances=g_comp_variance
         )
         gprime = generate_latent_translations_selected_components(
             batch_size=batch_size,
             latent_dim=latent_dim,
-            selected_indices=gprime_comp_index,
-            selected_variances=gprime_comp_variance
+            selected_components_indices=gprime_comp_index,
+            selected_components_variances=gprime_comp_variance
         )
 
         # 5: Compute g.g'.x
