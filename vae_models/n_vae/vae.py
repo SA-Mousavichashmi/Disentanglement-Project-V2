@@ -37,7 +37,7 @@ class Model(BaseVAE):
         self.encoder = select_encoder(encoder_name)(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = select_decoder(decoder_name)(
-            img_size, self.latent_dim, decoder_output_dist=decoder_output_dist)
+            img_size, self.latent_dim, output_dist=decoder_output_dist)
 
         self.model_name = f'vae_encoder-{encoder_name}_decoder-{decoder_name}'
         self.reset_parameters()

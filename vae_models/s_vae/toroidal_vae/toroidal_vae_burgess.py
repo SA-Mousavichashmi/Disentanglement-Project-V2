@@ -36,6 +36,6 @@ class Model(Toroidal_VAE_Base):
         self.encoder = Encoder(
             img_size, self.latent_factor_num, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
-            img_size, self.latent_factor_num * 2, decoder_output_dist=decoder_output_dist) # Decoder expects flattened S^1 vectors (num_factors * 2)
+            img_size, self.latent_factor_num * 2, output_dist=decoder_output_dist) # Corrected parameter name
         self.model_name = 'toroidal_vae_burgess'
         self.reset_parameters()

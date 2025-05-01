@@ -35,6 +35,6 @@ class Model(BaseVAE):
         self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
-            img_size, self.latent_dim, decoder_output_dist=decoder_output_dist)
+            img_size, self.latent_dim, output_dist=decoder_output_dist)
         self.model_name = 'vae_locatello_sbd'
         self.reset_parameters()
