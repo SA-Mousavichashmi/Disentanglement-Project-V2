@@ -16,7 +16,7 @@ class Toroidal_VAE_Base(nn.Module):
     """
     Base S-VAE (with S^1 * ... * S^1 latent space, N-Torus latent space) using Power spherical distribution.
     """
-    def __init__(self, img_size, latent_factor_num=10, **kwargs):
+    def __init__(self, img_size, latent_factor_num=10, decoder_output_dist='bernoulli', **kwargs):
         """
         Base class which defines model and forward pass.
 
@@ -26,6 +26,8 @@ class Toroidal_VAE_Base(nn.Module):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_factor_num : int
             Dimensionality of latent space.
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
         super(Toroidal_VAE_Base, self).__init__()
 
@@ -36,6 +38,7 @@ class Toroidal_VAE_Base(nn.Module):
         self.model_name = 'toroidal_vae_base'
         self.encoder = None
         self.decoder = None
+        self.decoder_output_dist = decoder_output_dist
 
     def validate_img_size(self, allowed_sizes):
         """

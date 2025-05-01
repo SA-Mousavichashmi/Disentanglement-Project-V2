@@ -15,7 +15,7 @@ from .torodial_vae_base import Toroidal_VAE_Base
 
 
 class Model(Toroidal_VAE_Base):
-    def __init__(self, img_size, latent_factor_num=10, encoder_name='chen_mlp', decoder_name='chen_mlp', **kwargs):
+    def __init__(self, img_size, latent_factor_num=10, encoder_name='chen_mlp', decoder_name='chen_mlp', decoder_output_dist='bernoulli', **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -29,14 +29,16 @@ class Model(Toroidal_VAE_Base):
             Name of encoder architecture to use.
         decoder_name : str
             Name of decoder architecture to use.
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
-        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, decoder_output_dist=decoder_output_dist, **kwargs)
         
         # self.validate_img_size([[32, 32], [64, 64]]) # Validation might depend on the specific encoder/decoder
 
         self.encoder = select_encoder(encoder_name)(
             img_size, self.latent_factor_num, dist_nparams=self.dist_nparams)
         self.decoder = select_decoder(decoder_name)(
-            img_size, self.latent_factor_num * 2) # Decoder expects flattened S^1 vectors (num_factors * 2)
+            img_size, self.latent_factor_num * 2, decoder_output_dist=decoder_output_dist) # Decoder expects flattened S^1 vectors (num_factors * 2)
         self.model_name = f'toroidal_vae_encoder-{encoder_name}_decoder-{decoder_name}'
         self.reset_parameters()

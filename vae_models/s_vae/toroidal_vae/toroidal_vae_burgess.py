@@ -16,7 +16,7 @@ from .torodial_vae_base import Toroidal_VAE_Base
 
 
 class Model(Toroidal_VAE_Base):
-    def __init__(self, img_size, latent_factor_num=10, **kwargs):
+    def __init__(self, img_size, latent_factor_num=10, decoder_output_dist='bernoulli', **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -26,14 +26,16 @@ class Model(Toroidal_VAE_Base):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_factor_num : int
             Number of latent factors (dimensionality of the torus).
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
-        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, decoder_output_dist=decoder_output_dist, **kwargs)
         
         self.validate_img_size([[32, 32], [64, 64]])
 
         self.encoder = Encoder(
             img_size, self.latent_factor_num, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
-            img_size, self.latent_factor_num * 2) # Decoder expects flattened S^1 vectors (num_factors * 2)
+            img_size, self.latent_factor_num * 2, decoder_output_dist=decoder_output_dist) # Decoder expects flattened S^1 vectors (num_factors * 2)
         self.model_name = 'toroidal_vae_burgess'
         self.reset_parameters()

@@ -15,7 +15,7 @@ from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, encoder_decay=0., decoder_decay=0., **kwargs):
+    def __init__(self, img_size, latent_dim=10, encoder_decay=0., decoder_decay=0., decoder_output_dist='bernoulli', **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -29,15 +29,17 @@ class Model(BaseVAE):
             Weight decay for encoder parameters.
         decoder_decay : float
             Weight decay for decoder parameters.
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
-        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, decoder_output_dist=decoder_output_dist, **kwargs)
 
         self.validate_img_size([[64, 64]])
 
         self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
-            img_size, self.latent_dim)
+            img_size, self.latent_dim, decoder_output_dist=decoder_output_dist)
         self.model_name = 'vae_locatello'
         self.reset_parameters()
         if encoder_decay or decoder_decay:

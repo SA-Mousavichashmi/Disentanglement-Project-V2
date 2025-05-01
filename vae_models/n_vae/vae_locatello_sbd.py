@@ -15,7 +15,7 @@ from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, **kwargs):
+    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -25,14 +25,16 @@ class Model(BaseVAE):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
-        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, decoder_output_dist=decoder_output_dist, **kwargs)
 
         self.validate_img_size([[64, 64]])
 
         self.encoder = Encoder(
             img_size, self.latent_dim, dist_nparams=self.dist_nparams)
         self.decoder = Decoder(
-            img_size, self.latent_dim)
+            img_size, self.latent_dim, decoder_output_dist=decoder_output_dist)
         self.model_name = 'vae_locatello_sbd'
         self.reset_parameters()

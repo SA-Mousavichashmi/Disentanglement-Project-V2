@@ -15,7 +15,7 @@ class BaseVAE(nn.Module):
     """
     Base VAE model that contains common functionality for all VAE models.
     """
-    def __init__(self, img_size, latent_dim=10, **kwargs):
+    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', **kwargs):
         """
         Base class which defines model and forward pass.
 
@@ -25,6 +25,8 @@ class BaseVAE(nn.Module):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
+        decoder_output_dist : str
+            Distribution type for decoder output. Default is 'bernoulli'.
         """
         super(BaseVAE, self).__init__()
 
@@ -35,6 +37,7 @@ class BaseVAE(nn.Module):
         self.model_name = 'base_vae'
         self.encoder = None
         self.decoder = None
+        self.decoder_output_dist = decoder_output_dist
 
     def validate_img_size(self, allowed_sizes):
         """

@@ -17,7 +17,7 @@ class BaseDecoder(nn.Module, ABC):
     implementations should follow.
     """
 
-    def __init__(self, img_size, latent_dim=10, output_type="bernoulli"):
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
         """Initialize the base decoder.
 
         Parameters
@@ -28,16 +28,16 @@ class BaseDecoder(nn.Module, ABC):
         latent_dim : int
             Dimensionality of latent input.
             
-        output_type : str
+        output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
         """
         super(BaseDecoder, self).__init__()
         self.img_size = img_size
         self.latent_dim = latent_dim
-        self.output_type = output_type
+        self.output_dist = output_dist
         
-        if output_type not in ["bernoulli", "gaussian"]:
-            raise ValueError(f"Output type {output_type} not supported. Use 'bernoulli' or 'gaussian'.")
+        if output_dist not in ["bernoulli", "gaussian"]:
+            raise ValueError(f"Output distribution {output_dist} not supported. Use 'bernoulli' or 'gaussian'.")
 
     @abstractmethod
     def decode(self, z):
@@ -56,7 +56,7 @@ class BaseDecoder(nn.Module, ABC):
         pass
     
     def set_output_dist(self, x):
-        """Process the decoder output based on output type.
+        """Process the decoder output based on output distribution.
         
         Parameters
         ----------
@@ -66,12 +66,12 @@ class BaseDecoder(nn.Module, ABC):
         Returns
         -------
         torch.Tensor
-            Processed output. If output_type is "bernoulli", applies sigmoid.
-            If output_type is "gaussian", returns raw values.
+            Processed output. If output_dist is "bernoulli", applies sigmoid.
+            If output_dist is "gaussian", returns raw values.
         """
-        if self.output_type == "bernoulli":
+        if self.output_dist == "bernoulli":
             return torch.sigmoid(x)
-        elif self.output_type == "gaussian":
+        elif self.output_dist == "gaussian":
             return x
             
     def forward(self, z):

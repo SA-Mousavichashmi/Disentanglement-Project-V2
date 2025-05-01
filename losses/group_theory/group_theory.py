@@ -33,8 +33,9 @@ class Loss(BaseLoss):
                  rec_dist,
                  device,
                  commutative_weight,
-                 meaningful_weight,
                  commutative_component_order,
+                 commutative_comparison_dist,
+                 meaningful_weight,
                  meaningful_component_order,
                  meaningful_transformation_order,
                  meaningful_critic_gradient_penalty_weight,
@@ -77,6 +78,11 @@ class Loss(BaseLoss):
         # will be initialized in the first call to find the number of input channels
         self.critic = None
         self.critic_optimizer = None
+
+        # Store commutative comparison distribution
+        self.commutative_comparison_dist = commutative_comparison_dist
+        if self.commutative_comparison_dist not in ['gaussian', 'bernoulli']:
+            raise ValueError("commutative_comparison_dist must be either 'gaussian' or 'bernoulli'.")
     
     def _group_action_commutative_loss(self, data, model, kl_components, variance_components):
         """
@@ -147,9 +153,12 @@ class Loss(BaseLoss):
         z_gprime = model.get_representations(x_gprime, is_deterministic=self.deterministic_rep)
         x_gprimeg = model.reconstruct_latents(apply_group_action_latent_space(g, z_gprime))
 
-        # 7: Compute reconstruction loss
-        # Use the imported reconstruction_loss
-        commutative_loss = reconstruction_loss(x_ggprime, x_gprimeg, distribution='gaussian') # TODO Check the correctness of this it is used mse loss
+        # 7: Compute comparison loss between x_gg' and x_g'g
+        if self.commutative_comparison_dist == 'gaussian':
+            commutative_loss = F.mse_loss(x_ggprime, x_gprimeg, reduction='mean')
+        elif self.rec_dist == 'bernoulli':
+            pass # TODO: Implement it!
+
         return commutative_loss
 
     def _apply_multiple_group_actions_images(self, real_images, model, kl_components, variance_components):
