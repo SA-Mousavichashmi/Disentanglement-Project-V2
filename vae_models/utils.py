@@ -213,11 +213,13 @@ def traverse_single_latent(vae_model,
                            max_traversal_type='probability',
                            max_traversal=0.95,
                            num_samples=10,
-                           ref_img=None
+                           ref_img=None,
+                           use_ref_img_lat_std=False # Add parameter
                            ):
     """
     Latent traversal for single latent dim based on the traversal range.
     If ref_img is provided, traversal is based on its encoded mean and variance.
+    If use_ref_img_lat_std is True, the std dev from the encoder is used, otherwise std=1.
 
     Parameters
     ----------
@@ -234,6 +236,10 @@ def traverse_single_latent(vae_model,
     ref_img : torch.Tensor, optional
         A reference image tensor (C, H, W) to base the traversal on. If None,
         traversal is based on the prior (mean=0, std=1). Defaults to None.
+    use_ref_img_lat_std : bool, optional
+        If True and ref_img is provided, use the standard deviation from the
+        encoder's variance output for the specified latent dimension.
+        Otherwise, use std=1. Defaults to False.
 
     Returns
     -------
@@ -261,19 +267,24 @@ def traverse_single_latent(vae_model,
         # Use the encoded mean as the base latent vector
         base_latent = mu
 
-        # Calculate std deviation for the specific latent dimension
-        std_dev = torch.exp(0.5 * logvar[:, latent_idx]).item() # Get std for the specific index
-        mean_val = mu[:, latent_idx].item() # Get mean for the specific index
+        # Get mean for the specific index
+        mean_val = mu[:, latent_idx].item() 
 
-        # Get the traversal range based on the encoded mean and std
+        # Determine std deviation based on use_ref_img_lat_std
+        if use_ref_img_lat_std:
+            std_dev = torch.exp(0.5 * logvar[:, latent_idx]).item() # Use std from encoder
+        else:
+            std_dev = 1.0 # Use default std
+
+        # Get the traversal range based on the encoded mean and calculated/default std
         min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=mean_val, std=std_dev)
 
     else:
         # Use the prior mean (0) as the base latent vector
         base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
         # Get the traversal range based on the prior (mean=0, std=1)
+        # When no ref_img, std is always 1, regardless of use_ref_img_lat_std
         min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
-
 
     # Repeat the base vector for the number of samples
     latent_vectors = base_latent.repeat(num_samples, 1)
@@ -292,7 +303,9 @@ def traverse_all_latents(vae_model,
                          max_traversal_type='probability', 
                          max_traversal=0.95, 
                          num_samples=10,
-                         ref_img=None): # Add ref_img parameter
+                         ref_img=None,
+                         use_ref_img_lat_std=False # Add parameter
+                         ):
     """
     Latent traversal for all latent dimensions.
 
@@ -309,6 +322,10 @@ def traverse_all_latents(vae_model,
     ref_img : torch.Tensor, optional
         A reference image tensor (C, H, W) to base the traversal on. If None,
         traversal is based on the prior (mean=0, std=1). Defaults to None.
+    use_ref_img_lat_std : bool, optional
+        Passed to traverse_single_latent. If True and ref_img is provided,
+        use the standard deviation from the encoder's variance output.
+        Otherwise, use std=1. Defaults to False.
 
     Returns
     -------
@@ -318,7 +335,13 @@ def traverse_all_latents(vae_model,
     """
     all_traversals = []
     for latent_idx in range(vae_model.latent_dim):
-        # Pass ref_img to traverse_single_latent
-        traversal_images = traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples, ref_img=ref_img)
+        # Pass ref_img and use_ref_img_lat_std to traverse_single_latent
+        traversal_images = traverse_single_latent(vae_model, 
+                                                  latent_idx, 
+                                                  max_traversal_type, 
+                                                  max_traversal, 
+                                                  num_samples, 
+                                                  ref_img=ref_img, 
+                                                  use_ref_img_lat_std=use_ref_img_lat_std)
         all_traversals.append(traversal_images)
     return all_traversals
