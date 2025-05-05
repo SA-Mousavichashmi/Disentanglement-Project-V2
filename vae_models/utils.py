@@ -170,7 +170,7 @@ def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10, mode='mea
 ####################### Latent Traversal Functions #########################
 
 def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
-    """Calculates the absolute traversal range based on the specified type and value.
+    """Calculates the traversal range based on the specified type and value, centered around the mean.
 
     Parameters
     ----------
@@ -178,6 +178,8 @@ def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
         Specifies how the traversal range is determined ('probability' or 'absolute').
     max_traversal : float
         The maximum traversal value, interpreted based on `max_traversal_type`.
+        If 'probability', it's the probability mass to cover symmetrically around the mean (e.g., 0.95 for 95%).
+        If 'absolute', it's the absolute deviation from the mean.
     mean : float, optional
         The mean of the latent variable distribution. Defaults to 0.
     std : float, optional
@@ -186,24 +188,36 @@ def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
     Returns
     -------
     tuple of (float, float)
-        A tuple containing the minimum and maximum traversal values in absolute terms.
+        A tuple containing the minimum and maximum traversal values, centered around the mean.
     """
+    if max_traversal < 0 and max_traversal > 1 and max_traversal_type == 'probability':
+        raise ValueError("max_traversal must be in the range [0, 1] for 'probability' type.")
+
     if max_traversal_type == 'probability':
-        # Calculate the z-score for the given probability
-        # Use 0.5 + max_traversal because ppf expects cumulative probability from the left tail
-        z_score = stats.norm.ppf(0.5 + max_traversal)
-        # Convert z-score to absolute value using mean and std
-        traversal_limit = mean + (z_score * std)
-
+        # Calculate the z-score corresponding to the upper limit of the central probability mass
+        # e.g., for 95% (max_traversal=0.95), we need the ppf of 0.5 + 0.95/2 = 0.975
+        z_score = stats.norm.ppf(0.5 + max_traversal / 2)
+        # Calculate the deviation from the mean based on the z-score and std
+        deviation = z_score * std
     elif max_traversal_type == 'absolute':
-        traversal_limit = max_traversal
+        # max_traversal directly specifies the absolute deviation from the mean
+        deviation = max_traversal
+    else:
+        raise ValueError(f"Unknown max_traversal_type: {max_traversal_type}")
 
-    # symmetrical traversals
-    return (-1 * traversal_limit, traversal_limit)
+    # Return the range symmetrically around the mean
+    return (mean - deviation, mean + deviation)
 
-def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples=10): # TODO Add ability to do latent traversal along specific data
+def traverse_single_latent(vae_model,
+                           latent_idx,
+                           max_traversal_type='probability',
+                           max_traversal=0.95,
+                           num_samples=10,
+                           ref_img=None
+                           ):
     """
     Latent traversal for single latent dim based on the traversal range.
+    If ref_img is provided, traversal is based on its encoded mean and variance.
 
     Parameters
     ----------
@@ -217,6 +231,9 @@ def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traver
         The maximum traversal value, interpreted based on `max_traversal_type`.
     num_samples : int, optional
         The number of steps or images to generate along the traversal. Defaults to 10.
+    ref_img : torch.Tensor, optional
+        A reference image tensor (C, H, W) to base the traversal on. If None,
+        traversal is based on the prior (mean=0, std=1). Defaults to None.
 
     Returns
     -------
@@ -227,11 +244,36 @@ def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traver
     assert latent_idx in range(vae_model.latent_dim), f"latent_idx must be in range [0, {vae_model.latent_dim-1}]"
     device = get_device(vae_model)
 
-    # Get the traversal range (assuming standard normal prior, mean=0, std=1)
-    min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
+    if ref_img is not None:
+        # Ensure ref_img is on the correct device and has batch dimension
+        if ref_img.dim() == 3: # Assuming (C, H, W)
+             ref_img = ref_img.unsqueeze(0) # Add batch dim -> (1, C, H, W)
+        ref_img = ref_img.to(device)
 
-    # Create a base latent vector (mean of the prior)
-    base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
+        with torch.no_grad():
+            # Encode the reference image
+            # Assuming encoder returns dict with 'mean' and 'log_var' keys
+            stats = vae_model.encoder(ref_img)['stats_qzx']
+        
+        # Unbind to get mean and log variance
+        mu, logvar = stats.unbind(-1)
+
+        # Use the encoded mean as the base latent vector
+        base_latent = mu
+
+        # Calculate std deviation for the specific latent dimension
+        std_dev = torch.exp(0.5 * logvar[:, latent_idx]).item() # Get std for the specific index
+        mean_val = mu[:, latent_idx].item() # Get mean for the specific index
+
+        # Get the traversal range based on the encoded mean and std
+        min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=mean_val, std=std_dev)
+
+    else:
+        # Use the prior mean (0) as the base latent vector
+        base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
+        # Get the traversal range based on the prior (mean=0, std=1)
+        min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
+
 
     # Repeat the base vector for the number of samples
     latent_vectors = base_latent.repeat(num_samples, 1)
@@ -244,10 +286,13 @@ def traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traver
 
     # Decode the latent vectors into images
     generated_images = decode_latents(vae_model, latent_vectors)
-
     return generated_images
 
-def traverse_all_latents(vae_model, max_traversal_type, max_traversal, num_samples=10):
+def traverse_all_latents(vae_model, 
+                         max_traversal_type='probability', 
+                         max_traversal=0.95, 
+                         num_samples=10,
+                         ref_img=None): # Add ref_img parameter
     """
     Latent traversal for all latent dimensions.
 
@@ -261,6 +306,9 @@ def traverse_all_latents(vae_model, max_traversal_type, max_traversal, num_sampl
         The maximum traversal value, interpreted based on `max_traversal_type`.
     num_samples : int, optional
         The number of steps or images to generate along each traversal. Defaults to 10.
+    ref_img : torch.Tensor, optional
+        A reference image tensor (C, H, W) to base the traversal on. If None,
+        traversal is based on the prior (mean=0, std=1). Defaults to None.
 
     Returns
     -------
@@ -270,6 +318,7 @@ def traverse_all_latents(vae_model, max_traversal_type, max_traversal, num_sampl
     """
     all_traversals = []
     for latent_idx in range(vae_model.latent_dim):
-        traversal_images = traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples)
+        # Pass ref_img to traverse_single_latent
+        traversal_images = traverse_single_latent(vae_model, latent_idx, max_traversal_type, max_traversal, num_samples, ref_img=ref_img)
         all_traversals.append(traversal_images)
     return all_traversals
