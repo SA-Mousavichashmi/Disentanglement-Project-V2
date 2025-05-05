@@ -44,14 +44,7 @@ class Visualizer():
             The maximum traversal value, interpreted based on `max_traversal_type`.
             Defaults to 0.475.
         """
-        # Check traversal parameters validity
-        assert max_traversal_type in ['probability', 'absolute'], "max_traversal_type must be either 'probability' or 'absolute'."
-        
-        if max_traversal_type == 'probability':
-            assert 0 <= max_traversal < 0.5, "max_traversal must be in [0, 0.5) for probability traversal."
-        else:  # 'absolute'
-            assert max_traversal > 0, "max_traversal must be positive for absolute traversal."
-            
+               
         # Generate the traversal images using the function from vae_models.utils
         traversal_images = model_utils.traverse_single_latent(
             self.vae_model, latent_idx, max_traversal_type, max_traversal, num_samples, ref_img=ref_img
@@ -98,13 +91,6 @@ class Visualizer():
             The maximum traversal value, interpreted based on `max_traversal_type`.
             Defaults to 0.475.
         """
-        # Check traversal parameters validity
-        assert max_traversal_type in ['probability', 'absolute'], "max_traversal_type must be either 'probability' or 'absolute'."
-        
-        if max_traversal_type == 'probability':
-            assert 0 <= max_traversal < 0.5, "max_traversal must be in [0, 0.5) for probability traversal."
-        else:  # 'absolute'
-            assert max_traversal > 0, "max_traversal must be positive for absolute traversal."
             
         # Generate the traversal images for all latent dimensions using the function from vae_models.utils
         all_traversals = model_utils.traverse_all_latents(
