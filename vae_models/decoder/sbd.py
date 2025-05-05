@@ -15,8 +15,8 @@ from .base import BaseDecoder
 
 class Decoder(BaseDecoder):
 
-    def __init__(self, img_size, latent_dim=10, output_type="bernoulli"):
-        r"""Decoder of the model proposed utilised in [1].
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
+        r"""Decoder of the model proposed utilized in [1].
 
         Parameters
         ----------
@@ -26,7 +26,7 @@ class Decoder(BaseDecoder):
         latent_dim : int
             Dimensionality of latent output.
             
-        output_type : str
+        output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
 
         Model Architecture (transposed for decoder)
@@ -40,7 +40,7 @@ class Decoder(BaseDecoder):
             [1] Locatello et al. "Weakly-Supervised Disentanglement without Compromises" 
             arXiv preprint https://arxiv.org/abs/2002.02886.
         """
-        super(Decoder, self).__init__(img_size, latent_dim, output_type)
+        super(Decoder, self).__init__(img_size, latent_dim, output_dist)
 
         # Layer parameters
         kernel_size = 5

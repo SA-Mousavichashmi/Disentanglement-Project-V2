@@ -15,7 +15,7 @@ from .base import BaseDecoder
 
 class Decoder(BaseDecoder):
 
-    def __init__(self, img_size, latent_dim=10, output_type="bernoulli"):
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
         r"""Decoder of the model proposed in [1].
 
         Parameters
@@ -26,7 +26,7 @@ class Decoder(BaseDecoder):
         latent_dim : int
             Dimensionality of latent output.
             
-        output_type : str
+        output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
 
         Model Architecture (transposed for decoder)
@@ -40,7 +40,7 @@ class Decoder(BaseDecoder):
             [1] Burgess, Christopher P., et al. "Understanding disentangling in
             $\beta$-VAE." arXiv preprint arXiv:1804.03599 (2018).
         """
-        super(Decoder, self).__init__(img_size, latent_dim, output_type)
+        super(Decoder, self).__init__(img_size, latent_dim, output_dist)
 
         # Layer parameters
         hid_channels = 32
