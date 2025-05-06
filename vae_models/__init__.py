@@ -20,7 +20,7 @@ MODEL_LIST = [
     'toroidal_vae_locatello',
 ]
 
-def select(name, img_size, **kwargs):
+def select(name, **kwargs):
     if name not in MODEL_LIST:
         err = "Unknown model.name = {}. Possible values: {}"
         raise ValueError(err.format(name, MODEL_LIST))
@@ -28,32 +28,32 @@ def select(name, img_size, **kwargs):
     # Assuming models are now in n_vae
     if name == 'vae_burgess':
         from .n_vae.vae_burgess import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae_chen_mlp':
         from .n_vae.vae_chen_mlp import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae_locatello':
         from .n_vae.vae_locatello import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae_locatello_sbd':
         from .n_vae.vae_locatello_sbd import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae_montero_small':
         from .n_vae.vae_montero_small import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae_montero_large':
         from .n_vae.vae_montero_large import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'vae': # Assuming 'vae' refers to vae_locatello in n_vae
         from .n_vae.vae_locatello import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     # Add logic for s_vae models here
     if name == 'toroidal_vae_burgess':
         from .s_vae.toroidal_vae.toroidal_vae_burgess import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'toroidal_vae_locatello':
         from .s_vae.toroidal_vae.toroidal_vae_locatello import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
     if name == 'toroidal_vae': # Generic toroidal VAE with selectable encoder/decoder
         from .s_vae.toroidal_vae.toroidal_vae import Model
-        return Model(img_size, **kwargs)
+        return Model(**kwargs)
