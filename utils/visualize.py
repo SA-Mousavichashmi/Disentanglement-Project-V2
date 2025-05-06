@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
-from vae_models import utils as model_utils # Import the vae_models utils
+from vae_models.n_vae import utils as model_utils # Import the vae_models.n_vae utils
 
 class Visualizer():
     def __init__(self, vae_model, dataset):
