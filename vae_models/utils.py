@@ -277,14 +277,22 @@ def traverse_single_latent(vae_model,
             std_dev = 1.0 # Use default std
 
         # Get the traversal range based on the encoded mean and calculated/default std
-        min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=mean_val, std=std_dev)
+        min_val, max_val = get_traversal_range(
+            max_traversal_type=max_traversal_type, 
+            max_traversal=max_traversal, 
+            mean=mean_val, 
+            std=std_dev
+            )
 
     else:
         # Use the prior mean (0) as the base latent vector
         base_latent = torch.zeros(1, vae_model.latent_dim, device=device)
         # Get the traversal range based on the prior (mean=0, std=1)
         # When no ref_img, std is always 1, regardless of use_ref_img_lat_std
-        min_val, max_val = get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1)
+        min_val, max_val = get_traversal_range(max_traversal_type=max_traversal_type, 
+                                               max_traversal=max_traversal, 
+                                               mean=0, 
+                                               std=1)
 
     # Repeat the base vector for the number of samples
     latent_vectors = base_latent.repeat(num_samples, 1)
@@ -336,11 +344,11 @@ def traverse_all_latents(vae_model,
     all_traversals = []
     for latent_idx in range(vae_model.latent_dim):
         # Pass ref_img and use_ref_img_lat_std to traverse_single_latent
-        traversal_images = traverse_single_latent(vae_model, 
-                                                  latent_idx, 
-                                                  max_traversal_type, 
-                                                  max_traversal, 
-                                                  num_samples, 
+        traversal_images = traverse_single_latent(vae_model=vae_model, 
+                                                  latent_idx=latent_idx,
+                                                  num_samples=num_samples,
+                                                  max_traversal_type=max_traversal_type, 
+                                                  max_traversal=max_traversal,  
                                                   ref_img=ref_img, 
                                                   use_ref_img_lat_std=use_ref_img_lat_std)
         all_traversals.append(traversal_images)
