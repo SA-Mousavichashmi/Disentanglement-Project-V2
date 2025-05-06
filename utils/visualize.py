@@ -93,7 +93,10 @@ class Visualizer():
 
         for i, ax in enumerate(axes):
             img = traversal_images[i].permute(1, 2, 0).numpy() # Convert CHW to HWC for plotting
-            ax.imshow(img)
+            if img.shape[2] == 1:
+                ax.imshow(img, cmap='gray')
+            else:
+                ax.imshow(img)
             ax.axis('off')
 
         fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12, y=0.95)  # Adjust title position
@@ -182,7 +185,10 @@ class Visualizer():
             for sample_idx in range(num_samples):
                 ax = axes[latent_idx][sample_idx]
                 img = traversal_images[sample_idx].permute(1, 2, 0).numpy() # Convert CHW to HWC
-                ax.imshow(img)
+                if img.shape[2] == 1:
+                    ax.imshow(img, cmap='gray')
+                else:
+                    ax.imshow(img)
                 ax.axis('off')
                 # Add a title to the first image of each row indicating the latent dimension
                 if sample_idx == 0:
@@ -223,7 +229,10 @@ class Visualizer():
             # Plot original image
             ax = axes[0, i]
             img = imgs[i].permute(1, 2, 0).numpy() # Convert CHW to HWC for plotting
-            ax.imshow(img)
+            if img.shape[2] == 1:
+                ax.imshow(img, cmap='gray')
+            else:
+                ax.imshow(img)
             ax.axis('off')
             if i == 0:
                 ax.set_title('Original', fontsize=10)
@@ -231,7 +240,10 @@ class Visualizer():
             # Plot reconstructed image
             ax = axes[1, i]
             recon = reconstructions[i].permute(1, 2, 0).numpy() # Convert CHW to HWC
-            ax.imshow(recon)
+            if recon.shape[2] == 1:
+                ax.imshow(recon, cmap='gray')
+            else:
+                ax.imshow(recon)
             ax.axis('off')
             if i == 0:
                 ax.set_title('Reconstruction', fontsize=10)
