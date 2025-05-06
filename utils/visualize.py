@@ -63,10 +63,12 @@ class Visualizer():
             The size of the matplotlib figure. Defaults to (10, 3).
         """
 
-        if use_ref_img and ref_img is None:
-            # Randomly select an index from the dataset when ref_img is None
-            random_idx = torch.randint(0, len(self.dataset), (1,)).item() # Randomly select an index from the dataset
-            ref_img = self.dataset[random_idx][0] # Get the image tensor from the dataset
+        if use_ref_img:
+            
+            if ref_img is None:
+                # Randomly select an index from the dataset when ref_img is None
+                random_idx = torch.randint(0, len(self.dataset), (1,)).item() # Randomly select an index from the dataset
+                ref_img = self.dataset[random_idx][0] # Get the image tensor from the dataset
 
         else:
             ref_img = None # Use the prior (mean=0, std=1) for traversal
@@ -141,10 +143,12 @@ class Visualizer():
 
         """
 
-        if use_ref_img and ref_img is None:
-            # Randomly select an index from the dataset when ref_img is None
-            random_idx = torch.randint(0, len(self.dataset), (1,)).item() # Randomly select an index from the dataset
-            ref_img = self.dataset[random_idx][0] # Get the image tensor from the dataset
+        if use_ref_img:
+
+            if ref_img is None:
+                # Randomly select an index from the dataset when ref_img is None
+                random_idx = torch.randint(0, len(self.dataset), (1,)).item() # Randomly select an index from the dataset
+                ref_img = self.dataset[random_idx][0] # Get the image tensor from the dataset
 
         else:
             ref_img = None # Use the prior (mean=0, std=1) for traversal
