@@ -197,10 +197,10 @@ class DCId(BaseMetric):
         completeness = np.sum(per_factor_completeness * total_factor_completeness)
 
         return {
-            'informativeness_train_errors': informativeness_train_errors,
-            'informativeness_test_errors': informativeness_test_errors,
+            'disentanglement': disentanglement,
+            'completeness': completeness,
             'informativeness_train_scores': informativeness_train_scores,
             'informativeness_test_scores': informativeness_test_scores,
-            'disentanglement': disentanglement,
-            'completeness': completeness
+            'informativeness_train_errors': informativeness_train_errors,
+            'informativeness_test_errors': informativeness_test_errors,
         }
