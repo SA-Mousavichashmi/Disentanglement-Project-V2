@@ -210,9 +210,9 @@ def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
 
 def traverse_single_latent(vae_model,
                            latent_idx,
+                           num_samples=10,
                            max_traversal_type='probability',
                            max_traversal=0.95,
-                           num_samples=10,
                            ref_img=None,
                            use_ref_img_lat_std=False # Add parameter
                            ):
@@ -299,10 +299,10 @@ def traverse_single_latent(vae_model,
     generated_images = decode_latents(vae_model, latent_vectors)
     return generated_images
 
-def traverse_all_latents(vae_model, 
+def traverse_all_latents(vae_model,
+                         num_samples=10,
                          max_traversal_type='probability', 
                          max_traversal=0.95, 
-                         num_samples=10,
                          ref_img=None,
                          use_ref_img_lat_std=False # Add parameter
                          ):
