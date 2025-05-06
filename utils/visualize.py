@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
-from vae_models.n_vae import utils as model_utils # Import the vae_models.n_vae utils
+from vae_models import utils as vae_model_utils # Corrected import to vae_models.utils
+from vae_models.n_vae import utils as n_vae_utils # Corrected import to vae_models.n_vae.utils
 
 class Visualizer():
     def __init__(self, vae_model, dataset):
@@ -74,7 +75,7 @@ class Visualizer():
             ref_img = None # Use the prior (mean=0, std=1) for traversal
         
         # Generate the traversal images using the function from vae_models.utils
-        traversal_images = model_utils.traverse_single_latent(
+        traversal_images = n_vae_utils.traverse_single_latent(
             vae_model=self.vae_model, 
             latent_idx=latent_idx,
             num_samples=num_samples, 
@@ -157,7 +158,7 @@ class Visualizer():
             ref_img = None # Use the prior (mean=0, std=1) for traversal
             
         # Generate the traversal images for all latent dimensions using the function from vae_models.utils
-        all_traversals = model_utils.traverse_all_latents(
+        all_traversals = n_vae_utils.traverse_all_latents(
             vae_model=self.vae_model,
             num_samples=num_samples, 
             max_traversal_type=max_traversal_type, 
@@ -267,7 +268,7 @@ class Visualizer():
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        imgs, reconstructions = model_utils.random_reconstruct_sub_dataset(self.vae_model, self.dataset, num_samples, mode=mode)
+        imgs, reconstructions = vae_model_utils.random_reconstruct_sub_dataset(self.vae_model, self.dataset, num_samples, mode=mode)
         self.plot_reconstructions(imgs, reconstructions, figsize)
     
     def plot_reconstructions_sub_dataset(self, img_indices, mode='mean', figsize=(10, 3)):
@@ -287,7 +288,7 @@ class Visualizer():
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
         """
-        imgs, reconstructions = model_utils.reconstruct_sub_dataset(self.vae_model, self.dataset, img_indices, mode=mode)
+        imgs, reconstructions = vae_model_utils.reconstruct_sub_dataset(self.vae_model, self.dataset, img_indices, mode=mode)
         self.plot_reconstructions(imgs, reconstructions, figsize)
 
 
