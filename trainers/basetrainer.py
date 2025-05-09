@@ -49,10 +49,10 @@ class BaseTrainer():
                  optimizer,
                  lr_scheduler,  # Renamed from scheduler
                  device,
-                 train_step_unit: str = 'epoch',  # Renamed from step_unit
-                 is_progress_bar=True,
                  compile_model=False,
                  compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},  # Compile options for torch.compile
+                 train_step_unit: str = 'epoch',  # Renamed from step_unit
+                 is_progress_bar=True,
                  progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
                  return_log_loss=False,
                  log_loss_interval_type='epoch', # 'epoch' or 'iteration' 
