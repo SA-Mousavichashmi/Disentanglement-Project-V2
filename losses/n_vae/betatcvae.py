@@ -49,6 +49,7 @@ class Loss(baseloss.BaseLoss):
 
     def __init__(self, n_data, alpha=1., gamma=1., beta=6., log_kl_components=False, is_mss=True, **kwargs):
         super().__init__(**kwargs)
+        self._name = 'betatcvae'
         self.n_data = n_data
         self.alpha = alpha
         self.beta = beta
@@ -56,6 +57,23 @@ class Loss(baseloss.BaseLoss):
         self.is_mss = is_mss
         self.log_kl_components = log_kl_components
         self.mode = 'post_forward'
+
+    @property
+    def name(self):
+        return 'betatcvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'n_data': self.n_data,
+            'alpha': self.alpha,
+            'beta': self.beta,
+            'gamma': self.gamma,
+            'is_mss': self.is_mss,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
         self._pre_call(is_train)

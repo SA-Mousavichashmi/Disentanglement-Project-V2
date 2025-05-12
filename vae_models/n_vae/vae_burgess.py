@@ -39,3 +39,15 @@ class Model(BaseVAE):
             img_size, self.latent_dim, output_dist=decoder_output_dist)
         self.model_name = 'vae_burgess'
         self.reset_parameters()
+
+    @property
+    def name(self):
+        return 'vae_burgess'
+
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_dim': self.latent_dim,
+            'decoder_output_dist': self.decoder_output_dist
+        }

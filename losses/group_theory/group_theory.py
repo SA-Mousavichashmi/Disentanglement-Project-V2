@@ -83,6 +83,30 @@ class Loss(BaseLoss):
         self.commutative_comparison_dist = commutative_comparison_dist
         if self.commutative_comparison_dist not in ['gaussian', 'bernoulli']:
             raise ValueError("commutative_comparison_dist must be either 'gaussian' or 'bernoulli'.")
+
+    @property
+    def name(self):
+        return 'group_theory'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'base_loss_name': self.base_loss_name,
+            'base_loss_kwargs': self.base_loss_kwargs,
+            'rec_dist': self.rec_dist,
+            'device': self.device,
+            'commutative_weight': self.commutative_weight,
+            'commutative_component_order': self.commutative_component_order,
+            'commutative_comparison_dist': self.commutative_comparison_dist,
+            'meaningful_weight': self.meaningful_weight,
+            'meaningful_component_order': self.meaningful_component_order,
+            'meaningful_transformation_order': self.meaningful_transformation_order,
+            'meaningful_critic_gradient_penalty_weight': self.meaningful_critic_gradient_penalty_weight,
+            'meaningful_critic_lr': self.meaningful_critic_lr,
+            'meaningful_n_critic': self.meaningful_n_critic,
+            'deterministic_rep': self.deterministic_rep,
+            'mode': self.mode,
+        }
     
     def _group_action_commutative_loss(self, data, model, kl_components, variance_components):
         """
@@ -337,4 +361,4 @@ class Loss(BaseLoss):
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
-        
+

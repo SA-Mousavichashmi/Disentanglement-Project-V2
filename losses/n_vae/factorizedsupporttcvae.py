@@ -71,6 +71,7 @@ class Loss(baseloss.BaseLoss):
         **kwargs
     ):
         super().__init__(**kwargs)
+        
         self.n_data = n_data
         self.beta = beta
         self.gamma = gamma
@@ -95,6 +96,37 @@ class Loss(baseloss.BaseLoss):
         self.outer_prob_samples = outer_prob_samples
         self.log_kl_components = log_kl_components
         self.eps = 1e-6
+
+    @property
+    def name(self):
+        return 'factorizedsupporttcvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'n_data': self.n_data,
+            'beta': self.beta,
+            'gamma': self.gamma,
+            'delta': self.delta,
+            'btc_alpha': self.btc_alpha,
+            'btc_beta': self.btc_beta,
+            'btc_gamma': self.btc_gamma,
+            'is_mss': self.is_mss,
+            'reg_mode': self.reg_mode,
+            'reg_range': self.reg_range,
+            'matching': self.matching,
+            'factorized_support_estimation': self.factorized_support_estimation,
+            'num_support_estimators': self.num_support_estimators,
+            'latent_select': self.latent_select,
+            'num_latent_pairs': self.num_latent_pairs,
+            'temperature_1': self.temperature_1,
+            'temperature_2': self.temperature_2,
+            'inner_prob_samples': self.inner_prob_samples,
+            'outer_prob_samples': self.outer_prob_samples,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
         self._pre_call(is_train)

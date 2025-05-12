@@ -9,9 +9,10 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 import utils.initialization
+import abc
 
 
-class BaseVAE(nn.Module):
+class BaseVAE(abc.ABC, nn.Module):
     """
     Base VAE model that contains common functionality for all VAE models.
     """
@@ -34,10 +35,21 @@ class BaseVAE(nn.Module):
         self.img_size = img_size
         self.num_pixels = self.img_size[1] * self.img_size[2]
         self.dist_nparams = 2
-        self.model_name = 'base_vae'
         self.encoder = None
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
+    
+    @property
+    @abc.abstractmethod
+    def name(self):
+        """A unique name for the model, to be implemented by subclasses."""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def model_kwargs(self):
+        """Returns the keyword arguments for the model."""
+        pass
 
     def validate_img_size(self, allowed_sizes):
         """

@@ -38,3 +38,15 @@ class Model(BaseVAE):
             img_size, self.latent_dim, output_dist=decoder_output_dist)
         self.model_name = 'vae_locatello_sbd'
         self.reset_parameters()
+
+    @property
+    def name(self):
+        return 'vae_locatello_sbd'
+
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_dim': self.latent_dim,
+            'decoder_output_dist': self.decoder_output_dist
+        }

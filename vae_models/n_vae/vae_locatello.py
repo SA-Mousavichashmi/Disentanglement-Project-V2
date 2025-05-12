@@ -47,3 +47,17 @@ class Model(BaseVAE):
                 {'params': self.encoder.parameters(), 'weight_decay': encoder_decay}, 
                 {'params': self.decoder.parameters(), 'weight_decay': decoder_decay}
             ]
+
+    @property
+    def name(self):
+        return 'vae_locatello'
+
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_dim': self.latent_dim,
+            'encoder_decay': getattr(self, 'encoder_decay', 0.),
+            'decoder_decay': getattr(self, 'decoder_decay', 0.),
+            'decoder_output_dist': self.decoder_output_dist
+        }

@@ -30,8 +30,22 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
 
     def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
+        self.name = 'beta_toroidal_vae'
         self.beta = beta
         self.log_kl_components = log_kl_components
+
+    @property
+    def name(self):
+        return 'beta_toroidal_vae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'beta': self.beta,
+            'log_kl_components': self.log_kl_components,
+            'mode': getattr(self, 'mode', None),
+            'rec_dist': getattr(self, 'rec_dist', None),
+        }
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         """

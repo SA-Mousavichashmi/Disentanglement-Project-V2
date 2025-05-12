@@ -12,44 +12,14 @@ from tqdm import trange
 import collections
 
 class BaseTrainer():
-    """
-    Class to handle training of model.
-
-    Parameters
-    ----------
-    model: dent.vae.VAE
-
-    optimizer: torch.optim.Optimizer
-
-    lr_scheduler: torch.optim.lr_scheduler._LRScheduler
-        Learning rate scheduler.
-
-    loss_fn: losses.baseloss.BaseLoss
-        Loss function.
-
-    device: torch.device, optional
-        Device on which to run the code.
-
-    train_step_unit: str, optional
-        Specifies the unit for `max_steps`. Either 'epoch' or 'iteration'. Defaults to 'epoch'.
-
-    max_steps: int
-        The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
-
-    is_progress_bar: bool, optional
-        Whether to use a progress bar for training
-
-    progress_bar_log_interval: int, optional
-        Update the progress bar with losses every `progress_bar_log_interval` iterations.
-    """
 
     def __init__(self,
                  model,
                  loss_fn,
                  optimizer,
-                 lr_scheduler,  # Renamed from scheduler
+                 lr_scheduler,
                  device,
-                 compile_model=False,
+                 use_compile_model=False,
                  compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},  # Compile options for torch.compile
                  train_step_unit: str = 'epoch',  # Renamed from step_unit
                  is_progress_bar=True,
@@ -57,14 +27,55 @@ class BaseTrainer():
                  return_log_loss=False,
                  log_loss_interval_type='epoch', # 'epoch' or 'iteration' 
                  log_loss_iter_interval=50, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
+                 checkpoint_input_file_path=None,
+                 checkpoint_output_dir='./',
+                 checkpoint_every_n_steps = 0,
+                 checkpoint_only_metric_improved = False,
                  ):
+        """
+        Initializes the BaseTrainer.
 
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The neural network model to be trained.
+        loss_fn : losses.baseloss.BaseLoss
+            The loss function to be used for training.
+        optimizer : torch.optim.Optimizer
+            The optimizer for updating model parameters.
+        lr_scheduler : torch.optim.lr_scheduler._LRScheduler
+            The learning rate scheduler.
+        device : torch.device
+            The device (CPU or GPU) on which to perform training.
+        use_compile_model : bool, optional
+            Whether to compile the model using `torch.compile` for potential performance improvements.
+            Defaults to False.
+        compile_kwargs : dict, optional
+            Keyword arguments to pass to `torch.compile` if `use_compile_model` is True.
+            Defaults to `{'mode': 'max-autotune', 'backend': 'inductor'}`.
+        train_step_unit : str, optional
+            Specifies the unit for `max_steps` in the `train` method.
+            Can be either 'epoch' or 'iteration'. Defaults to 'epoch'.
+        is_progress_bar : bool, optional
+            Whether to display a progress bar during training. Defaults to True.
+        progress_bar_log_iter_interval : int, optional
+            The interval (in iterations) at which to update the progress bar with loss information.
+            Defaults to 50.
+        return_log_loss : bool, optional
+            Whether the `train` method should return a log of losses. Defaults to False.
+        log_loss_interval_type : str, optional
+            Specifies the interval type for logging losses if `return_log_loss` is True.
+            Can be 'epoch' or 'iteration'. Defaults to 'epoch'.
+        log_loss_iter_interval : int, optional
+            The interval (in iterations) at which to log losses if `log_loss_interval_type` is 'iteration'.
+            Defaults to 50.
+        """
         self.device = device
         self.model = model.to(self.device)
         self.loss_fn = loss_fn
         self.optimizer = optimizer
 
-        self.compile_model = compile_model
+        self.use_compile_model = use_compile_model
         self.compile_kwargs = compile_kwargs
 
         self.is_progress_bar = is_progress_bar
@@ -73,7 +84,7 @@ class BaseTrainer():
         self.log_loss_interval_type = log_loss_interval_type
         self.log_loss_iter_interval = log_loss_iter_interval
 
-        if self.compile_model:
+        if self.use_compile_model:
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
         if train_step_unit not in ['epoch', 'iteration']:
@@ -88,13 +99,49 @@ class BaseTrainer():
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
-            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer,
                 lr_lambda=lambda epoch: 1.0,
             )
         else:
-            self.scheduler = lr_scheduler  # Renamed from scheduler
+            self.lr_scheduler = lr_scheduler  # Renamed from scheduler
+    
+    def load_checkpoint(self, checkpoint_input_file_path):
+        """
+        Loads a model checkpoint.
 
+        Parameters
+        ----------
+        checkpoint_input_file_path : str
+            Path to the checkpoint file.
+        """
+        checkpoint = torch.load(checkpoint_input_file_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.lr_scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        self.epoch = checkpoint['epoch']
+        print(f"Checkpoint loaded from {checkpoint_input_file_path}")
+    
+    def save_checkpoint(self, checkpoint_output_dir, step):
+        """
+        Saves the model checkpoint.
+
+        Parameters
+        ----------
+        checkpoint_output_dir : str
+            Directory to save the checkpoint.
+        step : int
+            Current training step (epoch or iteration).
+        """
+        checkpoint = {
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.lr_scheduler.state_dict(),
+            'epoch': step,
+        }
+        torch.save(checkpoint, f"{checkpoint_output_dir}/checkpoint_{step}.pth")
+        print(f"Checkpoint saved at {checkpoint_output_dir}/checkpoint_{step}.pth")
+    
     def train(self, data_loader, max_steps: int):
         """
         Trains the model based on the mode specified in the constructor.
@@ -131,7 +178,7 @@ class BaseTrainer():
                         all_logs.extend(epoch_logs_out) # Extend with list of dicts
 
                 # Assuming scheduler steps per epoch if epoch-based training
-                self.scheduler.step()
+                self.lr_scheduler.step()
 
         elif self.train_step_unit == 'iteration':  # Renamed from step_unit
             # --- Iteration-based training ---
@@ -188,7 +235,7 @@ class BaseTrainer():
                     t.update()
 
                     # Step the scheduler after each iteration if iteration-based training
-                    self.scheduler.step()
+                    self.lr_scheduler.step()
 
         self.model.eval()
         return all_logs
@@ -315,3 +362,24 @@ class BaseTrainer():
         loss_val = loss.item() if loss is not None else 0.0
         
         return {"loss": loss_val, "to_log": to_log}
+    
+
+# class TrainerWithCheckpoints(BaseTrainer):
+#     def __init__(self,
+#                  train_mode,
+#                  checkpoint_input_dir=None,
+#                  checkpoint_input_file_path=None,
+#                  checkpoint_output_dir=None,
+#                  **kwargs
+#                  ):
+        
+#         super().__init__(
+#             **kwargs
+#         )
+
+#         assert train_mode in ['from-scratch', 'resume-ckpt-new', 'resume-ckpt', 'resume-ckpt-dir'], \
+#             f"train_mode must be one of ['from-scratch', 'resume-ckpt-new', 'resume-ckpt', 'resume-ckpt-dir'], but got {train_mode}"
+
+#         assert train_mode == 'from-scratch' and checkpoint_input_dir is not None and checkpoint_input_file_path is not None
+
+#         self.train_mode = train_mode

@@ -41,3 +41,17 @@ class Model(BaseVAE):
 
         self.model_name = f'vae_encoder-{encoder_name}_decoder-{decoder_name}'
         self.reset_parameters()
+
+    @property
+    def name(self):
+        return self.model_name
+
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_dim': self.latent_dim,
+            'encoder_name': getattr(self, 'encoder_name', 'locatello'),
+            'decoder_name': getattr(self, 'decoder_name', 'locatello'),
+            'decoder_output_dist': self.decoder_output_dist
+        }

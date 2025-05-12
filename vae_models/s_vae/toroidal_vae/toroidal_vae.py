@@ -42,3 +42,17 @@ class Model(Toroidal_VAE_Base):
             img_size, self.latent_factor_num * 2, output_dist=decoder_output_dist) # Corrected parameter name
         self.model_name = f'toroidal_vae_encoder-{encoder_name}_decoder-{decoder_name}'
         self.reset_parameters()
+
+    @property
+    def name(self):
+        return f'toroidal_vae_encoder-{self.encoder_name}_decoder-{self.decoder_name}'
+    
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_factor_num': self.latent_factor_num,
+            'encoder_name': getattr(self, 'encoder_name', 'chen_mlp'),
+            'decoder_name': getattr(self, 'decoder_name', 'chen_mlp'),
+            'decoder_output_dist': self.decoder_output_dist
+        }

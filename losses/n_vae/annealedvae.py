@@ -38,12 +38,29 @@ class Loss(baseloss.BaseLoss):
 
     def __init__(self, C_init=0.0, C_fin=5.0, gamma=100.0, anneal_steps=100000, log_kl_components=False, **kwargs):
         super().__init__(**kwargs)
+
         self.gamma = gamma
         self.C_init = C_init
         self.C_fin = C_fin
         self.anneal_steps = anneal_steps
         self.log_kl_components = log_kl_components
         self.mode = 'post_forward'
+
+    @property
+    def name(self):
+        return 'annealedvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'C_init': self.C_init,
+            'C_fin': self.C_fin,
+            'gamma': self.gamma,
+            'anneal_steps': self.anneal_steps,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         self._pre_call(is_train)

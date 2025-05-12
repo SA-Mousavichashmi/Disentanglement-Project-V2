@@ -88,6 +88,27 @@ class Loss(baseloss.BaseLoss):
         self.log_kl_components = log_kl_components
         self.mode = 'pre_forward'
 
+    @property
+    def name(self):
+        return 'adagvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'thresh_mode': self.thresh_mode,
+            'average_mode': self.average_mode,
+            'thresh_ratio': self.thresh_ratio,
+            'beta': self.beta,
+            'annealing': self.annealing,
+            'C_fin': self.C_fin,
+            'C_init': self.C_init,
+            'gamma': self.gamma,
+            'anneal_steps': self.anneal_steps,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
+
     def __call__(
         self, model, data, paired_data, shared_idcs=None, is_train=True, **kwargs):
         """Main AdaGVAE criterion.

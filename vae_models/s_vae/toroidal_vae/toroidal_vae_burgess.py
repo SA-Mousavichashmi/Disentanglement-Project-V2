@@ -39,3 +39,15 @@ class Model(Toroidal_VAE_Base):
             img_size, self.latent_factor_num * 2, output_dist=decoder_output_dist) # Corrected parameter name
         self.model_name = 'toroidal_vae_burgess'
         self.reset_parameters()
+
+    @property
+    def name(self):
+        return 'toroidal_vae_burgess'
+
+    @property
+    def model_kwargs(self):
+        return {
+            'img_size': self.img_size,
+            'latent_factor_num': self.latent_factor_num,
+            'decoder_output_dist': self.decoder_output_dist
+        }

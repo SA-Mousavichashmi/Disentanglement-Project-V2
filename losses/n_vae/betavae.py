@@ -38,6 +38,19 @@ class Loss(baseloss.BaseLoss):
         self.log_kl_components = log_kl_components
         self.mode = 'post_forward'
 
+    @property
+    def name(self):
+        return 'beta_vae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'beta': self.beta,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
+
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         self._pre_call(is_train)
         if isinstance(stats_qzx, torch.Tensor):

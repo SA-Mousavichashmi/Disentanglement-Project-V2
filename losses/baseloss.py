@@ -29,10 +29,24 @@ class BaseLoss(abc.ABC):
     """
 
     def __init__(self, record_loss_every=1, rec_dist="bernoulli", mode='post_forward', **kwargs):
+        self.name = 'baseloss'
         self.n_train_steps = 0
         self.record_loss_every = record_loss_every
         self.rec_dist = rec_dist
         self.mode = mode
+        self.loss_kwargs = None
+
+    @property
+    @abc.abstractmethod
+    def name(self):
+        """A unique name for the loss function, to be implemented by subclasses."""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def loss_kwargs(self):
+        """A dictionary of keyword arguments for the loss function, to be implemented by subclasses."""
+        pass
 
     @abc.abstractmethod
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):

@@ -91,6 +91,34 @@ class Loss(baseloss.BaseLoss):
         self.eps = 1e-6
         self.avail_pairs_of_latents = None
 
+    @property
+    def name(self):
+        return 'factorizedsupportvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'n_data': self.n_data,
+            'use_rec': self.use_rec,
+            'beta': self.beta,
+            'gamma': self.gamma,
+            'delta': self.delta,
+            'reg_mode': self.reg_mode,
+            'reg_range': self.reg_range,
+            'matching': self.matching,
+            'factorized_support_estimation': self.factorized_support_estimation,
+            'num_support_estimators': self.num_support_estimators,
+            'latent_select': self.latent_select,
+            'num_latent_pairs': self.num_latent_pairs,
+            'temperature_1': self.temperature_1,
+            'temperature_2': self.temperature_2,
+            'inner_prob_samples': self.inner_prob_samples,
+            'outer_prob_samples': self.outer_prob_samples,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
+
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
         self._pre_call(is_train)
         if isinstance(stats_qzx, torch.Tensor):

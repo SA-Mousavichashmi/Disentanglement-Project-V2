@@ -49,6 +49,21 @@ class Loss(baseloss.BaseLoss):
         self.log_kl_components = log_kl_components
         self.mode = 'optimizes_internally'
 
+    @property
+    def name(self):
+        return 'factorvae'
+
+    @property
+    def loss_kwargs(self):
+        return {
+            'gamma': self.gamma,
+            'discr_lr': self.optimizer_d.param_groups[0]['lr'] if hasattr(self, 'optimizer_d') else None,
+            'discr_betas': self.optimizer_d.param_groups[0]['betas'] if hasattr(self, 'optimizer_d') else None,
+            'log_kl_components': self.log_kl_components,
+            'mode': self.mode,
+            'rec_dist': self.rec_dist,
+        }
+
     def __call__(self, data, model, optimizer, **kwargs):
         is_train = model.training
         self._pre_call(is_train)

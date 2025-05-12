@@ -128,3 +128,48 @@ def find_optimal_num_workers(
     print(f"Optimal num_workers: {optimal_num_workers} ({results[optimal_num_workers]:.5f} sec/batch)")
 
     return optimal_num_workers
+
+
+##################### Checkpoints #####################
+
+class checkpoint:
+    def __init__(self, model, optimizer, lr_scheduler, steps_type, steps, loss):
+        self.model = model
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.steps_type = steps_type
+        self.steps = steps
+        self.loss = loss
+
+    def save(self, path: str):
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
+            'steps_type': self.steps_type,
+            'steps': self.steps,
+            'model': {
+                'name': self.model.name,
+                **self.model.kwargs
+            },
+            'loss': {
+                'name': self.loss.name,
+                **self.loss.kwargs
+            }
+            
+        }, path)
+        print(f"Checkpoint saved to {path}")
+
+    @classmethod
+    def load(cls, path: str):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Checkpoint file {path} does not exist.")
+        
+        checkpoint_data = torch.load(path)
+        return cls(
+            model=checkpoint_data['model_state_dict'],
+            optimizer=checkpoint_data['optimizer_state_dict'],
+            scheduler=checkpoint_data['scheduler_state_dict'],
+            epoch=checkpoint_data['epoch'],
+            loss=checkpoint_data['loss']
+        )

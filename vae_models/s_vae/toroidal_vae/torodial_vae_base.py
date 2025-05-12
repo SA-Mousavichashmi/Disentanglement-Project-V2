@@ -10,9 +10,10 @@ from torch import nn, optim
 from torch.nn import functional as F
 import utils.initialization
 from power_spherical import PowerSpherical  # type: ignore
+import abc
 
 
-class Toroidal_VAE_Base(nn.Module):
+class Toroidal_VAE_Base(abc.ABC, nn.Module):
     """
     Base S-VAE (with S^1 * ... * S^1 latent space, N-Torus latent space) using Power spherical distribution.
     """
@@ -39,6 +40,16 @@ class Toroidal_VAE_Base(nn.Module):
         self.encoder = None
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
+    
+    @property
+    @abc.abstractmethod
+    def name(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def model_kwargs(self):
+        pass
 
     def validate_img_size(self, allowed_sizes):
         """
