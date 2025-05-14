@@ -138,6 +138,8 @@ class BaseTrainer():
             raise ValueError("If determinism_type is provided, seed must also be provided.")
 
         if self.use_compile_model:
+            if seed is not None and determinism_type is not None:
+                raise ValueError("Determinism is not supported with torch.compile. Please set seed and determinism_type to None.")
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
         if train_step_unit not in ['epoch', 'iteration']:
