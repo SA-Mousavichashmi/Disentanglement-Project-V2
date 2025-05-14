@@ -29,7 +29,6 @@ class BaseLoss(abc.ABC):
     """
 
     def __init__(self, record_loss_every=1, rec_dist="bernoulli", mode='post_forward', **kwargs):
-        self.name = 'baseloss'
         self.n_train_steps = 0
         self.record_loss_every = record_loss_every
         self.rec_dist = rec_dist
