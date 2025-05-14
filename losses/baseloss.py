@@ -33,7 +33,6 @@ class BaseLoss(abc.ABC):
         self.record_loss_every = record_loss_every
         self.rec_dist = rec_dist
         self.mode = mode
-        self.loss_kwargs = None
 
     @property
     @abc.abstractmethod
