@@ -1,5 +1,6 @@
 import torch
 from scipy import stats # Add scipy import
+from vae_models import select
 
 def get_device(model):
     """Gets the device of a PyTorch model.
@@ -165,3 +166,10 @@ def random_reconstruct_sub_dataset(vae_model, dataset, num_samples=10, mode='mea
     images, reconstructions = reconstruct_sub_dataset(vae_model, dataset, img_indices, mode)
 
     return images, reconstructions
+
+########## Load and Save Functions ##########
+
+def create_load_model(model_name, model_kwargs, model_state_dict):
+    model = select(model_name, **model_kwargs)
+    model.load_state_dict(model_state_dict)
+    return model

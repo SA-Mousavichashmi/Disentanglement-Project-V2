@@ -130,46 +130,158 @@ def find_optimal_num_workers(
     return optimal_num_workers
 
 
-##################### Checkpoints #####################
+##################### Checkpoint utils #####################
 
-class checkpoint:
-    def __init__(self, model, optimizer, lr_scheduler, steps_type, steps, loss):
-        self.model = model
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
-        self.steps_type = steps_type
-        self.steps = steps
-        self.loss = loss
+def create_chkpt(
+                train_id,
+                train_step_unit,
+                train_step_num,
+                train_seed,
+                train_determinism_type,
+                model,
+                optimizer,
+                lr_scheduler,
+                loss,
+                loss_results=None, # TODO Check them later
+                metrics=None, # TODO check them later
+                      ):
+    """
+    Creates a checkpoint dictionary.
 
-    def save(self, path: str):
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
-            'steps_type': self.steps_type,
-            'steps': self.steps,
-            'model': {
-                'name': self.model.name,
-                **self.model.kwargs
-            },
-            'loss': {
-                'name': self.loss.name,
-                **self.loss.kwargs
-            }
-            
-        }, path)
-        print(f"Checkpoint saved to {path}")
+    Args:
+        train_id: Identifier for the training run.
+        train_step_unit: the unit of the current training step (e.g., 'epoch', 'iteration').
+        train_step_num: Current number of training steps completed.
+        model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
+        optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
+        lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
+                      Optionally, 'name' and 'kwargs' attributes.
+        loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
 
-    @classmethod
-    def load(cls, path: str):
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Checkpoint file {path} does not exist.")
-        
-        checkpoint_data = torch.load(path)
-        return cls(
-            model=checkpoint_data['model_state_dict'],
-            optimizer=checkpoint_data['optimizer_state_dict'],
-            scheduler=checkpoint_data['scheduler_state_dict'],
-            epoch=checkpoint_data['epoch'],
-            loss=checkpoint_data['loss']
-        )
+    Returns:
+        A dictionary containing the checkpoint data.
+    """
+    checkpoint = {
+        'train_id': train_id,
+        'train_step_unit': train_step_unit,
+        'train_step_num': train_step_num,
+        'train_seed': train_seed,
+        'train_determinism_type': train_determinism_type,
+        'model': {
+            'name': model.name, # Assuming model has a 'name' attribute
+            'kwargs': model.kwargs, # Assuming model has a 'kwargs' attribute
+            'state_dict': model.state_dict(),
+        },
+        'loss': {
+            'name': loss.name, # Assuming loss object has a 'name' attribute
+            'kwargs': loss.kwargs, # Assuming loss object has a 'kwargs' attribute
+            'state_dict': loss.state_dict() if hasattr(loss, 'state_dict') else None,
+        },
+        'optimizer': {
+            'name': optimizer.__class__.__name__,
+            'kwargs': optimizer.defaults,
+            'state_dict': optimizer.state_dict(),
+        },
+        'lr_scheduler': { # Assuming lr_scheduler has 'name' and 'kwargs' attributes
+            'name': lr_scheduler.name if hasattr(lr_scheduler, 'name') else lr_scheduler.__class__.__name__,
+            'kwargs': lr_scheduler.kwargs if hasattr(lr_scheduler, 'kwargs') else {}, # Provide default if not present
+            'state_dict': lr_scheduler.state_dict() if hasattr(lr_scheduler, 'state_dict') else None,
+        },
+        'metrics': {
+            'loss_results': loss_results,
+            'metrics': metrics
+        }
+    }
+    return checkpoint
+
+def save_chkpt(
+        train_id,
+        train_step_unit,
+        train_step_num,
+        model,
+        optimizer,
+        lr_scheduler,
+        loss,
+        save_path
+        ):
+    """
+    Saves a training checkpoint.
+
+    Args:
+        train_id: Identifier for the training run.
+        train_step_unit: the unit of the current training step (e.g., 'epoch', 'iteration').
+        train_step_num: Current number of training steps completed.
+        model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
+        optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
+        lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
+                      Optionally, 'name' and 'kwargs' attributes.
+        loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
+        save_path: Path to save the checkpoint file.
+    """
+    checkpoint_data = create_chkpt(
+        train_id=train_id,
+        train_step_unit=train_step_unit,
+        train_step_num=train_step_num,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        loss=loss
+    )
+    torch.save(checkpoint_data, save_path)
+    print(f"Checkpoint saved to {save_path}")
+
+def load_chkpt(path: str):
+    """
+    Loads a training checkpoint.
+
+    Args:
+        path: Path to the checkpoint file.
+
+    Returns:
+        A dictionary containing the checkpoint data.
+    
+    Raises:
+        FileNotFoundError: If the checkpoint file does not exist.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Checkpoint file {path} does not exist.")
+    
+    checkpoint_data = torch.load(path)
+    print(f"Checkpoint loaded from {path}")
+    return checkpoint_data
+
+def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
+    """
+    Checks if the checkpoint is compatible with the current model, optimizer, lr_scheduler, and loss.
+
+    Args:
+        checkpoint: The checkpoint data.
+        model: The current model.
+        optimizer: The current optimizer.
+        lr_scheduler: The current learning rate scheduler.
+        loss: The current loss function.
+
+    Returns:
+        bool: True if compatible, False otherwise.
+    """
+    # Check model compatibility
+    if checkpoint['model']['name'] != model.name:
+        print(f"Model mismatch: {checkpoint['model']['name']} vs {model.name}")
+        return False
+
+    # Check optimizer compatibility
+    if checkpoint['optimizer']['name'] != optimizer.__class__.__name__:
+        print(f"Optimizer mismatch: {checkpoint['optimizer']['name']} vs {optimizer.__class__.__name__}")
+        return False
+
+    # Check lr_scheduler compatibility
+    if checkpoint['lr_scheduler']['name'] != lr_scheduler.__class__.__name__:
+        print(f"LR Scheduler mismatch: {checkpoint['lr_scheduler']['name']} vs {lr_scheduler.__class__.__name__}")
+        return False
+
+    # Check loss compatibility
+    if checkpoint['loss']['name'] != loss.name:
+        print(f"Loss mismatch: {checkpoint['loss']['name']} vs {loss.name}")
+        return False
+
+    return True
