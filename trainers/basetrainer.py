@@ -11,7 +11,6 @@ from torch.nn import functional as F
 from tqdm import trange
 import collections
 from utils.io import load_chkpt, save_chkpt, create_chkpt
-from utils.reproducibility import set_deterministic_run
 import uuid
 from utils.helpers import create_load_optimizer, create_load_lr_scheduler
 from vae_models.utils import create_load_model
@@ -177,10 +176,6 @@ class BaseTrainer():
             If `return_log_loss` is True, returns a list of dictionaries containing
             the mean logged losses at specified intervals. Otherwise, returns None.
         """
-
-        ## determinism ##
-        if self.seed is not None:
-            set_deterministic_run(self.seed, self.determinism_type)
         
         self.chkpt_list = []
 
