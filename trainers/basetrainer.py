@@ -36,8 +36,8 @@ class BaseTrainer():
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
                  return_log_loss=False,
-                 log_loss_interval_type='epoch', # 'epoch' or 'iteration' 
-                 log_loss_iter_interval=50, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
+                 log_loss_interval_type='iteration', # 'epoch' or 'iteration' 
+                 log_loss_iter_interval=100, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
                 ### save chkpt ### 
                  return_chkpt=False,
                  chkpt_save_output_dir=None,
