@@ -39,8 +39,9 @@ class BaseTrainer():
                  log_loss_iter_interval=100, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
                 ### save chkpt ### 
                  return_chkpt=False,
-                 chkpt_save_output_dir=None,
+                 chkpt_save_dir=None, # Renamed from chkpt_save_output_dir
                  chkpt_every_n_steps=None,
+                 chkpt_save_master_dir=None,
                  ):
         """
         Initializes the BaseTrainer.
@@ -53,10 +54,14 @@ class BaseTrainer():
             The loss function to be used for training.
         optimizer : torch.optim.Optimizer
             The optimizer for updating model parameters.
-        lr_scheduler : torch.optim.lr_scheduler._LRScheduler
-            The learning rate scheduler.
+        lr_scheduler : torch.optim.lr_scheduler._LRScheduler, optional
+            The learning rate scheduler. If None, a constant scheduler is used.
+            Defaults to None.
         device : torch.device
             The device (CPU or GPU) on which to perform training.
+        train_id : uuid.UUID or str, optional
+            A unique identifier for the training run. If None, a new UUID is generated.
+            Defaults to None.
         seed : int, optional
             Random seed for reproducibility. If provided, `determinism_type` must also be provided.
             Defaults to None.
@@ -65,16 +70,16 @@ class BaseTrainer():
             Required if `seed` is provided. Defaults to None.
         use_compile_model : bool, optional
             Whether to compile the model using `torch.compile` for potential performance improvements.
-            Defaults to False.
+            Note: Determinism is not supported with `torch.compile`. Defaults to False.
         compile_kwargs : dict, optional
             Keyword arguments to pass to `torch.compile` if `use_compile_model` is True.
             Defaults to `{'mode': 'max-autotune', 'backend': 'inductor'}`.
         train_step_unit : str, optional
             Specifies the unit for `max_steps` in the `train` method.
             Can be either 'epoch' or 'iteration'. Defaults to 'epoch'.
-        
-        ### Logging ###
-        -----------
+
+        ### Logging Parameters ###
+        ------------------------
         is_progress_bar : bool, optional
             Whether to display a progress bar during training. Defaults to True.
         progress_bar_log_iter_interval : int, optional
@@ -83,23 +88,27 @@ class BaseTrainer():
         return_log_loss : bool, optional
             Whether the `train` method should return a log of losses. Defaults to False.
         log_loss_interval_type : str, optional
-            Specifies the interval type for logging losses if `return_log_losses` is True.
-            Can be 'epoch' or 'iteration'. Defaults to 'epoch'.
+            Specifies the interval type for logging losses if `return_log_loss` is True.
+            Can be 'epoch' or 'iteration'. If `train_step_unit` is 'iteration', this must also be 'iteration'.
+            Defaults to 'iteration'.
         log_loss_iter_interval : int, optional
             The interval (in iterations) at which to log losses if `log_loss_interval_type` is 'iteration'.
-            Defaults to 50. 
-    
-        ### Checkpointing ###
-        -------------------
+            Defaults to 100.
+
+        ### Checkpointing Parameters ###
+        ------------------------------
         return_chkpt : bool, optional
-            Whether the `train` method should return a list of checkpoints from trainer. Defaults to False.
-        chkpt_save_output_dir : str, optional
-            Directory where checkpoint files will be saved. Defaults to None.
+            Whether the `train` method should return a list of checkpoint dictionaries. Defaults to False.
+        chkpt_save_dir : str, optional
+            Directory where checkpoint files will be saved. If None, checkpoints are not saved to disk.
+            Cannot be set if `chkpt_save_master_dir` is also set. Defaults to None.
         chkpt_every_n_steps : int, optional
             Create checkpoint every N training steps (epochs or iterations, depending on `train_step_unit`).
-            Including the last step.
-            If set default to None, it will only create a checkpoint at the end of training.
+            Includes the last step. If None, only creates a checkpoint at the end of training.
             Defaults to None.
+        chkpt_save_master_dir : str, optional
+            Master directory for saving checkpoints. If set, `chkpt_save_dir` will be derived from this.
+            Cannot be set if `chkpt_save_dir` is also set. Defaults to None.
         """
         if train_id is None:
             # Generate a new UUID for the training session
@@ -125,9 +134,10 @@ class BaseTrainer():
         self.log_loss_iter_interval = log_loss_iter_interval
 
         self.return_chkpt = return_chkpt
-        self.chkpt_save_output_dir = chkpt_save_output_dir
+        self.chkpt_save_dir = chkpt_save_dir # Renamed from chkpt_save_output_dir
+        self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
-        self.use_chkpt = return_chkpt or (chkpt_save_output_dir is not None)
+        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) # Renamed from chkpt_save_output_dir
 
         if seed is not None:
             if determinism_type is None:
@@ -138,7 +148,8 @@ class BaseTrainer():
 
         if self.use_compile_model:
             if seed is not None and determinism_type is not None:
-                raise ValueError("Determinism is not supported with torch.compile. Please set seed and determinism_type to None.")
+                raise ValueError("Determinism is not supported with torch.compile. " \
+                "Please set seed and determinism_type to None.")
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
         if train_step_unit not in ['epoch', 'iteration']:
@@ -159,6 +170,10 @@ class BaseTrainer():
             )
         else:
             self.lr_scheduler = lr_scheduler  # Renamed from scheduler
+        
+        if self.chkpt_save_master_dir is not None and self.chkpt_save_dir is not None:
+            raise ValueError("chkpt_save_master_dir and chkpt_save_dir " \
+            "cannot be set at the same time. Please set one of them")
         
     def train(self, data_loader, max_steps: int):
         """
@@ -310,8 +325,8 @@ class BaseTrainer():
             )
 
             self.chkpt_list.append(chkpt)
-            if self.chkpt_save_output_dir is not None:
-                save_chkpt(chkpt, self.chkpt_save_output_dir, self.train_id, step)
+            if self.chkpt_save_dir is not None: # Renamed from chkpt_save_output_dir
+                save_chkpt(chkpt, self.chkpt_save_dir, self.train_id, step) # Renamed from chkpt_save_output_dir
 
     def _train_epoch(self, data_loader, epoch):
         """
@@ -532,6 +547,10 @@ def create_trainer_from_chkpt(ckpt,
         determinism_type=ckpt['train_determinism_type'],
         use_compile_model=False,  # Assuming compile is not needed for loading
         train_step_unit=ckpt['train_step_unit'],
+        # Pass chkpt_save_dir from additional_trainer_kwargs if present
+        # Note: Checkpoints themselves don't store the save directory,
+        # so we don't load it from ckpt here.
+        chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
         **(additional_trainer_kwargs or {})
     )
 
