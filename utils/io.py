@@ -155,13 +155,19 @@ def create_chkpt(
 
     Args:
         train_id: Identifier for the training run.
-        train_step_unit: the unit of the current training step (e.g., 'epoch', 'iteration').
+        train_step_unit: The unit of the current training step (e.g., 'epoch', 'iteration').
         train_step_num: Current number of training steps completed.
+        train_seed: The random seed used for training.
+        train_determinism_type: The type of determinism used (e.g., 'full', 'seed_only', 'cudnn_only').
         model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
         optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
         lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
-                      Optionally, 'name' and 'kwargs' attributes.
+                     Optionally, 'name' and 'kwargs' attributes.
+        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
+        dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
         loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
+        loss_results: Dictionary containing loss results (optional).
+        metrics: Dictionary containing metric results (optional).
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -187,7 +193,7 @@ def create_chkpt(
             'name': optimizer.__class__.__name__,
             'kwargs': optimizer.defaults,
             'state_dict': optimizer.state_dict(),
-        },    
+        },
         'lr_scheduler': { # Assuming lr_scheduler has 'name' and 'kwargs' attributes
             'name': lr_scheduler.name if hasattr(lr_scheduler, 'name') else lr_scheduler.__class__.__name__,
             'kwargs': lr_scheduler.kwargs if hasattr(lr_scheduler, 'kwargs') else {}, # Provide default if not present
@@ -198,7 +204,17 @@ def create_chkpt(
             'kwargs': dataset.kwargs, # Assuming dataset has a 'kwargs' attribute
         },
         'dataloader': {
-           'kwargs': dataloader._dict_,
+           'kwargs': {
+                'batch_size': dataloader.batch_size,
+                'shuffle': dataloader.shuffle,
+                'num_workers': dataloader.num_workers,
+                'pin_memory': dataloader.pin_memory,
+                # Add specific args from get_deterministic_dataloader
+                'seed': dataloader.generator.initial_seed() if dataloader.generator else None, # Assuming generator is set and has initial_seed
+                'persistent_workers': dataloader.persistent_workers,
+                'in_order': dataloader.in_order,
+                'snapshot_every_n_steps': dataloader.snapshot_every_n_steps,
+           },
            'state_dict': dataloader.state_dict() # Assuming using StatefulDataLoader
         },
         'metrics': {
@@ -209,37 +225,55 @@ def create_chkpt(
     return checkpoint
 
 def save_chkpt(
+        save_path,
         train_id,
         train_step_unit,
         train_step_num,
+        train_seed, # Added
+        train_determinism_type, # Added
         model,
         optimizer,
         lr_scheduler,
+        dataset, # Added
+        dataloader, # Added
         loss,
-        save_path
+        loss_results=None, # Added
+        metrics=None, # Added
         ):
     """
     Saves a training checkpoint.
 
     Args:
+        save_path: Path to save the checkpoint file.
         train_id: Identifier for the training run.
         train_step_unit: the unit of the current training step (e.g., 'epoch', 'iteration').
         train_step_num: Current number of training steps completed.
+        train_seed: The random seed used for training. # Added
+        train_determinism_type: The type of determinism used (e.g., 'none', 'reproducible'). # Added
         model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
         optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
         lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
                       Optionally, 'name' and 'kwargs' attributes.
+        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes. # Added
+        dataloader: The dataloader configuration/object to save. Must have '_dict_' and 'state_dict' (if stateful) attributes/methods. # Added
         loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
-        save_path: Path to save the checkpoint file.
+        loss_results: Dictionary containing loss results (optional). # Added
+        metrics: Dictionary containing metric results (optional). # Added
     """
     checkpoint_data = create_chkpt(
         train_id=train_id,
         train_step_unit=train_step_unit,
         train_step_num=train_step_num,
+        train_seed=train_seed, # Added
+        train_determinism_type=train_determinism_type, # Added
         model=model,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
-        loss=loss
+        dataset=dataset, # Added
+        dataloader=dataloader, # Added
+        loss=loss,
+        loss_results=loss_results, # Added
+        metrics=metrics # Added
     )
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
