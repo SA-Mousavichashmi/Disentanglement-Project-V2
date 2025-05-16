@@ -147,7 +147,7 @@ class BaseTrainer():
         self.chkpt_save_dir = chkpt_save_dir # Renamed from chkpt_save_output_dir
         self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
-        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) # Updated use_chkpt logic
+        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup

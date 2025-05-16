@@ -132,6 +132,8 @@ def find_optimal_num_workers(
 
 ##################### Checkpoint utils #####################
 
+CHKPT_DIR = 'checkpoints' # Default directory for checkpoints
+
 def create_chkpt(
                 train_id,
                 train_step_unit,
