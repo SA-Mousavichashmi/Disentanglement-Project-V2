@@ -181,3 +181,6 @@ cython_debug/
 
 #file:dummy (tests).ipynb
 dummy (tests).ipynb
+
+# Checkpoints save dir
+checkpoints/

@@ -114,40 +114,6 @@ class BaseTrainer():
             Master directory for saving checkpoints. a folder is created with name of `train_id' considering parameter of training
             Cannot be set if `chkpt_save_path` or `chkpt_save_dir` is also set. Defaults to None.
         """
-        ##### Assertions #####
-        if seed is not None:
-            if determinism_type is None:
-                raise ValueError("If seed is provided, determinism_type must also be provided.")
-
-        if seed is None and determinism_type is not None:
-            raise ValueError("If determinism_type is provided, seed must also be provided.")
-
-        if use_compile_model:
-            if seed is not None and determinism_type is not None:
-                raise ValueError("Determinism is not supported with torch.compile. " \
-                "Please set seed and determinism_type to None.")
-
-        if train_step_unit not in ['epoch', 'iteration']:
-            raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
-        
-        #### Logging assertions ####
-        if log_loss_interval_type not in ['epoch', 'iteration']:
-            raise ValueError("log_loss_interval_type must be either 'epoch' or 'iteration'")
-
-        if train_step_unit == 'iteration' and log_loss_interval_type == 'epoch':
-             raise ValueError("When train_step_unit is 'iteration', log_loss_interval_type must also be 'iteration'")
-
-        #### Checkpointing assertions ####
-        # One of the chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir must be set
-        if chkpt_save_path is not None and chkpt_save_dir is not None:
-            raise ValueError("chkpt_save_path and chkpt_save_dir cannot be set at the same time.")
-        if chkpt_save_path is not None and chkpt_save_master_dir is not None:
-            raise ValueError("chkpt_save_path and chkpt_save_master_dir cannot be set at the same time.")
-        if chkpt_save_dir is not None and chkpt_save_master_dir is not None:
-            raise ValueError("chkpt_save_dir and chkpt_save_master_dir cannot be set at the same time.")
-        if chkpt_save_path is None and chkpt_save_dir is None and chkpt_save_master_dir is None:
-            raise ValueError("One of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir must be set.")
-
         if train_id is None:
             # Generate a new UUID for the training session
             self.train_id = uuid.uuid4()
@@ -181,7 +147,7 @@ class BaseTrainer():
         self.chkpt_save_dir = chkpt_save_dir # Renamed from chkpt_save_output_dir
         self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
-        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) # Renamed from chkpt_save_output_dir
+        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) # Updated use_chkpt logic
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
@@ -192,6 +158,48 @@ class BaseTrainer():
         else:
             self.lr_scheduler = lr_scheduler  # Renamed from scheduler
 
+        self._validate_init_params()
+
+    def _validate_init_params(self):
+        """
+        Validates the parameters passed to the BaseTrainer constructor.
+        """
+        ##### Assertions #####
+        if self.seed is not None:
+            if self.determinism_type is None:
+                raise ValueError("If seed is provided, determinism_type must also be provided.")
+
+        if self.seed is None and self.determinism_type is not None:
+            raise ValueError("If determinism_type is provided, seed must also be provided.")
+
+        if self.use_compile_model:
+            if self.seed is not None and self.determinism_type is not None:
+                raise ValueError("Determinism is not supported with torch.compile. " \
+                "Please set seed and determinism_type to None.")
+
+        if self.train_step_unit not in ['epoch', 'iteration']:
+            raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
+        
+        #### Logging assertions ####
+        if self.log_loss_interval_type not in ['epoch', 'iteration']:
+            raise ValueError("log_loss_interval_type must be either 'epoch' or 'iteration'")
+
+        if self.train_step_unit == 'iteration' and self.log_loss_interval_type == 'epoch':
+             raise ValueError("When train_step_unit is 'iteration', log_loss_interval_type must also be 'iteration'")
+
+        #### Checkpointing assertions ####
+        # Ensure at most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir is set
+        save_path_set = self.chkpt_save_path is not None
+        save_dir_set = self.chkpt_save_dir is not None
+        save_master_dir_set = self.chkpt_save_master_dir is not None
+
+        if sum([save_path_set, save_dir_set, save_master_dir_set]) > 1:
+             raise ValueError("At most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir can be set.")
+
+        # If chkpt_save_path is set, chkpt_every_n_steps must be None
+        if self.chkpt_save_path is not None and self.chkpt_every_n_steps is not None:
+            raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
+            " as only the final checkpoint is saved at final step.")
 
     def train(self, data_loader, max_steps: int):
         """
@@ -343,7 +351,7 @@ class BaseTrainer():
             )
 
             self.chkpt_list.append(chkpt)
-            if self.chkpt_save_path is not None: # Renamed from chkpt_save_output_dir
+            if self.chkpt_save_path is not None:
                 torch.save(chkpt, self.chkpt_save_path)
             # TODO Add logic to save to chkpt_save_dir or chkpt_save_master_dir
 
