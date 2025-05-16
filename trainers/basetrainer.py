@@ -352,6 +352,7 @@ class BaseTrainer():
 
             self.chkpt_list.append(chkpt)
             if self.chkpt_save_path is not None:
+                print(f"Saving checkpoint to {self.chkpt_save_path}")
                 torch.save(chkpt, self.chkpt_save_path)
             # TODO Add logic to save to chkpt_save_dir or chkpt_save_master_dir
 
