@@ -43,7 +43,6 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
         return {
             'beta': self.beta,
             'log_kl_components': self.log_kl_components,
-            'mode': getattr(self, 'mode', None),
             'rec_dist': getattr(self, 'rec_dist', None),
         }
 

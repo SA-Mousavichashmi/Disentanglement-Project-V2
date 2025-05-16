@@ -71,7 +71,6 @@ class Loss(baseloss.BaseLoss):
             'gamma': self.gamma,
             'is_mss': self.is_mss,
             'log_kl_components': self.log_kl_components,
-            'mode': self.mode,
             'rec_dist': self.rec_dist,
         }
 

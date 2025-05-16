@@ -47,7 +47,6 @@ class Loss(baseloss.BaseLoss):
         return {
             'beta': self.beta,
             'log_kl_components': self.log_kl_components,
-            'mode': self.mode,
             'rec_dist': self.rec_dist,
         }
 

@@ -115,7 +115,6 @@ class Loss(baseloss.BaseLoss):
             'inner_prob_samples': self.inner_prob_samples,
             'outer_prob_samples': self.outer_prob_samples,
             'log_kl_components': self.log_kl_components,
-            'mode': self.mode,
             'rec_dist': self.rec_dist,
         }
 

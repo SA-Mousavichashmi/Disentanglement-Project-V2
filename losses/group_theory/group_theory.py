@@ -105,7 +105,6 @@ class Loss(BaseLoss):
             'meaningful_critic_lr': self.meaningful_critic_lr,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
-            'mode': self.mode,
         }
     
     def _group_action_commutative_loss(self, data, model, kl_components, variance_components):

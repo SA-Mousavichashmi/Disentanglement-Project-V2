@@ -105,7 +105,6 @@ class Loss(baseloss.BaseLoss):
             'gamma': self.gamma,
             'anneal_steps': self.anneal_steps,
             'log_kl_components': self.log_kl_components,
-            'mode': self.mode,
             'rec_dist': self.rec_dist,
         }
 
