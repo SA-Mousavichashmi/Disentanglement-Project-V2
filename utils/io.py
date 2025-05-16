@@ -146,6 +146,7 @@ def create_chkpt(
                 loss,
                 loss_results=None, # TODO Check them later
                 metrics=None, # TODO check them later
+                # TODO: Add device argument if needed.
                       ):
     """
     Creates a checkpoint dictionary.
@@ -163,6 +164,7 @@ def create_chkpt(
     Returns:
         A dictionary containing the checkpoint data.
     """
+
     checkpoint = {
         'train_id': train_id,
         'train_step_unit': train_step_unit,
@@ -232,12 +234,13 @@ def save_chkpt(
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
 
-def load_chkpt(path: str):
+def load_chkpt(path: str, device: str = 'cpu'):
     """
     Loads a training checkpoint.
 
     Args:
         path: Path to the checkpoint file.
+        device: Device to map the checkpoint to ('cpu' or 'cuda').
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -248,8 +251,10 @@ def load_chkpt(path: str):
     if not os.path.exists(path):
         raise FileNotFoundError(f"Checkpoint file {path} does not exist.")
     
-    checkpoint_data = torch.load(path)
-    print(f"Checkpoint loaded from {path}")
+    # map loaded tensors to the requested device
+    map_location = torch.device(device)
+    checkpoint_data = torch.load(path, map_location=map_location)
+    print(f"Checkpoint loaded from {path} on {device}")
     return checkpoint_data
 
 def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
