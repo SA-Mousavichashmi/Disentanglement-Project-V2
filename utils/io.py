@@ -3,6 +3,9 @@ import time
 import os
 import psutil  # Added import
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import RandomSampler, SequentialSampler
+from torch.utils.data import IterableDataset
+
 
 def find_optimal_num_workers(
     dataset: Dataset,
@@ -129,6 +132,27 @@ def find_optimal_num_workers(
 
     return optimal_num_workers
 
+def has_shuffle(loader) -> bool:
+    """
+    Return True if the DataLoader was configured with shuffle=True.
+    Returns False for iterable-style datasets or if no sampler is set.
+    """
+    # IterableDataset doesn’t support meaningful shuffle
+    if isinstance(loader.dataset, IterableDataset):
+        return False
+
+    # If there's no sampler attribute, no shuffle
+    if not hasattr(loader, "sampler"):
+        return False
+
+    sampler = loader.sampler
+
+    # A SequentialSampler means shuffle=False
+    if isinstance(sampler, SequentialSampler):
+        return False
+
+    # RandomSampler indicates shuffle=True
+    return isinstance(sampler, RandomSampler)
 
 ##################### Checkpoint utils #####################
 
@@ -206,7 +230,7 @@ def create_chkpt(
         'dataloader': {
            'kwargs': {
                 'batch_size': dataloader.batch_size,
-                'shuffle': dataloader.shuffle,
+                'shuffle': has_shuffle(dataloader),
                 'num_workers': dataloader.num_workers,
                 'pin_memory': dataloader.pin_memory,
                 # Add specific args from get_deterministic_dataloader
