@@ -86,12 +86,6 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
         return self.transforms(self.imgs[self.selected_img_indices[idx]]), self.lat_values[idx]
 
-
-    @abc.abstractmethod
-    def download(self):
-        """Download the dataset. """
-        pass
-
     def _get_selected_img_indices(self):
         """
         Get indices of images that match the specified values for non-selected factors.
@@ -136,3 +130,20 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
                     selected_indices = selected_indices[factor_values[selected_indices] == target_value]
         
         return selected_indices
+
+    @abc.abstractmethod
+    def download(self):
+        """Download the dataset. """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def name(self):
+        """Name of the dataset."""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def kwargs(self):
+        """Keyword arguments for the dataset."""
+        pass

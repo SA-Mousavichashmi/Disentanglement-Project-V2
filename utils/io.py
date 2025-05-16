@@ -143,6 +143,8 @@ def create_chkpt(
                 model,
                 optimizer,
                 lr_scheduler,
+                dataset,
+                dataloader,
                 loss,
                 loss_results=None, # TODO Check them later
                 metrics=None, # TODO check them later
@@ -185,11 +187,19 @@ def create_chkpt(
             'name': optimizer.__class__.__name__,
             'kwargs': optimizer.defaults,
             'state_dict': optimizer.state_dict(),
-        },
+        },    
         'lr_scheduler': { # Assuming lr_scheduler has 'name' and 'kwargs' attributes
             'name': lr_scheduler.name if hasattr(lr_scheduler, 'name') else lr_scheduler.__class__.__name__,
             'kwargs': lr_scheduler.kwargs if hasattr(lr_scheduler, 'kwargs') else {}, # Provide default if not present
             'state_dict': lr_scheduler.state_dict() if hasattr(lr_scheduler, 'state_dict') else None,
+        },
+        'dataset': {
+            'name': dataset.name, # Assuming dataset has a 'name' attribute
+            'kwargs': dataset.kwargs, # Assuming dataset has a 'kwargs' attribute
+        },
+        'dataloader': {
+           'kwargs': dataloader._dict_,
+           'state_dict': dataloader.state_dict() # Assuming using StatefulDataLoader
         },
         'metrics': {
             'loss_results': loss_results,

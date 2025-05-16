@@ -26,50 +26,26 @@ from utils.io import find_optimal_num_workers
 COLOUR_BLACK = 0
 COLOUR_WHITE = 1
 DATASETS = [
-    'mnist', 'fashionmnist', 'dsprites', 'celeba', 'chairs', 'shapes3d', 'mpi3d', 'mpi3d_real', 'mpi3d_real_complex', 'cars3d', 'smallnorb'
+    'dsprites', 'shapes3d', 'cars3d'
 ]
 
-def get_dataset(dataset):
+def get_dataset(dataset_name):
     """Selection function to assign a respective dataset to a query string.
     """
-    dataset = dataset.lower()
+    dataset_name = dataset_name.lower()
 
-    if dataset not in DATASETS:
-        raise NotImplementedError(f'Unknown datasets {dataset}!')
+    if dataset_name not in DATASETS:
+        raise NotImplementedError(f'Unknown datasets {dataset_name}!')
 
-    if dataset == 'celeba':
-        import datasets.celeba
-        return datasets.celeba.CelebA
-    if dataset == 'chairs':
-        import datasets.chairs
-        return datasets.chairs.Chairs        
-    if dataset == 'dsprites':
+    if dataset_name == 'dsprites':
         import datasets.dsprites
         return datasets.dsprites.DSprites
-    if dataset == 'fashionmnist':
-        import datasets.fashionmnist
-        return datasets.fashionmnist.FashionMNIST
-    if dataset == 'mnist':
-        import datasets.mnist
-        return datasets.mnist.MNIST
-    if dataset == 'mpi3d':
-        import datasets.mpi3d
-        return datasets.mpi3d.MPI3D
-    if dataset == 'mpi3d_real':
-        import datasets.mpi3d_real
-        return datasets.mpi3d_real.MPI3D_real
-    if dataset == 'mpi3d_real_complex':
-        import datasets.mpi3d_real_complex
-        return datasets.mpi3d_real_complex.MPI3D_real_complex
-    if dataset == 'shapes3d':
+    if dataset_name == 'shapes3d':
         import datasets.shapes3d
         return datasets.shapes3d.Shapes3D
-    if dataset == 'cars3d':
+    if dataset_name == 'cars3d':
         import datasets.cars3d
         return datasets.cars3d.Cars3D
-    if dataset == 'smallnorb':
-        import datasets.smallnorb
-        return datasets.smallnorb.SmallNORB
 
 def get_img_size(dataset, img_size=None):
     """Return the correct image size."""
@@ -464,7 +440,7 @@ def compute_constrained_elements(dataset, constraints_filepath, allow_overshoot=
             if rem_count * 1./len(base_remove) <= float(repeat[1]):
                 base_remove = np.logical_or(base_remove, to_remove)                            
                 count = np.sum(base_remove)
-                perc = count * 1./len(base_remove)                
+                perc = count * 1. / len(base_remove)                
                 pbar.update(int(count - old_count))
                 old_count = count                
                 if perc >= float(repeat[1]):
@@ -574,10 +550,10 @@ def provide_correlation_sampler(dataset, correlations_filepath, correlation_dist
     [1] Traeuble et al., "On Disentangled Representations Learned from Correlated Data"
     """
     if correlation_distribution == 'traeuble':
-        #Note that we assume that each factor c_i is already normalized to [0...1].
+        #Note that we assume that each factor c_1 is already normalized to [0...1].
         f_corr = lambda c_1, c_2, sigma: np.exp(-(c_1 - c_2)**2/(2 * sigma ** 2))
     elif correlation_distribution == 'inv_traeuble':
-        #Note that we assume that each factor c_i is already normalized to [0...1].
+        #Note that we assume that each factor c_1 is already normalized to [0...1].
         f_corr = lambda c_1, c_2, sigma: np.exp(-(c_1 - (1 - c_2))**2/(2 * sigma ** 2))
     else:
         raise ValueError(f'No correlation distribution [{correlation_distribution}] available!')

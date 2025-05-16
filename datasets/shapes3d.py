@@ -110,6 +110,21 @@ class Shapes3D(datasets.base.DisentangledDataset):
             self.imgs = self.imgs[subset]
             self.factor_values = self.factor_values[subset]
 
+    @property
+    def name(self):
+        """Name of the dataset."""
+        return 'shapes3d'
+
+    @property
+    def kwargs(self):
+        """Keyword arguments for the dataset."""
+        return {
+            'selected_factors': self.selected_factors,
+            'not_selected_factors_index_value': self.not_selected_factors_index_value,
+            'root': self.root,
+            'subset': self.subset
+        }
+
     def download(self):
         """Download the dataset."""
         os.makedirs(self.root)

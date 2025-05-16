@@ -159,6 +159,22 @@ class DSprites(datasets.base.DisentangledDataset):
             type(self).urls["train"], "--output", self.train_data
         ])
 
+    @property
+    def name(self):
+        """Name of the dataset."""
+        return 'dsprites'
+
+    @property
+    def kwargs(self):
+        """Keyword arguments for the dataset."""
+        return {
+            'selected_factors': self.selected_factors,
+            'not_selected_factors_index_value': self.not_selected_factors_index_value,
+            'root': self.root,
+            'drop_color_factor': self.drop_color_factor,
+            'subset': self.subset
+        }
+
     def __getitem__(self, idx):
         # stored image have binary and shape (H x W) so multiply by 255 to get pixel
         # values + add dimension

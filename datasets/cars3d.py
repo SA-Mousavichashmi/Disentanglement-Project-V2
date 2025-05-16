@@ -107,6 +107,21 @@ class Cars3D(datasets.base.DisentangledDataset):
             self.selected_imgs = self.selected_imgs[subset]
             self.factor_values = self.factor_values[self.selected_img_indices][subset]
 
+    @property
+    def name(self):
+        """Name of the dataset."""
+        return 'cars3d'
+
+    @property
+    def kwargs(self):
+        """Keyword arguments for the dataset."""
+        return {
+            'selected_factors': self.selected_factors,
+            'not_selected_factors_index_value': self.not_selected_factors_index_value,
+            'root': self.root,
+            'subset': self.subset
+        }
+
     def download(self):
         """Download the dataset."""
         save_path = os.path.join(self.root, 'cars3d.tar.gz')
