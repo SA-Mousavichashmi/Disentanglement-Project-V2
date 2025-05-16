@@ -222,6 +222,7 @@ class BaseTrainer():
 
         self.model.train()
         all_logs = [] if self.return_log_loss else None
+        dataset = data_loader.dataset
 
         if self.train_step_unit == 'epoch':  # Renamed from step_unit
             # --- Epoch-based training ---
@@ -243,6 +244,7 @@ class BaseTrainer():
                 self._save_checkpoint_if_needed(
                     step=epoch + 1,
                     total_steps=num_epochs,
+                    dataset=dataset,
                     dataloader=data_loader
                 )
 
@@ -307,6 +309,7 @@ class BaseTrainer():
                     self._save_checkpoint_if_needed(
                         step=iter + 1,
                         total_steps=total_iterations,
+                        dataset=dataset,
                         dataloader=data_loader
                     )
 
@@ -316,7 +319,7 @@ class BaseTrainer():
         self.model.eval()
         return all_logs
 
-    def _save_checkpoint_if_needed(self, step, total_steps, dataloader):
+    def _save_checkpoint_if_needed(self, step, total_steps, dataset, dataloader):
         """
         Handles checkpoint creation and saving logic for both epoch and iteration training.
 
@@ -350,7 +353,7 @@ class BaseTrainer():
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
                 loss=self.loss,
-                dataset=self.dataset,
+                dataset=dataset,
                 dataloader=dataloader
             )
 
