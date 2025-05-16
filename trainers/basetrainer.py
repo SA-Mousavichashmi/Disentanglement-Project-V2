@@ -242,7 +242,8 @@ class BaseTrainer():
                 # checkpoint #
                 self._save_checkpoint_if_needed(
                     step=epoch + 1,
-                    total_steps=num_epochs
+                    total_steps=num_epochs,
+                    dataloader=data_loader
                 )
 
                 # Assuming scheduler steps per epoch if epoch-based training
@@ -305,7 +306,8 @@ class BaseTrainer():
                     # checkpoints
                     self._save_checkpoint_if_needed(
                         step=iter + 1,
-                        total_steps=total_iterations
+                        total_steps=total_iterations,
+                        dataloader=data_loader
                     )
 
                     # Step the scheduler after each iteration if iteration-based training
@@ -314,7 +316,7 @@ class BaseTrainer():
         self.model.eval()
         return all_logs
 
-    def _save_checkpoint_if_needed(self, step, total_steps):
+    def _save_checkpoint_if_needed(self, step, total_steps, dataloader):
         """
         Handles checkpoint creation and saving logic for both epoch and iteration training.
 
@@ -348,6 +350,8 @@ class BaseTrainer():
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
                 loss=self.loss,
+                dataset=self.dataset,
+                dataloader=dataloader
             )
 
             self.chkpt_list.append(chkpt)
