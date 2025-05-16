@@ -45,7 +45,7 @@ class Model(Toroidal_VAE_Base):
         return 'toroidal_vae_burgess'
 
     @property
-    def model_kwargs(self):
+    def kwargs(self):
         return {
             'img_size': self.img_size,
             'latent_factor_num': self.latent_factor_num,

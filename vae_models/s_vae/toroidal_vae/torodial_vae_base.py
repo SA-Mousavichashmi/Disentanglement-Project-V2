@@ -48,7 +48,7 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
 
     @property
     @abc.abstractmethod
-    def model_kwargs(self):
+    def kwargs(self):
         pass
 
     def validate_img_size(self, allowed_sizes):

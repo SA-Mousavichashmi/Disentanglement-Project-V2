@@ -44,7 +44,7 @@ class Model(BaseVAE):
         return 'vae_locatello_sbd'
 
     @property
-    def model_kwargs(self):
+    def kwargs(self):
         return {
             'img_size': self.img_size,
             'latent_dim': self.latent_dim,

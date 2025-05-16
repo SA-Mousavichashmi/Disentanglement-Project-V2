@@ -48,7 +48,7 @@ class Model(Toroidal_VAE_Base):
         return f'toroidal_vae_encoder-{self.encoder_name}_decoder-{self.decoder_name}'
     
     @property
-    def model_kwargs(self):
+    def kwargs(self):
         return {
             'img_size': self.img_size,
             'latent_factor_num': self.latent_factor_num,
