@@ -43,7 +43,7 @@ class Loss(baseloss.BaseLoss):
         return 'beta_vae'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'beta': self.beta,
             'log_kl_components': self.log_kl_components,

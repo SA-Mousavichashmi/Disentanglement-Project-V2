@@ -102,7 +102,7 @@ class Loss(baseloss.BaseLoss):
         return 'factorizedsupporttcvae'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'n_data': self.n_data,
             'beta': self.beta,

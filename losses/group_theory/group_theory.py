@@ -89,7 +89,7 @@ class Loss(BaseLoss):
         return 'group_theory'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'base_loss_name': self.base_loss_name,
             'base_loss_kwargs': self.base_loss_kwargs,

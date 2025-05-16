@@ -93,7 +93,7 @@ class Loss(baseloss.BaseLoss):
         return 'adagvae'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'thresh_mode': self.thresh_mode,
             'average_mode': self.average_mode,

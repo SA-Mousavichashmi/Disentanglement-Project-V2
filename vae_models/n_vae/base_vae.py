@@ -47,7 +47,7 @@ class BaseVAE(abc.ABC, nn.Module):
 
     @property
     @abc.abstractmethod
-    def model_kwargs(self):
+    def kwargs(self):
         """Returns the keyword arguments for the model."""
         pass
 

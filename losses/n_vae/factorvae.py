@@ -54,7 +54,7 @@ class Loss(baseloss.BaseLoss):
         return 'factorvae'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'gamma': self.gamma,
             'discr_lr': self.optimizer_d.param_groups[0]['lr'] if hasattr(self, 'optimizer_d') else None,

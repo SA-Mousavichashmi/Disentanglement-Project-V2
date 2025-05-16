@@ -51,7 +51,7 @@ class Loss(baseloss.BaseLoss):
         return 'annealedvae'
 
     @property
-    def loss_kwargs(self):
+    def kwargs(self):
         return {
             'C_init': self.C_init,
             'C_fin': self.C_fin,

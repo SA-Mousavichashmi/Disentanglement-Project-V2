@@ -42,9 +42,11 @@ class BaseLoss(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def loss_kwargs(self):
+    def kwargs(self):
         """A dictionary of keyword arguments for the loss function, to be implemented by subclasses."""
         pass
+
+    # TODO: Add state_dict as an abstract method to be implemented by subclasses
 
     @abc.abstractmethod
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
