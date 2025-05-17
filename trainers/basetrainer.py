@@ -204,13 +204,13 @@ class BaseTrainer():
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
 
-    def train(self, max_steps: int, data_loader=None):
+    def train(self, max_steps: int, dataloader=None):
         """
         Trains the model based on the mode specified in the constructor.
 
         Parameters
         ----------
-        data_loader: torch.utils.data.DataLoader
+        dataloader: torch.utils.data.DataLoader
         max_steps: int
             The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
 
@@ -222,16 +222,16 @@ class BaseTrainer():
         """
 
         # Use the dataloader provided to train(), or fall back to self.dataloader
-        if data_loader is None:
-            data_loader = self.dataloader
-        if data_loader is None:
+        if dataloader is None:
+            dataloader = self.dataloader
+        if dataloader is None:
             raise ValueError("Either dataloader in the constructor or data_loader in train() must be provided.")
         
         self.chkpt_list = []
 
         self.model.train()
         all_logs = [] if self.return_log_loss else None
-        dataset = data_loader.dataset
+        dataset = dataloader.dataset
 
         if self.train_step_unit == 'epoch':  # Renamed from step_unit
             # --- Epoch-based training ---
@@ -239,7 +239,7 @@ class BaseTrainer():
             for epoch in range(num_epochs):
                 self.epoch = epoch
                 # _train_epoch returns dict if log_loss_interval_type=='epoch', list if 'iteration'
-                epoch_logs_out = self._train_epoch(data_loader, epoch)
+                epoch_logs_out = self._train_epoch(dataloader, epoch)
 
                 if self.return_log_loss:
                     if self.log_loss_interval_type == 'epoch':
@@ -254,7 +254,7 @@ class BaseTrainer():
                     step=epoch + 1,
                     total_steps=num_epochs,
                     dataset=dataset,
-                    dataloader=data_loader
+                    dataloader=dataloader
                 )
 
                 # Assuming scheduler steps per epoch if epoch-based training
@@ -267,8 +267,8 @@ class BaseTrainer():
             current_interval_logs = collections.defaultdict(list) # For return logs
 
             # Get the initial iterator for the DataLoader
-            data_iterator = iter(data_loader)
-            num_batches_per_epoch = len(data_loader) # Get number of batches per epoch
+            data_iterator = iter(dataloader)
+            num_batches_per_epoch = len(dataloader) # Get number of batches per epoch
             approx_epochs = total_iterations / num_batches_per_epoch if num_batches_per_epoch > 0 else float('inf')
 
             kwargs = dict(desc=f"Training for {total_iterations} iterations ({approx_epochs:.1f} epochs)",
@@ -283,7 +283,7 @@ class BaseTrainer():
                         data_out = next(data_iterator)
                     except StopIteration:
                         # DataLoader exhausted, get a new iterator to restart
-                        data_iterator = iter(data_loader)
+                        data_iterator = iter(dataloader)
                         data_out = next(data_iterator)
 
                     data = data_out[0]  # Batch of data instead of label (factor values)
@@ -319,7 +319,7 @@ class BaseTrainer():
                         step=iter + 1,
                         total_steps=total_iterations,
                         dataset=dataset,
-                        dataloader=data_loader
+                        dataloader=dataloader
                     )
 
                     # Step the scheduler after each iteration if iteration-based training
