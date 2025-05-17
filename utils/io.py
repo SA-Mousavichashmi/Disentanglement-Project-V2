@@ -5,6 +5,7 @@ import psutil  # Added import
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data import RandomSampler, SequentialSampler
 from torch.utils.data import IterableDataset
+from utils.helpers import get_model_device
 
 
 def find_optimal_num_workers(
@@ -204,6 +205,7 @@ def create_chkpt(
         'train_step_num': train_step_num,
         'train_seed': train_seed,
         'train_determinism_type': train_determinism_type,
+        'train_device': get_model_device(model), # Assuming model has a method to get its device
         'use_torch_compile': use_torch_compile,
         'model': {
             'name': model.name, # Assuming model has a 'name' attribute
