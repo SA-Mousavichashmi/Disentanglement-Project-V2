@@ -221,7 +221,10 @@ class BaseTrainer():
             the mean logged losses at specified intervals. Otherwise, returns None.
         """
 
-        if self.dataloader is None and data_loader is None:
+        # Use the dataloader provided to train(), or fall back to self.dataloader
+        if data_loader is None:
+            data_loader = self.dataloader
+        if data_loader is None:
             raise ValueError("Either dataloader in the constructor or data_loader in train() must be provided.")
         
         self.chkpt_list = []
