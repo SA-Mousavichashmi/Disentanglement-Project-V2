@@ -40,7 +40,7 @@ class Loss(baseloss.BaseLoss):
 
     @property
     def name(self):
-        return 'beta_vae'
+        return 'betavae'
 
     @property
     def kwargs(self):
