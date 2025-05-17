@@ -367,6 +367,8 @@ def load_chkpt(path: str, device: str = 'original'):
         map_location = torch.device('cpu')
         checkpoint = torch.load(path, map_location=map_location)
     
+    print(f"Checkpoint loaded from {path} on {device}.")
+    
     return checkpoint
 
 def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
