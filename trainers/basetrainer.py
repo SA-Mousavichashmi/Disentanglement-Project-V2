@@ -15,6 +15,7 @@ import uuid
 from utils.helpers import create_load_optimizer, create_load_lr_scheduler
 from vae_models.utils import create_load_model
 from losses.utils import create_load_loss
+from utils.io import get_dataloader_from_chkpt
 
 
 class BaseTrainer():
@@ -31,6 +32,7 @@ class BaseTrainer():
                  use_compile_model=False,
                  compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},  # Compile options for torch.compile
                  train_step_unit: str = 'epoch',  # Renamed from step_unit
+                 dataloader=None,
                  ### logging ###
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
@@ -135,6 +137,7 @@ class BaseTrainer():
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
         self.train_step_unit = train_step_unit  # Renamed from step_unit
+        self.dataloader = dataloader
 
         self.is_progress_bar = is_progress_bar
         self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
@@ -201,7 +204,7 @@ class BaseTrainer():
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
 
-    def train(self, data_loader, max_steps: int):
+    def train(self, max_steps: int, data_loader=None):
         """
         Trains the model based on the mode specified in the constructor.
 
@@ -217,6 +220,9 @@ class BaseTrainer():
             If `return_log_loss` is True, returns a list of dictionaries containing
             the mean logged losses at specified intervals. Otherwise, returns None.
         """
+
+        if self.dataloader is None and data_loader is None:
+            raise ValueError("Either dataloader in the constructor or data_loader in train() must be provided.")
         
         self.chkpt_list = []
 
@@ -575,6 +581,8 @@ def create_trainer_from_chkpt(ckpt,
             state_dict=lr_scheduler_chkpt['state_dict'],
             optimizer=optimizer
         )
+    
+    dataloader = get_dataloader_from_chkpt(checkpoint=ckpt)
 
     trainer = BaseTrainer(
         model=model,
@@ -587,6 +595,7 @@ def create_trainer_from_chkpt(ckpt,
         determinism_type=ckpt.get('train_determinism_type'),  # Use .get for safety
         use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
         train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
+        dataloader=dataloader,
         # Pass chkpt_save_dir from additional_trainer_kwargs if present, otherwise BaseTrainer default (None) will be used.
         # Other BaseTrainer parameters (logging, other chkpt settings, compile_kwargs)
         # will use their defaults unless specified in additional_trainer_kwargs.

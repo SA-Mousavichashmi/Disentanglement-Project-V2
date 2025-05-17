@@ -392,3 +392,49 @@ def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
         return False
 
     return True
+
+def get_dataloader_from_chkpt(checkpoint):
+    """
+    Reconstructs a deterministic DataLoader (StatefulDataLoader) from a checkpoint dict.
+    Returns the DataLoader with its state restored.
+    """
+    # Import here to avoid circular imports
+    from datasets.utils import get_dataset
+    from utils.reproducibility import get_deterministic_dataloader
+
+    # 1. Reconstruct the dataset
+    dataset_info = checkpoint['dataset']
+    dataset_name = dataset_info['name']
+    dataset_kwargs = dataset_info['kwargs']
+    dataset_class = get_dataset(dataset_name)
+    dataset = dataset_class(**dataset_kwargs)
+
+    # 2. Prepare dataloader kwargs
+    dl_kwargs = checkpoint['dataloader']['kwargs']
+    batch_size = dl_kwargs['batch_size']
+    shuffle = dl_kwargs['shuffle']
+    num_workers = dl_kwargs['num_workers']
+    pin_memory = dl_kwargs['pin_memory']
+    seed = dl_kwargs['seed']
+    persistent_workers = dl_kwargs['persistent_workers']
+    in_order = dl_kwargs['in_order']
+    snapshot_every_n_steps = dl_kwargs['snapshot_every_n_steps']
+
+    # 3. Reconstruct the DataLoader
+    loader = get_deterministic_dataloader(
+        dataset=dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        seed=seed,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers,
+        in_order=in_order,
+        snapshot_every_n_steps=snapshot_every_n_steps
+    )
+
+    # 4. Restore DataLoader state if present (stateful dataloader)
+    if 'state_dict' in checkpoint['dataloader'] and checkpoint['dataloader']['state_dict'] is not None:
+        loader.load_state_dict(checkpoint['dataloader']['state_dict'])
+
+    return loader
