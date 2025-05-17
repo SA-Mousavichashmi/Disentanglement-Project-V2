@@ -12,7 +12,7 @@ from tqdm import trange
 import collections
 from utils.io import load_chkpt, save_chkpt, create_chkpt
 import uuid
-from utils.helpers import create_load_optimizer, create_load_lr_scheduler
+from utils.helpers import create_load_optimizer, create_load_lr_scheduler, get_model_device
 from vae_models.utils import create_load_model
 from losses.utils import create_load_loss
 from utils.io import get_dataloader_from_chkpt
@@ -25,7 +25,6 @@ class BaseTrainer():
                  loss,  # renamed
                  optimizer,
                  lr_scheduler,
-                 device,
                  train_id=None,
                  seed = None,
                  determinism_type = None,
@@ -125,7 +124,7 @@ class BaseTrainer():
         self.seed = seed
         self.determinism_type = determinism_type
 
-        self.device = device
+        self.device = get_model_device(model)
         self.loss = loss  # renamed
         self.optimizer = optimizer
 
