@@ -334,13 +334,13 @@ def save_chkpt(
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
 
-def load_chkpt(path: str, device: str = 'cpu'):
+def load_chkpt(path: str, device: str = 'original'):
     """
     Loads a training checkpoint.
 
     Args:
         path: Path to the checkpoint file.
-        device: Device to map the checkpoint to ('cpu' or 'cuda').
+        device: Device to map the checkpoint to ('cpu', 'cuda', 'original').
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -351,11 +351,23 @@ def load_chkpt(path: str, device: str = 'cpu'):
     if not os.path.exists(path):
         raise FileNotFoundError(f"Checkpoint file {path} does not exist.")
     
+    assert device in ['cpu', 'cuda', 'original'], "Device must be 'cpu', 'cuda', or 'original'."
     # map loaded tensors to the requested device
-    map_location = torch.device(device)
-    checkpoint_data = torch.load(path, map_location=map_location)
-    print(f"Checkpoint loaded from {path} on {device}")
-    return checkpoint_data
+    checkpoint = None
+
+    if device == 'original':
+        # Load the checkpoint on the original device
+        checkpoint = torch.load(path)
+    elif device == 'gpu':
+        # Load the checkpoint on GPU
+        map_location = torch.device('cuda')
+        checkpoint = torch.load(path, map_location=map_location)
+    else:
+        # Load the checkpoint on CPU
+        map_location = torch.device('cpu')
+        checkpoint = torch.load(path, map_location=map_location)
+    
+    return checkpoint
 
 def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
     """

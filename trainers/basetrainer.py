@@ -126,7 +126,6 @@ class BaseTrainer():
         self.determinism_type = determinism_type
 
         self.device = device
-        self.model = model.to(self.device)
         self.loss = loss  # renamed
         self.optimizer = optimizer
 
