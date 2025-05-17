@@ -64,7 +64,6 @@ class Loss(baseloss.BaseLoss):
 
     def __call__(self, data, model, optimizer, **kwargs):
         is_train = model.training
-        self._pre_call(is_train)
 
         log_data = {}
 

@@ -229,7 +229,6 @@ class Loss(BaseLoss):
 
     def __call__(self, data, model, vae_optimizer):
         is_train = model.training
-        self._pre_call(is_train)  # to match factor-vae style
         log_data = {}
         # TODO : Start from base model from specific state
         base_loss_f = select(device=data.device, name=self.base_loss_name, **self.base_loss_kwargs) # base loss function

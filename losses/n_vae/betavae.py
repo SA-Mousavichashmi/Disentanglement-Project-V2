@@ -58,7 +58,6 @@ class Loss(baseloss.BaseLoss):
         return
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
-        self._pre_call(is_train)
         if isinstance(stats_qzx, torch.Tensor):
             stats_qzx = stats_qzx.unbind(-1)     
 

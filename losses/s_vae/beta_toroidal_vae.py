@@ -71,8 +71,6 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
             - 'loss': The total computed loss (scalar tensor).
             - 'to_log': A dictionary with components of the loss for logging purposes.
         """
-        self._pre_call(is_train)
-
         # stats_qzx has shape (batch_size, latent_factor_num, dist_nparams)
         # kl_toroidal_loss expects a list of tensors, one for each factor
         latent_factors_dist_param = stats_qzx.unbind(1) # List of length latent_factor_num, each tensor shape (batch_size, dist_nparams)
