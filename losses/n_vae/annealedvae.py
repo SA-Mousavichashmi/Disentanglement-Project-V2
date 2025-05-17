@@ -10,7 +10,6 @@ import torch
 from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from .kl_div import kl_normal_loss
-from .utils import linear_annealing
 
 class Loss(baseloss.BaseLoss):
     """
@@ -36,9 +35,16 @@ class Loss(baseloss.BaseLoss):
         $\beta$-VAE." arXiv preprint arXiv:1804.03599 (2018).
     """
 
-    def __init__(self, C_init=0.0, C_fin=5.0, gamma=100.0, anneal_steps=100000, log_kl_components=False, **kwargs):
+    def __init__(self, 
+                 C_init=0.0, 
+                 C_fin=5.0, 
+                 gamma=100.0, 
+                 anneal_steps=100000, 
+                 log_kl_components=False, 
+                 **kwargs):
         super().__init__(**kwargs)
 
+        self.n_train_steps = 0
         self.gamma = gamma
         self.C_init = C_init
         self.C_fin = C_fin
@@ -60,7 +66,22 @@ class Loss(baseloss.BaseLoss):
             'log_kl_components': self.log_kl_components,
             'rec_dist': self.rec_dist,
         }
+    
+    def state_dict(self):
+        return {'n_train_steps': self.n_train_steps,}
 
+    def load_state_dict(self, state_dict):
+        self.n_train_steps = state_dict['n_train_steps']
+
+    def _linear_annealing(self, init, fin, step, annealing_steps):
+        """Linear annealing of a parameter."""
+        if annealing_steps == 0:
+            return fin
+        assert fin > init, "Final value must be greater than initial value"
+        delta = fin - init
+        annealed = min(init + delta * step / annealing_steps, fin)
+        return annealed
+    
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         self._pre_call(is_train)
         if isinstance(stats_qzx, torch.Tensor):
@@ -81,7 +102,7 @@ class Loss(baseloss.BaseLoss):
         kl_loss = kl_components.sum() # Sum after potential logging
         log_data['kl_loss'] = kl_loss.item()
 
-        C = (linear_annealing(self.C_init, self.C_fin, self.n_train_steps,
+        C = (self._linear_annealing(self.C_init, self.C_fin, self.n_train_steps,
                               self.anneal_steps) if is_train else self.C_fin)
 
         loss = rec_loss + self.gamma * (kl_loss - C).abs()
@@ -89,5 +110,3 @@ class Loss(baseloss.BaseLoss):
 
         return {'loss': loss, 'to_log': log_data}
 
-    def attrs_to_chkpt(self):
-        return {'n_train_steps': self.n_train_steps}

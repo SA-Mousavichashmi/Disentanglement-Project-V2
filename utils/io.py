@@ -170,6 +170,7 @@ def create_chkpt(
                 dataset,
                 dataloader,
                 loss,
+                use_torch_compile=False,
                 loss_results=None, # TODO Check them later
                 metrics=None, # TODO check them later
                 # TODO: Add device argument if needed.
@@ -203,6 +204,7 @@ def create_chkpt(
         'train_step_num': train_step_num,
         'train_seed': train_seed,
         'train_determinism_type': train_determinism_type,
+        'use_torch_compile': use_torch_compile,
         'model': {
             'name': model.name, # Assuming model has a 'name' attribute
             'kwargs': model.kwargs, # Assuming model has a 'kwargs' attribute
@@ -230,7 +232,7 @@ def create_chkpt(
         'dataloader': {
            'kwargs': {
                 'batch_size': dataloader.batch_size,
-                'shuffle': isinstance(dataloader.sampler, RandomSampler),
+                'shuffle': True, #TODO fix this, the True value is common but a solution for that must be implemented
                 'num_workers': dataloader.num_workers,
                 'pin_memory': dataloader.pin_memory,
                 # Add specific args from get_deterministic_dataloader
@@ -261,6 +263,7 @@ def print_chkpt_info(checkpoint):
     print(f"  Train Step Number: {checkpoint['train_step_num']}")
     print(f"  Train Seed: {checkpoint['train_seed']}")
     print(f"  Train Determinism Type: {checkpoint['train_determinism_type']}")
+    print(f"  Use Torch Compile: {checkpoint['use_torch_compile']}")
     print(f"#### Model ####")
     print(f"  Model Name: {checkpoint['model']['name']}")
     print(f"  Model kwargs: {checkpoint['model']['kwargs']}")
@@ -282,16 +285,16 @@ def save_chkpt(
         train_id,
         train_step_unit,
         train_step_num,
-        train_seed, # Added
-        train_determinism_type, # Added
+        train_seed,
+        train_determinism_type,
         model,
         optimizer,
         lr_scheduler,
-        dataset, # Added
-        dataloader, # Added
+        dataset,
+        dataloader,
         loss,
-        loss_results=None, # Added
-        metrics=None, # Added
+        loss_results=None,
+        metrics=None,
         ):
     """
     Saves a training checkpoint.
@@ -317,16 +320,16 @@ def save_chkpt(
         train_id=train_id,
         train_step_unit=train_step_unit,
         train_step_num=train_step_num,
-        train_seed=train_seed, # Added
-        train_determinism_type=train_determinism_type, # Added
+        train_seed=train_seed, 
+        train_determinism_type=train_determinism_type,
         model=model,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
-        dataset=dataset, # Added
-        dataloader=dataloader, # Added
+        dataset=dataset,
+        dataloader=dataloader,
         loss=loss,
-        loss_results=loss_results, # Added
-        metrics=metrics # Added
+        loss_results=loss_results,
+        metrics=metrics
     )
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")

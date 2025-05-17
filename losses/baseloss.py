@@ -28,9 +28,14 @@ class BaseLoss(abc.ABC):
         If 'optimizes_internally', takes model, does forward computations AND backward updates.
     """
 
-    def __init__(self, record_loss_every=1, rec_dist="bernoulli", mode='post_forward', **kwargs):
-        self.n_train_steps = 0
-        self.record_loss_every = record_loss_every
+    def __init__(self, mode, rec_dist="bernoulli", **kwargs):
+        
+        assert mode in ["post_forward", "pre_forward", "optimizes_internally"], \
+            f"Invalid mode: {mode}. Choose from 'post_forward', 'pre_forward', or 'optimizes_internally'."
+        
+        assert rec_dist in ["bernoulli", "gaussian", "laplace"], \
+            f"Invalid rec_dist: {rec_dist}. Choose from 'bernoulli', 'gaussian', or 'laplace'."
+
         self.rec_dist = rec_dist
         self.mode = mode
 
@@ -46,7 +51,15 @@ class BaseLoss(abc.ABC):
         """A dictionary of keyword arguments for the loss function, to be implemented by subclasses."""
         pass
 
-    # TODO: Add state_dict as an abstract method to be implemented by subclasses
+    @abc.abstractmethod
+    def state_dict(self):
+        """Returns the state dictionary of the loss function."""
+        pass
+
+    @abc.abstractmethod
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary into the loss function."""
+        pass
 
     @abc.abstractmethod
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
@@ -75,12 +88,3 @@ class BaseLoss(abc.ABC):
         kwargs:
             Loss specific arguments
         """
-
-    def attrs_to_chkpt(self):
-        """Return dict of attributes to retain in checkpoint.
-        """
-        return {'n_train_steps': self.n_train_steps}
-
-    def _pre_call(self, is_train):
-        if is_train:
-            self.n_train_steps += 1

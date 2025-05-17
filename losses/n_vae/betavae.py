@@ -50,6 +50,13 @@ class Loss(baseloss.BaseLoss):
             'rec_dist': self.rec_dist,
         }
 
+    def state_dict(self):
+        # Beta VAE does not have any internal state to save
+        return None
+    
+    def load_state_dict(self, state_dict):
+        return
+
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         self._pre_call(is_train)
         if isinstance(stats_qzx, torch.Tensor):

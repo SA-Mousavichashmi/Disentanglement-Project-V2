@@ -149,13 +149,6 @@ class Loss(baseloss.BaseLoss):
 
         return {'loss': vae_loss, 'to_log': log_data}
 
-    def attrs_to_chkpt(self):
-        return {
-            'discriminator.state_dict': self.discriminator.state_dict(),
-            'optimizer_d.state_dict': self.optimizer_d.state_dict(),
-            'n_train_steps': self.n_train_steps
-        }
-
 class FactorDiscriminator(nn.Module):
 
     def __init__(self, neg_slope=0.2, latent_dim=10, hidden_units=1000):

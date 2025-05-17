@@ -243,5 +243,3 @@ class Loss(baseloss.BaseLoss):
 
         return {'loss': loss, 'to_log': log_data}
 
-    def attrs_to_chkpt(self):
-        return {'n_train_steps': self.n_train_steps}

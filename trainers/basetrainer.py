@@ -317,7 +317,7 @@ class BaseTrainer():
                     self.lr_scheduler.step()
 
         self.model.eval()
-        return all_logs
+        return {'logs': all_logs, 'chkpts': self.chkpt_list} 
 
     def _save_checkpoint_if_needed(self, step, total_steps, dataset, dataloader):
         """
@@ -349,6 +349,7 @@ class BaseTrainer():
                 train_step_unit=self.train_step_unit,
                 train_seed=self.seed,
                 train_determinism_type=self.determinism_type,
+                use_torch_compile=self.use_compile_model,
                 model=self.model,
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
@@ -522,6 +523,10 @@ def create_trainer_from_chkpt(ckpt,
         or with the provided new components.
         if the new_model, new_loss, new_optimizer, or new_lr_scheduler are not None, train_id will be set to a new UUID.
     """
+
+    if new_model is not None and new_optimizer is None:
+        raise ValueError("If new_model is provided, new_optimizer must also be provided.")
+
     train_id = ckpt['train_id']
     model_chkpt = ckpt['model']
     loss_chkpt = ckpt['loss']
@@ -578,15 +583,15 @@ def create_trainer_from_chkpt(ckpt,
         lr_scheduler=lr_scheduler,
         device=device,
         train_id=train_id,
-        seed=ckpt['train_seed'],
-        determinism_type=ckpt['train_determinism_type'],
-        use_compile_model=False,  # Assuming compile is not needed for loading
-        train_step_unit=ckpt['train_step_unit'],
-        # Pass chkpt_save_dir from additional_trainer_kwargs if present
-        # Note: Checkpoints themselves don't store the save directory,
-        # so we don't load it from ckpt here.
+        seed=ckpt.get('train_seed'),  # Use .get for safety, defaults to None if not in chkpt
+        determinism_type=ckpt.get('train_determinism_type'),  # Use .get for safety
+        use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
+        train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
+        # Pass chkpt_save_dir from additional_trainer_kwargs if present, otherwise BaseTrainer default (None) will be used.
+        # Other BaseTrainer parameters (logging, other chkpt settings, compile_kwargs)
+        # will use their defaults unless specified in additional_trainer_kwargs.
         chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
-        **(additional_trainer_kwargs or {})
+        **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
     )
 
     return trainer

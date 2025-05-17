@@ -73,6 +73,13 @@ class Loss(baseloss.BaseLoss):
             'log_kl_components': self.log_kl_components,
             'rec_dist': self.rec_dist,
         }
+    
+    def state_dict(self):
+        # Beta TCVAE does not have any internal state to save.
+        return None
+
+    def load_state_dict(self, state_dict):
+        return
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, samples_qzx, **kwargs):
         self._pre_call(is_train)
@@ -147,6 +154,3 @@ class Loss(baseloss.BaseLoss):
             # log_data['kl_components'] = kl_components.detach().cpu() # Log the tensor directly
 
         return {'loss': loss, 'to_log': log_data}
-
-    def attrs_to_chkpt(self):
-        return {'n_train_steps': self.n_train_steps}
