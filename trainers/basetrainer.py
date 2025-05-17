@@ -597,16 +597,12 @@ def create_trainer_from_chkpt(ckpt,
         loss=loss,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
-        device=device,
         train_id=train_id,
         seed=ckpt.get('train_seed'),  # Use .get for safety, defaults to None if not in chkpt
         determinism_type=ckpt.get('train_determinism_type'),  # Use .get for safety
         use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
         train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
         dataloader=dataloader,
-        # Pass chkpt_save_dir from additional_trainer_kwargs if present, otherwise BaseTrainer default (None) will be used.
-        # Other BaseTrainer parameters (logging, other chkpt settings, compile_kwargs)
-        # will use their defaults unless specified in additional_trainer_kwargs.
         chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
         **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
     )
