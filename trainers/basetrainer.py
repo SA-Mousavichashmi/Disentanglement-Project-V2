@@ -500,7 +500,7 @@ def create_trainer_from_chkpt(ckpt,
                               new_loss=None,
                               new_optimizer=None,
                               new_lr_scheduler=None,
-                              new_device=None,
+                              device='cuda' if torch.cuda.is_available() else 'cpu',
                               ):
     """
     Creates a trainer instance from a checkpoint, with optional replacement of components.
@@ -519,15 +519,17 @@ def create_trainer_from_chkpt(ckpt,
         If provided, use this optimizer instead of loading from checkpoint.
     new_lr_scheduler: torch.optim.lr_scheduler._LRScheduler, optional
         If provided, use this learning rate scheduler instead of loading from checkpoint.
-    new_device: torch.device, optional
+    device: torch.device, optional
         If provided, use this device instead of the one stored in the checkpoint.
+        Defaults to CUDA if available, else CPU.
 
     Returns
     -------
     BaseTrainer:
         An instance of the BaseTrainer class initialized with components from the checkpoint
         or with the provided new components.
-        if the new_model, new_loss, new_optimizer, or new_lr_scheduler are not None, train_id will be set to a new UUID.
+        If any of new_model, new_loss, new_optimizer, or new_lr_scheduler are provided,
+        train_id will be set to a new UUID.
     """
 
     if new_model is not None and new_optimizer is None:
@@ -538,7 +540,6 @@ def create_trainer_from_chkpt(ckpt,
     loss_chkpt = ckpt['loss']
     optimizer_chkpt = ckpt['optimizer']
     lr_scheduler_chkpt = ckpt['lr_scheduler']
-    device = new_device if new_device is not None else ckpt['device']
 
     if new_model is not None or new_loss is not None or new_optimizer is not None or new_lr_scheduler is not None:
         train_id = uuid.uuid4()
