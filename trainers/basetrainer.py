@@ -570,10 +570,12 @@ def create_trainer_from_chkpt(ckpt,
     if new_optimizer is not None:
         optimizer = new_optimizer
     else:
+        # Pass model parameters to create_load_optimizer
         optimizer = create_load_optimizer(
             optimizer_chkpt['name'],
             optimizer_chkpt['kwargs'],
-            optimizer_chkpt['state_dict']
+            optimizer_chkpt['state_dict'],
+            model_params=model.parameters()
         )
 
     if new_lr_scheduler is not None:

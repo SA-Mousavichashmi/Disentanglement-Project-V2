@@ -19,15 +19,15 @@ def get_n_param(model):
     nParams = sum([np.prod(p.size()) for p in model_parameters])
     return nParams
 
-def get_optimizer(name, **kwargs):
+def get_optimizer(name, model_params, **kwargs):
     """Return an optimizer instance from torch.optim given its name."""
     try:
         optimizer_cls = getattr(torch.optim, name)
     except AttributeError:
         raise ValueError(f'Optimizer option [{name}] not available!')
-    return optimizer_cls(**kwargs)
+    return optimizer_cls(model_params, **kwargs)
 
-def create_load_optimizer(optimizer_name, optimizer_kwargs, optimizer_state_dict):
+def create_load_optimizer(optimizer_name, optimizer_kwargs, optimizer_state_dict, model_params):
     """Creates an optimizer and loads its state dictionary.
 
     Parameters
@@ -38,13 +38,13 @@ def create_load_optimizer(optimizer_name, optimizer_kwargs, optimizer_state_dict
         The keyword arguments to pass to the optimizer constructor.
     optimizer_state_dict : dict
         The state dictionary containing the parameters of the optimizer.
+    model_params : iterable
+        The parameters to optimize (e.g., model.parameters()).
     """
-    # Create the optimizer (now passing the name)
-    optimizer = get_optimizer(optimizer_name, **optimizer_kwargs)
-    
-    # Load the state dictionary into the optimizer
+    if model_params is None:
+        raise ValueError("'model_params' argument (model parameters) must be provided to create the optimizer.")
+    optimizer = get_optimizer(optimizer_name, model_params, **optimizer_kwargs)
     optimizer.load_state_dict(optimizer_state_dict)
-    
     return optimizer
 
 def get_lr_scheduler(name, kwargs, optimizer): # Added parameters to signature
