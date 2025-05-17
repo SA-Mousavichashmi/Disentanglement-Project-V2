@@ -154,9 +154,10 @@ class BaseTrainer():
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
-            self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
                 self.optimizer,
-                lr_lambda=lambda epoch: 1.0,
+                factor=1.0,  # Factor of 1.0 means no adjustment to learning rate
+                total_iters=0  # Apply the factor immediately and keep it constant
             )
         else:
             self.lr_scheduler = lr_scheduler  # Renamed from scheduler
