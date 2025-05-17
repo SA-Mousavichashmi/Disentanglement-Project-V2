@@ -11,6 +11,7 @@ from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from .kl_div import kl_normal_loss
 
+
 class Loss(baseloss.BaseLoss):
     """
     Compute the Beta-VAE loss as in [1]
@@ -19,8 +20,8 @@ class Loss(baseloss.BaseLoss):
     ----------
     beta : float, optional
         Weight of the kl divergence.
-    
-    log_components : bool, optional
+
+    log_kl_components : bool, optional
         Whether to log individual KL components.
 
     kwargs:
@@ -32,11 +33,10 @@ class Loss(baseloss.BaseLoss):
         a constrained variational framework." (2016).
     """
 
-    def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, beta=1.0, log_kl_components=False, mode="post_forward", **kwargs):
+        super().__init__(mode=mode, **kwargs)
         self.beta = beta
         self.log_kl_components = log_kl_components
-        self.mode = 'post_forward'
 
     @property
     def name(self):

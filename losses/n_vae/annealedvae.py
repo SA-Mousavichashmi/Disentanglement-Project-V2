@@ -41,8 +41,9 @@ class Loss(baseloss.BaseLoss):
                  gamma=100.0, 
                  anneal_steps=100000, 
                  log_kl_components=False, 
+                 mode="post_forward",
                  **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(mode=mode, **kwargs)
 
         self.n_train_steps = 0
         self.gamma = gamma
@@ -50,7 +51,6 @@ class Loss(baseloss.BaseLoss):
         self.C_fin = C_fin
         self.anneal_steps = anneal_steps
         self.log_kl_components = log_kl_components
-        self.mode = 'post_forward'
 
     @property
     def name(self):

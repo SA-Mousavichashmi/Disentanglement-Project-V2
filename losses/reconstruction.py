@@ -2,6 +2,8 @@ from . import baseloss
 import utils.math
 import torch.nn.functional as F
 
+REC_DIST_CHOICES = ["bernoulli", "gaussian", "laplace"]
+
 def reconstruction_loss(data,
                          reconstructions,
                          distribution="bernoulli"):

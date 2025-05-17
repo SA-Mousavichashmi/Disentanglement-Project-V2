@@ -38,8 +38,8 @@ class Loss(baseloss.BaseLoss):
         arXiv preprint arXiv:1802.05983 (2018).
     """
 
-    def __init__(self, device, gamma=6.4, discr_lr=5e-5, discr_betas=(0.5, 0.9), log_kl_components=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, device, gamma=6.4, discr_lr=5e-5, discr_betas=(0.5, 0.9), log_kl_components=False, mode="optimizes_internally", **kwargs):
+        super().__init__(mode=mode, **kwargs)
         self.gamma = gamma
         self.device = device
         self.discriminator = FactorDiscriminator(neg_slope=0.2, latent_dim=10, hidden_units=1000).to(self.device)
@@ -47,7 +47,6 @@ class Loss(baseloss.BaseLoss):
                                             lr=discr_lr,
                                             betas=discr_betas)
         self.log_kl_components = log_kl_components
-        self.mode = 'optimizes_internally'
 
     @property
     def name(self):
