@@ -205,7 +205,7 @@ def create_chkpt(
         'train_step_num': train_step_num,
         'train_seed': train_seed,
         'train_determinism_type': train_determinism_type,
-        'train_device': get_model_device(model), # Assuming model has a method to get its device
+        'train_device': get_model_device(model),
         'use_torch_compile': use_torch_compile,
         'model': {
             'name': model.name, # Assuming model has a 'name' attribute

@@ -124,9 +124,10 @@ class BaseTrainer():
         self.seed = seed
         self.determinism_type = determinism_type
 
-        self.device = get_model_device(model)
         self.loss = loss  # renamed
         self.optimizer = optimizer
+        self.model = model
+        self.device = get_model_device(model)
 
         self.use_compile_model = use_compile_model
         self.compile_kwargs = compile_kwargs
