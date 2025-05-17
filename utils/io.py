@@ -360,3 +360,31 @@ def check_compatibility_chkpt(checkpoint, model, optimizer, lr_scheduler, loss):
         return False
 
     return True
+
+def print_chkpt_info(checkpoint):
+    """
+    Prints information about the checkpoint.
+
+    Args:
+        checkpoint: The checkpoint data.
+    """
+    print("Checkpoint Information:")
+    print(f"  Train ID: {checkpoint['train_id']}")
+    print(f"  Train Step Unit: {checkpoint['train_step_unit']}")
+    print(f"  Train Step Number: {checkpoint['train_step_num']}")
+    print(f"  Train Seed: {checkpoint['train_seed']}")
+    print(f"  Train Determinism Type: {checkpoint['train_determinism_type']}")
+    print(f"#### Model ####")
+    print(f"  Model Name: {checkpoint['model']['name']}")
+    print(f"  Model kwargs: {checkpoint['model']['kwargs']}")
+    print(f"#### Loss ####")
+    print(f"  Loss Name: {checkpoint['loss']['name']}")
+    print(f"  Loss kwargs: {checkpoint['loss']['kwargs']}")
+    print(f"#### Dataset ####")
+    print(f"  Dataset Name: {checkpoint['dataset']['name']}")
+    print(f"  Dataset kwargs: {checkpoint['dataset']['kwargs']}")
+    print(f"#### Dataloader ####")
+    print(f"  Dataloader kwargs: {checkpoint['dataloader']['kwargs']}")
+    print(f"#### Optimizer ####")
+    print(f"  Optimizer Name: {checkpoint['optimizer']['name']}")
+    print(f"  LR Scheduler Name: {checkpoint['lr_scheduler']['name']}")
