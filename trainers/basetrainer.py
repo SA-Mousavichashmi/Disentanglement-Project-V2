@@ -559,6 +559,8 @@ def create_trainer_from_chkpt(ckpt,
             model_chkpt['state_dict']
         )
 
+    model = model.to(device)
+
     if new_loss is not None:
         loss = new_loss
     else:
