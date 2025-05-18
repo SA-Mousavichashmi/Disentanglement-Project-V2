@@ -8,7 +8,6 @@ def set_all_random_seed(seed: int):
     """
     Fix all relevant RNG seeds for Python, NumPy, and PyTorch (CPU & GPU).
     """
-    os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -16,46 +15,41 @@ def set_all_random_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def configure_cudnn_determinism():
+def configure_cudnn_determinism(enforce_det):
     """
-    Disable cuDNN benchmark/autotuner and force deterministic algorithms.
+    Configure cuDNN and PyTorch settings for deterministic behavior.
+
+    Disables cuDNN benchmark/autotuner and enables deterministic algorithms.
+    If enforce_det is True, PyTorch will raise an error if a nondeterministic
+    operation is used (requires PyTorch ≥1.8).
+
+    Args:
+        enforce_det (bool): If True, enforce deterministic algorithms and error on nondeterministic ops.
     """
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark     = False
-    # For PyTorch ≥1.8, will error if a nondeterministic op is used
-    torch.use_deterministic_algorithms(True)
-
-
-def set_cublas_workspace(config: str):
-    """
-    Set the CUBLAS_WORKSPACE_CONFIG env var so that CUDA kernel
-    workspace sizes are fixed for reproducible reductions.
-    Must be called before any torch.cuda calls.
-    Default is '16:8' for 16-bit reductions.
-    """
-    os.environ["CUBLAS_WORKSPACE_CONFIG"] = config
+    if enforce_det:
+        # For PyTorch ≥1.8, will error if a nondeterministic op is used
+        torch.use_deterministic_algorithms(True)
 
 
 def set_deterministic_run(seed,
-                          use_cuda_deterministic=False,
-                          cublas_workspace_config=None):
+                          use_cuda_det,
+                          enforce_det,
+                          ):
     """
-    Configure settings for a deterministic run.
+    Set up reproducible and deterministic behavior for experiments.
 
     Args:
-        seed (int): Random seed for Python, NumPy, and PyTorch.
-        use_cuda_deterministic (bool): If True, enforce cuDNN deterministic algorithms.
-        cublas_workspace_config (str or None): Value for CUBLAS_WORKSPACE_CONFIG env var. 
-                                               Set to None or empty to skip.
+        seed (int): Random seed for Python, NumPy, and PyTorch (CPU & GPU).
+        use_cuda_det (bool): If True, configure cuDNN and PyTorch for deterministic CUDA operations.
+        enforce_det (bool): If True, PyTorch will raise an error if a nondeterministic operation is used (requires PyTorch ≥1.8).
     """
     # set all RNG seeds
     set_all_random_seed(seed)
-    # optionally fix CUBLAS workspace
-    if cublas_workspace_config:
-        set_cublas_workspace(cublas_workspace_config)
     # optionally enforce CUDA determinism
-    if use_cuda_deterministic:
-        configure_cudnn_determinism()
+    if use_cuda_det:
+        configure_cudnn_determinism(enforce_det=enforce_det)
 
 
 def get_deterministic_dataloader(dataset,

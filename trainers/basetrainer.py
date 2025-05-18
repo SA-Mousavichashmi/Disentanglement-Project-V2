@@ -512,7 +512,7 @@ def create_trainer_from_chkpt(ckpt,
     if ckpt['train_determinism_kwargs'] is not None:
         set_deterministic_run(
             seed=ckpt['train_determinism_kwargs']['seed'],
-            use_cuda_deterministic=ckpt['train_determinism_kwargs']['use_cuda_deterministic'],
+            use_cuda_det=ckpt['train_determinism_kwargs']['use_cuda_deterministic'],
             cublas_workspace_config=ckpt['train_determinism_kwargs']['cublas_workspace_config']
         )
 
