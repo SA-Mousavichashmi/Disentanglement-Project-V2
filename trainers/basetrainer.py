@@ -573,7 +573,7 @@ def create_trainer_from_chkpt(ckpt,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         train_id=train_id,
-        determinism_kwargs=ckpt['determinism_kwargs'],
+        determinism_kwargs=ckpt['train_determinism_kwargs'],
         use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
         train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
         dataloader=dataloader,
