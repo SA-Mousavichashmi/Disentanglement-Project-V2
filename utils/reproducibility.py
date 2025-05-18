@@ -35,28 +35,26 @@ def set_cublas_workspace(config: str = ":16:8"):
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = config
 
 
-def set_deterministic_run(seed: int = 0, mode: str = 'full'):
+def set_deterministic_run(seed,
+                          use_cuda_deterministic=False,
+                          cublas_workspace_config=None):
     """
-    Configure settings for deterministic runs based on the specified mode.
+    Configure settings for a deterministic run.
 
     Args:
-        seed (int): The random seed to use for all libraries. Defaults to 0.
-        mode (str): The level of determinism to apply. Options:
-                    'full': Apply all determinism settings (seed, cuBLAS, cuDNN).
-                    'seed_only': Only set the random seeds for Python, NumPy, and PyTorch.
-                    'cudnn_only': Only configure cuDNN for deterministic algorithms.
-                    Defaults to 'full'.
+        seed (int): Random seed for Python, NumPy, and PyTorch.
+        use_cuda_deterministic (bool): If True, enforce cuDNN deterministic algorithms.
+        cublas_workspace_config (str or None): Value for CUBLAS_WORKSPACE_CONFIG env var. 
+                                               Set to None or empty to skip.
     """
-    if mode == 'full':
-        set_cublas_workspace()
-        set_all_random_seed(seed)
+    # set all RNG seeds
+    set_all_random_seed(seed)
+    # optionally fix CUBLAS workspace
+    if cublas_workspace_config:
+        set_cublas_workspace(cublas_workspace_config)
+    # optionally enforce CUDA determinism
+    if use_cuda_deterministic:
         configure_cudnn_determinism()
-    elif mode == 'seed_only':
-        set_all_random_seed(seed)
-    elif mode == 'cudnn_only':
-        configure_cudnn_determinism()
-    else:
-        raise ValueError(f"Unknown determinism mode: {mode}. Options are 'full', 'seed_only', 'cudnn_only'.")
 
 
 def get_deterministic_dataloader(dataset,
