@@ -16,7 +16,7 @@ from utils.helpers import create_load_optimizer, create_load_lr_scheduler, get_m
 from vae_models.utils import create_load_model
 from losses.utils import create_load_loss
 from utils.io import get_dataloader_from_chkpt
-
+from utils.reproducibility import set_deterministic_run
 
 class BaseTrainer():
 
@@ -509,6 +509,12 @@ def create_trainer_from_chkpt(ckpt,
         If any of new_model, new_loss, new_optimizer, or new_lr_scheduler are provided,
         train_id will be set to a new UUID.
     """
+    if ckpt['train_determinism_kwargs'] is not None:
+        set_deterministic_run(
+            seed=ckpt['train_determinism_kwargs']['seed'],
+            use_cuda_deterministic=ckpt['train_determinism_kwargs']['use_cuda_deterministic'],
+            cublas_workspace_config=ckpt['train_determinism_kwargs']['cublas_workspace_config']
+        )
 
     if new_model is not None and new_optimizer is None:
         raise ValueError("If new_model is provided, new_optimizer must also be provided.")
