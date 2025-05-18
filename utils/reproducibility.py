@@ -36,6 +36,7 @@ def configure_cudnn_determinism(enforce_det):
 def set_deterministic_run(seed,
                           use_cuda_det,
                           enforce_det,
+                          **kwargs 
                           ):
     """
     Set up reproducible and deterministic behavior for experiments.
