@@ -163,8 +163,7 @@ def create_chkpt(
                 train_id,
                 train_step_unit,
                 train_step_num,
-                train_seed,
-                train_determinism_type,
+                train_determinism_kwargs,
                 model,
                 optimizer,
                 lr_scheduler,
@@ -203,8 +202,7 @@ def create_chkpt(
         'train_id': train_id,
         'train_step_unit': train_step_unit,
         'train_step_num': train_step_num,
-        'train_seed': train_seed,
-        'train_determinism_type': train_determinism_type,
+        'train_determinism_kwargs': train_determinism_kwargs,
         'train_device': get_model_device(model),
         'use_torch_compile': use_torch_compile,
         'model': {
@@ -263,8 +261,7 @@ def print_chkpt_info(checkpoint):
     print(f"  Train ID: {checkpoint['train_id']}")
     print(f"  Train Step Unit: {checkpoint['train_step_unit']}")
     print(f"  Train Step Number: {checkpoint['train_step_num']}")
-    print(f"  Train Seed: {checkpoint['train_seed']}")
-    print(f"  Train Determinism Type: {checkpoint['train_determinism_type']}")
+    print(f"  Train determinism kwargs: {checkpoint['train_determinism_kwargs']}")
     print(f"  Use Torch Compile: {checkpoint['use_torch_compile']}")
     print(f"#### Model ####")
     print(f"  Model Name: {checkpoint['model']['name']}")
@@ -287,8 +284,7 @@ def save_chkpt(
         train_id,
         train_step_unit,
         train_step_num,
-        train_seed,
-        train_determinism_type,
+        train_determinism_kwargs,
         model,
         optimizer,
         lr_scheduler,
@@ -321,9 +317,8 @@ def save_chkpt(
     checkpoint_data = create_chkpt(
         train_id=train_id,
         train_step_unit=train_step_unit,
-        train_step_num=train_step_num,
-        train_seed=train_seed, 
-        train_determinism_type=train_determinism_type,
+        train_step_num=train_step_num, 
+        train_determinism_kwargs=train_determinism_kwargs,
         model=model,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
@@ -360,7 +355,7 @@ def load_chkpt(path: str, device: str = 'original'):
     if device == 'original':
         # Load the checkpoint on the original device
         checkpoint = torch.load(path)
-    elif device == 'gpu':
+    elif device == 'cuda':
         # Load the checkpoint on GPU
         map_location = torch.device('cuda')
         checkpoint = torch.load(path, map_location=map_location)

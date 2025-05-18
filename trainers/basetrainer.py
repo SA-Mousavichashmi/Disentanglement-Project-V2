@@ -22,27 +22,26 @@ class BaseTrainer():
 
     def __init__(self,
                  model,
-                 loss,  # renamed
+                 loss,
                  optimizer,
-                 lr_scheduler,
+                 lr_scheduler=None,
                  train_id=None,
-                 seed = None,
-                 determinism_type = None,
+                 determinism_kwargs=None,
                  use_compile_model=False,
-                 compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},  # Compile options for torch.compile
-                 train_step_unit: str = 'epoch',  # Renamed from step_unit
+                 compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},
+                 train_step_unit: str = 'epoch',
                  dataloader=None,
-                 ### logging ###
+                 # logging args
                  is_progress_bar=True,
-                 progress_bar_log_iter_interval=50,  # update the progress bar with losses every `progress_bar_log_iter_interval` iterations
+                 progress_bar_log_iter_interval=50,
                  return_log_loss=True,
-                 log_loss_interval_type='iteration', # 'epoch' or 'iteration' 
-                 log_loss_iter_interval=100, # logged the losses every `log_loss_iter_interval` iterations if in 'iteration' mode
-                ### save chkpt ### 
+                 log_loss_interval_type='iteration',
+                 log_loss_iter_interval=100,
+                 # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
                  chkpt_save_path=None,
-                 chkpt_save_dir=None, # Renamed from chkpt_save_output_dir
+                 chkpt_save_dir=None,
                  chkpt_save_master_dir=None,
                  ):
         """
@@ -51,69 +50,51 @@ class BaseTrainer():
         Parameters
         ----------
         model : torch.nn.Module
-            The neural network model to be trained.
+            The model to be trained.
         loss : losses.baseloss.BaseLoss
-            The loss function to be used for training.
+            The loss function.
         optimizer : torch.optim.Optimizer
-            The optimizer for updating model parameters.
+            Optimizer for model parameters.
         lr_scheduler : torch.optim.lr_scheduler._LRScheduler, optional
-            The learning rate scheduler. If None, a constant scheduler is used.
-            Defaults to None.
-        device : torch.device
-            The device (CPU or GPU) on which to perform training.
+            Scheduler for learning rate updates. Defaults to None (constant LR).
         train_id : uuid.UUID or str, optional
-            A unique identifier for the training run. If None, a new UUID is generated.
-            Defaults to None.
-        seed : int, optional
-            Random seed for reproducibility. If provided, `determinism_type` must also be provided.
-            Defaults to None.
-        determinism_type : str, optional
-            Type of determinism to enforce ('full', 'seed_only', 'cudnn_only').
-            Required if `seed` is provided. Defaults to None.
+            Unique identifier for this training run. Generated if None.
+        determinism_kwargs : dict, optional
+            Settings for reproducibility (e.g., seed, determinism_type).
         use_compile_model : bool, optional
-            Whether to compile the model using `torch.compile` for potential performance improvements.
-            Note: Determinism is not supported with `torch.compile`. Defaults to False.
+            If True, compiles the model with `torch.compile`. Defaults to False.
         compile_kwargs : dict, optional
-            Keyword arguments to pass to `torch.compile` if `use_compile_model` is True.
-            Defaults to `{'mode': 'max-autotune', 'backend': 'inductor'}`.
-        train_step_unit : str, optional
-            Specifies the unit for `max_steps` in the `train` method.
-            Can be either 'epoch' or 'iteration'. Defaults to 'epoch'.
+            Arguments passed to `torch.compile`. Defaults to {'mode': 'max-autotune', 'backend': 'inductor'}.
+        train_step_unit : {'epoch','iteration'}, optional
+            Unit for `max_steps` in `train()`. Defaults to 'epoch'.
+        dataloader : torch.utils.data.DataLoader, optional
+            DataLoader to use for training.
 
-        ### Logging Parameters ###
-        ------------------------
+        Logging Parameters
+        ------------------
         is_progress_bar : bool, optional
-            Whether to display a progress bar during training. Defaults to True.
+            Enable progress bar. Defaults to True.
         progress_bar_log_iter_interval : int, optional
-            The interval (in iterations) at which to update the progress bar with loss information.
-            Defaults to 50.
+            Iterations between progress bar updates. Defaults to 50.
         return_log_loss : bool, optional
-            Whether the `train` method should return a log of losses. Defaults to False.
-        log_loss_interval_type : str, optional
-            Specifies the interval type for logging losses if `return_log_loss` is True.
-            Can be 'epoch' or 'iteration'. If `train_step_unit` is 'iteration', this must also be 'iteration'.
-            Defaults to 'iteration'.
+            Return logged losses from `train()`. Defaults to True.
+        log_loss_interval_type : {'epoch','iteration'}, optional
+            Granularity for loss logging. Defaults to 'iteration'.
         log_loss_iter_interval : int, optional
-            The interval (in iterations) at which to log losses if `log_loss_interval_type` is 'iteration'.
-            Defaults to 100.
+            Iterations between logged loss records when using iteration-level logging. Defaults to 100.
 
-        ### Checkpointing Parameters ###
-        ------------------------------
+        Checkpointing Parameters
+        ------------------------
         return_chkpt : bool, optional
-            Whether the `train` method should return a list of checkpoint dictionaries. Defaults to False.
+            Return checkpoint dicts from `train()`. Defaults to False.
         chkpt_every_n_steps : int, optional
-            Create checkpoint every N training steps (epochs or iterations, depending on `train_step_unit`).
-            Includes the last step. If None, only creates a checkpoint at the end of training.
-            Defaults to None.
+            Interval for checkpoint creation (epochs or iterations). None = only final. Defaults to None.
         chkpt_save_path : str, optional
-            Specific file path to save the final checkpoint. If None, checkpoints are not saved to a specific file path.
-            Cannot be set if `chkpt_save_dir` or `chkpt_save_master_dir` is also set. Defaults to None.
+            File path to save final checkpoint. Exclusive with other save options.
         chkpt_save_dir : str, optional
-            Directory where checkpoint files will be saved. If None, checkpoints are not saved to disk.
-            Cannot be set if `chkpt_save_path` or `chkpt_save_master_dir` is also set. Defaults to None.
+            Directory to save checkpoints. Exclusive with other save options.
         chkpt_save_master_dir : str, optional
-            Master directory for saving checkpoints. a folder is created with name of `train_id' considering parameter of training
-            Cannot be set if `chkpt_save_path` or `chkpt_save_dir` is also set. Defaults to None.
+            Master directory for organized checkpoints. Exclusive with other save options.
         """
         if train_id is None:
             # Generate a new UUID for the training session
@@ -121,8 +102,7 @@ class BaseTrainer():
         else:
             self.train_id = train_id
 
-        self.seed = seed
-        self.determinism_type = determinism_type
+        self.determinism_kwargs = determinism_kwargs
 
         self.loss = loss  # renamed
         self.optimizer = optimizer
@@ -135,7 +115,7 @@ class BaseTrainer():
         if self.use_compile_model:
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
-        self.train_step_unit = train_step_unit  # Renamed from step_unit
+        self.train_step_unit = train_step_unit
         self.dataloader = dataloader
 
         self.is_progress_bar = is_progress_bar
@@ -146,7 +126,7 @@ class BaseTrainer():
 
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
-        self.chkpt_save_dir = chkpt_save_dir # Renamed from chkpt_save_output_dir
+        self.chkpt_save_dir = chkpt_save_dir
         self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
         self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
@@ -168,17 +148,13 @@ class BaseTrainer():
         Validates the parameters passed to the BaseTrainer constructor.
         """
         ##### Assertions #####
-        if self.seed is not None:
-            if self.determinism_type is None:
-                raise ValueError("If seed is provided, determinism_type must also be provided.")
-
-        if self.seed is None and self.determinism_type is not None:
-            raise ValueError("If determinism_type is provided, seed must also be provided.")
 
         if self.use_compile_model:
-            if self.seed is not None and self.determinism_type is not None:
-                raise ValueError("Determinism is not supported with torch.compile. " \
-                "Please set seed and determinism_type to None.")
+            if self.determinism_kwargs is not None:
+                if self.determinism_kwargs.get('determinism_type') is not None:
+                    raise ValueError("Determinism should be used with torch.compile.")
+                if self.determinism_kwargs.get('cublas_workspace_config') is not None:
+                    raise ValueError("CUBLAS_WORKSPACE_CONFIG should be used with torch.compile.")
 
         if self.train_step_unit not in ['epoch', 'iteration']:
             raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
@@ -356,8 +332,7 @@ class BaseTrainer():
                 train_id=self.train_id,
                 train_step_num=step,
                 train_step_unit=self.train_step_unit,
-                train_seed=self.seed,
-                train_determinism_type=self.determinism_type,
+                train_determinism_kwargs=self.determinism_kwargs,
                 use_torch_compile=self.use_compile_model,
                 model=self.model,
                 optimizer=self.optimizer,
@@ -598,8 +573,7 @@ def create_trainer_from_chkpt(ckpt,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         train_id=train_id,
-        seed=ckpt.get('train_seed'),  # Use .get for safety, defaults to None if not in chkpt
-        determinism_type=ckpt.get('train_determinism_type'),  # Use .get for safety
+        determinism_kwargs=ckpt['determinism_kwargs'],
         use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
         train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
         dataloader=dataloader,

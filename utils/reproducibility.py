@@ -26,11 +26,12 @@ def configure_cudnn_determinism():
     torch.use_deterministic_algorithms(True)
 
 
-def set_cublas_workspace(config: str = ":16:8"):
+def set_cublas_workspace(config: str):
     """
     Set the CUBLAS_WORKSPACE_CONFIG env var so that CUDA kernel
     workspace sizes are fixed for reproducible reductions.
     Must be called before any torch.cuda calls.
+    Default is '16:8' for 16-bit reductions.
     """
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = config
 
