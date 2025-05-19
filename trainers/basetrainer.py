@@ -29,17 +29,20 @@ class BaseTrainer():
                  determinism_kwargs=None,
                  use_compile_model=False,
                  compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},
-                 train_step_unit: str = 'epoch',
+                 prev_train_iter=0,
                  dataloader=None,
                  # logging args
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,
-                 return_log_loss=True,
                  log_loss_interval_type='iteration',
+                 use_train_logging=True,
                  log_loss_iter_interval=100,
+                 return_log_loss=True,
+                 prev_train_logs=None,
                  # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
+                 chkpt_step_type='iteration',   # <--- new parameter
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
                  chkpt_save_master_dir=None,
@@ -65,8 +68,8 @@ class BaseTrainer():
             If True, compiles the model with `torch.compile`. Defaults to False.
         compile_kwargs : dict, optional
             Arguments passed to `torch.compile`. Defaults to {'mode': 'max-autotune', 'backend': 'inductor'}.
-        train_step_unit : {'epoch','iteration'}, optional
-            Unit for `max_steps` in `train()`. Defaults to 'epoch'.
+        prev_train_iter : int, optional
+            The number of training iterations completed before this run. Used to resume training.
         dataloader : torch.utils.data.DataLoader, optional
             DataLoader to use for training.
 
@@ -115,21 +118,27 @@ class BaseTrainer():
         if self.use_compile_model:
             self.model = torch.compile(self.model, **self.compile_kwargs)
 
-        self.train_step_unit = train_step_unit
+        self.current_train_iter = prev_train_iter if prev_train_iter is not None else 0
+
         self.dataloader = dataloader
 
         self.is_progress_bar = is_progress_bar
         self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
-        self.return_log_loss = return_log_loss
+
+        self.use_train_logging = use_train_logging
         self.log_loss_interval_type = log_loss_interval_type
         self.log_loss_iter_interval = log_loss_iter_interval
+        self.return_log_loss = return_log_loss
+        self.train_logs = prev_train_logs if prev_train_logs is not None else []
 
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
         self.chkpt_save_dir = chkpt_save_dir
         self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
+        self.chkpt_step_type = chkpt_step_type           # <--- store it
         self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
+        self.chkpt_list = []
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
@@ -156,15 +165,12 @@ class BaseTrainer():
                 if self.determinism_kwargs.get('cublas_workspace_config') is not None:
                     raise ValueError("CUBLAS_WORKSPACE_CONFIG should be used with torch.compile.")
 
-        if self.train_step_unit not in ['epoch', 'iteration']:
-            raise ValueError("train_step_unit must be either 'epoch' or 'iteration'")
-        
         #### Logging assertions ####
         if self.log_loss_interval_type not in ['epoch', 'iteration']:
             raise ValueError("log_loss_interval_type must be either 'epoch' or 'iteration'")
-
-        if self.train_step_unit == 'iteration' and self.log_loss_interval_type == 'epoch':
-             raise ValueError("When train_step_unit is 'iteration', log_loss_interval_type must also be 'iteration'")
+        # validate step_type
+        if self.chkpt_step_type not in ['epoch', 'iteration']:           # <--- validate
+            raise ValueError("chkpt_step_type must be either 'epoch' or 'iteration'")
 
         #### Checkpointing assertions ####
         # Ensure at most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir is set
@@ -180,131 +186,113 @@ class BaseTrainer():
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
 
-    def train(self, max_steps: int, dataloader=None):
+    def train(self, step_unit, max_steps: int, dataloader=None):
         """
-        Trains the model based on the mode specified in the constructor.
+        Trains the model for a specified number of steps (epochs or iterations).
 
         Parameters
         ----------
-        dataloader: torch.utils.data.DataLoader
-        max_steps: int
-            The total number of steps (epochs or iterations) to train for, based on `train_step_unit`.
+        step_unit : str
+            Unit of training steps, either 'epoch' or 'iteration'.
+        max_steps : int
+            Number of steps to train for, interpreted as epochs or iterations depending on `step_unit`.
+        dataloader : torch.utils.data.DataLoader, optional
+            DataLoader to use for training. If None, uses the dataloader provided at initialization.
 
         Returns
         -------
-        list or None:
-            If `return_log_loss` is True, returns a list of dictionaries containing
-            the mean logged losses at specified intervals. Otherwise, returns None.
+        dict:
+            Dictionary containing training logs under the key 'logs'. If checkpointing is enabled and
+            `self.return_chkpt` is True, also includes a list of checkpoints under the key 'chkpts'.
         """
+        assert step_unit in ['epoch', 'iteration'], "step_unit must be either 'epoch' or 'iteration'"
 
         # Use the dataloader provided to train(), or fall back to self.dataloader
         if dataloader is None:
             dataloader = self.dataloader
         if dataloader is None:
             raise ValueError("Either dataloader in the constructor or data_loader in train() must be provided.")
-        
-        self.chkpt_list = []
 
         self.model.train()
-        all_logs = [] if self.return_log_loss else None
-        dataset = dataloader.dataset
 
-        if self.train_step_unit == 'epoch':  # Renamed from step_unit
-            # --- Epoch-based training ---
-            num_epochs = max_steps
-            for epoch in range(num_epochs):
-                self.epoch = epoch
-                # _train_epoch returns dict if log_loss_interval_type=='epoch', list if 'iteration'
-                epoch_logs_out = self._train_epoch(dataloader, epoch)
+        # Determine total iterations (epochs→iterations if needed)
+        num_batches = len(dataloader)
+        total_iterations = max_steps * num_batches if step_unit == 'epoch' else max_steps
 
-                if self.return_log_loss:
-                    if self.log_loss_interval_type == 'epoch':
-                        # epoch_logs_out already includes 'epoch' key from _train_epoch
-                        all_logs.append(epoch_logs_out) # Append dict
-                    elif self.log_loss_interval_type == 'iteration':
-                        # epoch_logs_out is a list of dicts, each includes 'iteration' key
-                        all_logs.extend(epoch_logs_out) # Extend with list of dicts
+        iteration_to_log = collections.defaultdict(list)
+        current_interval_logs = collections.defaultdict(list)
+        data_iterator = iter(dataloader)
+        approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
+        kwargs = dict(
+            desc=f"Training for {total_iterations} iterations ({approx_epochs:.2f} epochs)",
+            total=total_iterations,
+            leave=False,
+            disable=not self.is_progress_bar
+        )
 
-                # checkpoint #
-                self._save_checkpoint_if_needed(
-                    step=epoch + 1,
-                    total_steps=num_epochs,
-                    dataset=dataset,
-                    dataloader=dataloader
-                )
+        with trange(**kwargs) as t:
+            for it in range(total_iterations):
+                try:
+                    data = next(data_iterator)[0]
+                except StopIteration:
+                    data_iterator = iter(dataloader)
+                    data = next(data_iterator)[0]
 
-                # Assuming scheduler steps per epoch if epoch-based training
+                iter_out = self._train_iteration(data)
+                # accumulate logs
+                for key, val in iter_out['to_log'].items():
+                    iteration_to_log[key].append(val)
+                    if self.use_train_logging and self.log_loss_interval_type == 'iteration':
+                        current_interval_logs[key].append(val)
+
+                # progress bar update
+                if (it + 1) % self.progress_bar_log_iter_interval == 0 or (it + 1) == total_iterations:
+                    recent = {k: np.mean(v[-self.progress_bar_log_iter_interval:]) 
+                              for k, v in iteration_to_log.items() if v}
+                    t.set_postfix(**recent)
+                t.update()
+
+                # scheduler step
                 self.lr_scheduler.step()
 
-        elif self.train_step_unit == 'iteration':  # Renamed from step_unit
-            # --- Iteration-based training ---
-            total_iterations = max_steps
-            iteration_to_log = collections.defaultdict(list) # For progress bar
-            current_interval_logs = collections.defaultdict(list) # For return logs
+                # checkpoint & logging at epoch or iteration boundaries based on chkpt_step_type
+                if (it + 1) % num_batches == 0:
+                    
+                    epoch_num = (it + 1) // num_batches
 
-            # Get the initial iterator for the DataLoader
-            data_iterator = iter(dataloader)
-            num_batches_per_epoch = len(dataloader) # Get number of batches per epoch
-            approx_epochs = total_iterations / num_batches_per_epoch if num_batches_per_epoch > 0 else float('inf')
+                    if step_unit == 'epoch':
+                        if self.use_train_logging and self.log_loss_interval_type == 'epoch':
+                            mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
+                            mean_epoch['epoch'] = epoch_num
+                            self.train_logs.append(mean_epoch)
 
-            kwargs = dict(desc=f"Training for {total_iterations} iterations ({approx_epochs:.1f} epochs)",
-                          total=total_iterations,
-                          leave=False,
-                          disable=not self.is_progress_bar)
+                    if self.chkpt_step_type == 'epoch':                        # <--- gate here
+                        self._save_checkpoint_if_needed(
+                            step=epoch_num,
+                            total_steps=max_steps,
+                            dataloader=dataloader
+                        )
 
-            with trange(total_iterations, **kwargs) as t:
-                for iter in range(total_iterations):
-                    try:
-                        # Get next batch from the current iterator
-                        data_out = next(data_iterator)
-                    except StopIteration:
-                        # DataLoader exhausted, get a new iterator to restart
-                        data_iterator = iter(dataloader)
-                        data_out = next(data_iterator)
+                if step_unit == 'iteration':
+                    if self.use_train_logging and self.log_loss_interval_type == 'iteration' and \
+                       ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
+                        mean_it = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                        mean_it['iteration'] = it + 1
+                        self.train_logs.append(mean_it)
+                        current_interval_logs = collections.defaultdict(list)
 
-                    data = data_out[0]  # Batch of data instead of label (factor values)
-                    iter_out = self._train_iteration(data)
-
-                    # Accumulate logs for progress bar
-                    for key, item in iter_out['to_log'].items():
-                        iteration_to_log[key].append(item)
-
-                    # Accumulate logs for returning if needed
-                    if self.return_log_loss:
-                        # log_loss_interval_type must be 'iteration' here due to __init__ check
-                        for key, item in iter_out['to_log'].items():
-                            current_interval_logs[key].append(item)
-
-                        # Check if interval is complete or it's the last iteration
-                        if (iter + 1) % self.log_loss_iter_interval == 0 or (iter + 1) == total_iterations:
-                            if current_interval_logs: # Ensure there are logs to process
-                                mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
-                                mean_interval_logs['iteration'] = iter + 1 # Add iteration number
-                                all_logs.append(mean_interval_logs)
-                                current_interval_logs = collections.defaultdict(list) # Reset for next interval
-
-                    # Update progress bar
-                    if (iter + 1) % self.progress_bar_log_iter_interval == 0 or (iter + 1) == total_iterations:
-                        recent_logs = {k: np.mean(v[-(self.progress_bar_log_iter_interval):])
-                                       for k, v in iteration_to_log.items() if v}
-                        t.set_postfix(**recent_logs)
-                    t.update()
-
-                    # checkpoints
+                if self.chkpt_step_type == 'iteration':                   # <--- gate here
                     self._save_checkpoint_if_needed(
-                        step=iter + 1,
+                        step=it + 1,
                         total_steps=total_iterations,
-                        dataset=dataset,
                         dataloader=dataloader
                     )
-
-                    # Step the scheduler after each iteration if iteration-based training
-                    self.lr_scheduler.step()
-
+        
         self.model.eval()
-        return {'logs': all_logs, 'chkpts': self.chkpt_list} 
 
-    def _save_checkpoint_if_needed(self, step, total_steps, dataset, dataloader):
+        return {'logs': self.train_logs, 'chkpts': self.chkpt_list}
+    
+    def _save_checkpoint_if_needed(self, step, total_steps, dataloader):
         """
         Handles checkpoint creation and saving logic for both epoch and iteration training.
 
@@ -314,6 +302,8 @@ class BaseTrainer():
             Current step (epoch or iteration, 1-based).
         total_steps : int
             Total number of steps (epochs or iterations).
+        dataloader : torch.utils.data.DataLoader
+            DataLoader used for training.
         """
         if not self.use_chkpt:
             return
@@ -327,94 +317,30 @@ class BaseTrainer():
                 should_save = True
 
         if should_save:
-
             chkpt = create_chkpt(
                 train_id=self.train_id,
-                train_step_num=step,
-                train_step_unit=self.train_step_unit,
+                train_iter_num=self.current_train_iter,
                 train_determinism_kwargs=self.determinism_kwargs,
                 use_torch_compile=self.use_compile_model,
                 model=self.model,
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
                 loss=self.loss,
-                dataset=dataset,
+                dataset=dataloader.dataset,  # Use dataloader.dataset directly
                 dataloader=dataloader
             )
 
-            self.chkpt_list.append(chkpt)
+            if self.return_chkpt:
+                self.chkpt_list.append(chkpt)
+
             if self.chkpt_save_path is not None:
                 print(f"Saving checkpoint to {self.chkpt_save_path}")
                 torch.save(chkpt, self.chkpt_save_path)
-            # TODO Add logic to save to chkpt_save_dir or chkpt_save_master_dir
 
-    def _train_epoch(self, data_loader, epoch):
-        """
-        Trains the model for one epoch.
+                if not self.return_chkpt:
+                    del chkpt
 
-        Parameters
-        ----------
-        data_loader: torch.utils.data.DataLoader
-
-        epoch: int
-            Epoch number
-
-        Return
-        ------
-        dict or list:
-            If `return_log_loss` is True and `log_loss_interval_type` is 'iteration',
-            returns a list of dictionaries containing mean logs per interval within the epoch.
-            Otherwise, returns a single dictionary containing the mean of logged values
-            for the entire epoch.
-        """
-        epoch_to_log = collections.defaultdict(list) # For overall epoch mean / progress bar
-        num_batches = len(data_loader)
-
-        # Variables for interval logging if needed
-        log_intervals = self.return_log_loss and self.log_loss_interval_type == 'iteration'
-        all_interval_logs = [] if log_intervals else None
-        current_interval_logs = collections.defaultdict(list) if log_intervals else None
-
-        kwargs = dict(desc="Epoch {}".format(epoch + 1),
-                      leave=False,
-                      disable=not self.is_progress_bar)
-
-        with trange(num_batches, **kwargs) as t:
-            for i, data_out in enumerate(data_loader):
-                data = data_out[0]
-                iter_out = self._train_iteration(data)
-
-                # Accumulate logs for overall epoch / progress bar
-                for key, item in iter_out['to_log'].items():
-                    epoch_to_log[key].append(item)
-
-                # Accumulate logs for intervals if needed
-                if log_intervals:
-                    for key, item in iter_out['to_log'].items():
-                        current_interval_logs[key].append(item)
-
-                    # Check if interval is complete or it's the last iteration of the epoch
-                    if (i + 1) % self.log_loss_iter_interval == 0 or (i + 1) == num_batches:
-                         if current_interval_logs: # Ensure there are logs to process
-                            mean_interval_logs = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
-                            mean_interval_logs['iteration'] = i + 1 # Add iteration number for this interval
-                            all_interval_logs.append(mean_interval_logs)
-                            current_interval_logs = collections.defaultdict(list) # Reset
-
-                # Update progress bar postfix
-                if (i + 1) % self.progress_bar_log_iter_interval == 0 or (i + 1) == num_batches:
-                    interval_mean_logs = {key: np.mean(item[-(self.progress_bar_log_iter_interval):])
-                                          for key, item in epoch_to_log.items() if item}
-                    t.set_postfix(**interval_mean_logs)
-                t.update()
-
-        if log_intervals:
-            return all_interval_logs # Return list of interval log dicts
-        else:
-            # Return dict of overall epoch mean logs
-            epoch_mean_logs = {key: np.mean(item) for key, item in epoch_to_log.items()}
-            epoch_mean_logs['epoch'] = epoch + 1 # Add epoch number
-            return epoch_mean_logs
+        # TODO Add logic to save to chkpt_save_dir or chkpt_save_master_dir
 
     def _train_iteration(self, samples):
         """
@@ -469,9 +395,10 @@ class BaseTrainer():
         to_log = loss_out.get('to_log', {})
         loss_val = loss.item() if loss is not None else 0.0
         
+        self.current_train_iter += 1  # Increment cumulative iteration counter
         return {"loss": loss_val, "to_log": to_log}
-    
 
+    
 def create_trainer_from_chkpt(ckpt, 
                               additional_trainer_kwargs=None, 
                               new_model=None, 
@@ -581,7 +508,6 @@ def create_trainer_from_chkpt(ckpt,
         train_id=train_id,
         determinism_kwargs=ckpt['train_determinism_kwargs'],
         use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
-        train_step_unit=ckpt['train_step_unit'], # Assumed to be present in checkpoint
         dataloader=dataloader,
         chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
         **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
