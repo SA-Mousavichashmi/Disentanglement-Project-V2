@@ -270,7 +270,7 @@ class BaseTrainer():
 
                 prog_bar_log = OrderedDict()
                 prog_bar_log['iter'] = f'{self.current_train_iter}/{self.prev_train_iter + total_iterations}'
-                prog_bar_log['epoch'] = f'{self.current_train_iter / num_batches:2f}/{(self.prev_train_iter + total_iterations) / num_batches:2f}'
+                prog_bar_log['epoch'] = f'{(self.current_train_iter / num_batches):.2f}/{((self.prev_train_iter + total_iterations) / num_batches):.2f}'
 
                 # accumulate logs
                 for key, val in iter_out['to_log'].items():
@@ -281,10 +281,11 @@ class BaseTrainer():
                 # progress bar update
                 if (it + 1) % self.progress_bar_log_iter_interval == 0 or (it + 1) == total_iterations:
                     recent = {k: np.mean(v[-self.progress_bar_log_iter_interval:]) 
-                              for k, v in iteration_to_log.items() if v}    
+                              for k, v in iteration_to_log.items() if v}
+                        
                     prog_bar_log.update(recent)
+                    t.set_postfix(**prog_bar_log)
                     
-                t.set_postfix(**prog_bar_log)
                 t.update()
 
                 # scheduler step
