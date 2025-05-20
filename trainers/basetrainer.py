@@ -168,8 +168,6 @@ class BaseTrainer():
         else:
             self.lr_scheduler = lr_scheduler  # Renamed from scheduler
 
-        self._validate_init_params()
-
     def _validate_init_params(
         self,
         use_compile_model,
