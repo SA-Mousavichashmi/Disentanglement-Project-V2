@@ -217,6 +217,7 @@ class BaseTrainer():
 
         # Determine total iterations (epochs→iterations if needed)
         num_batches = len(dataloader)
+        last_batch_size = len(dataloader.dataset) % dataloader.batch_size
         total_iterations = max_steps * num_batches if step_unit == 'epoch' else max_steps
 
         iteration_to_log = collections.defaultdict(list)
@@ -230,8 +231,8 @@ class BaseTrainer():
             disable=not self.is_progress_bar
         )
 
-        with trange(**kwargs) as t:
-            for it in range(total_iterations):
+        with trange(total_iterations, **kwargs) as t:
+            for it in range(t):
                 try:
                     data = next(data_iterator)[0]
                 except StopIteration:
@@ -272,6 +273,8 @@ class BaseTrainer():
                             total_steps=max_steps,
                             dataloader=dataloader
                         )
+                elif (it + 1) % num_batches == last_batch_size: # last epoch of training
+                    self._save_checkpoint(dataloader=dataloader) 
 
                 if step_unit == 'iteration':
                     if self.use_train_logging and self.log_loss_interval_type == 'iteration' and \
@@ -317,30 +320,39 @@ class BaseTrainer():
                 should_save = True
 
         if should_save:
-            chkpt = create_chkpt(
-                train_id=self.train_id,
-                train_iter_num=self.current_train_iter,
-                train_determinism_kwargs=self.determinism_kwargs,
-                use_torch_compile=self.use_compile_model,
-                model=self.model,
-                optimizer=self.optimizer,
-                lr_scheduler=self.lr_scheduler,
-                loss=self.loss,
-                dataset=dataloader.dataset,  # Use dataloader.dataset directly
-                dataloader=dataloader
-            )
+            self._save_checkpoint(dataloader)
 
-            if self.return_chkpt:
-                self.chkpt_list.append(chkpt)
+    def _save_checkpoint(self, dataloader):
+        """
+        Saves the current state of the model, optimizer, and other components to a checkpoint.
 
-            if self.chkpt_save_path is not None:
-                print(f"Saving checkpoint to {self.chkpt_save_path}")
-                torch.save(chkpt, self.chkpt_save_path)
+        Parameters
+        ----------
+        dataloader : torch.utils.data.DataLoader
+            DataLoader used for training.
+        """
+        chkpt = create_chkpt(
+            train_id=self.train_id,
+            train_iter_num=self.current_train_iter,
+            train_determinism_kwargs=self.determinism_kwargs,
+            use_torch_compile=self.use_compile_model,
+            model=self.model,
+            optimizer=self.optimizer,
+            lr_scheduler=self.lr_scheduler,
+            loss=self.loss,
+            dataset=dataloader.dataset,  # Use dataloader.dataset directly
+            dataloader=dataloader
+        )
 
-                if not self.return_chkpt:
-                    del chkpt
+        if self.return_chkpt:
+            self.chkpt_list.append(chkpt)
 
-        # TODO Add logic to save to chkpt_save_dir or chkpt_save_master_dir
+        if self.chkpt_save_path is not None:
+            print(f"Saving checkpoint to {self.chkpt_save_path}")
+            torch.save(chkpt, self.chkpt_save_path)
+
+            if not self.return_chkpt:
+                del chkpt
 
     def _train_iteration(self, samples):
         """
