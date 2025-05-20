@@ -134,7 +134,11 @@ class BaseTrainer():
 
         self.prev_train_iter = prev_train_iter
         self.current_train_iter = prev_train_iter if prev_train_iter is not None else 0
-        self.current_train_epoch = prev_train_iter / len(dataloader)
+        
+        if self.dataloader is not None:
+            self.current_train_epoch = self.prev_train_iter / len(self.dataloader) 
+        else:
+            self.current_train_epoch = 0
 
         self.is_progress_bar = is_progress_bar
         self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
@@ -269,7 +273,7 @@ class BaseTrainer():
                 prog_bar_log = OrderedDict()
                 prog_bar_log['iter'] = f'{self.current_train_iter}/{self.prev_train_iter + total_iterations}'
                 prog_bar_log['epoch'] = f'{self.current_train_iter / num_batches}/{(self.prev_train_iter + total_iterations) / num_batches}'
-                
+
                 # accumulate logs
                 for key, val in iter_out['to_log'].items():
                     iteration_to_log[key].append(val)
