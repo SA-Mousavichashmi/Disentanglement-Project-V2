@@ -252,7 +252,7 @@ class BaseTrainer():
         data_iterator = iter(dataloader)
         approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
         kwargs = dict(
-            desc=f"Training for {total_iterations} iter, {approx_epochs:.2f} epochs)",
+            desc=f"Training for {total_iterations} iter, {approx_epochs:.2f} epochs",
             total=total_iterations,
             leave=False,
             disable=not self.is_progress_bar
@@ -270,7 +270,7 @@ class BaseTrainer():
 
                 prog_bar_log = OrderedDict()
                 prog_bar_log['iter'] = f'{self.current_train_iter}/{self.prev_train_iter + total_iterations}'
-                prog_bar_log['epoch'] = f'{self.current_train_iter / num_batches}/{(self.prev_train_iter + total_iterations) / num_batches}'
+                prog_bar_log['epoch'] = f'{self.current_train_iter / num_batches:2f}/{(self.prev_train_iter + total_iterations) / num_batches:2f}'
 
                 # accumulate logs
                 for key, val in iter_out['to_log'].items():
@@ -283,8 +283,8 @@ class BaseTrainer():
                     recent = {k: np.mean(v[-self.progress_bar_log_iter_interval:]) 
                               for k, v in iteration_to_log.items() if v}    
                     prog_bar_log.update(recent)
-                    t.set_postfix(**prog_bar_log)
-
+                    
+                t.set_postfix(**prog_bar_log)
                 t.update()
 
                 # scheduler step
