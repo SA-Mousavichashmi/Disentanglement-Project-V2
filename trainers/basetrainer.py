@@ -232,7 +232,7 @@ class BaseTrainer():
         )
 
         with trange(total_iterations, **kwargs) as t:
-            for it in range(t):
+            for it in t:
                 try:
                     data = next(data_iterator)[0]
                 except StopIteration:
