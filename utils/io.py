@@ -8,7 +8,7 @@ from torch.utils.data import IterableDataset
 from utils.helpers import create_load_optimizer, create_load_lr_scheduler, get_model_device
 from vae_models.utils import create_load_model
 from losses.utils import create_load_loss
-from utils.io import get_dataloader_from_chkpt
+# from utils.io import get_dataloader_from_chkpt  # Removed to fix circular import
 from utils.reproducibility import set_deterministic_run
 from trainers.basetrainer import BaseTrainer
 import uuid
