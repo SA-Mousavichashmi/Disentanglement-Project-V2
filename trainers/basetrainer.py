@@ -7,16 +7,11 @@ LICENSE file in the root directory of this source tree.
 """
 import numpy as np
 import torch
-from torch.nn import functional as F
 from tqdm import trange
 import collections
-from utils.io import load_chkpt, save_chkpt, create_chkpt
+from utils.io import create_chkpt
 import uuid
-from utils.helpers import create_load_optimizer, create_load_lr_scheduler, get_model_device
-from vae_models.utils import create_load_model
-from losses.utils import create_load_loss
-from utils.io import get_dataloader_from_chkpt
-from utils.reproducibility import set_deterministic_run
+from utils.helpers import get_model_device
 from collections import OrderedDict
 
 class BaseTrainer():
@@ -28,8 +23,8 @@ class BaseTrainer():
                  lr_scheduler=None,
                  train_id=None,
                  determinism_kwargs=None,
-                 use_compile_model=False,
-                 compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},
+                 use_torch_compile=False,  # Renamed
+                 torch_compile_kwargs={'mode': 'max-autotune', 'backend': 'inductor'},  # Renamed
                  prev_train_iter=0,
                  dataloader=None,
                  # logging args
@@ -37,9 +32,10 @@ class BaseTrainer():
                  progress_bar_log_iter_interval=50,
                  log_loss_interval_type='iter',
                  use_train_logging=True,
-                 log_loss_iter_interval=100,
+                 log_loss_iter_interval=200,
                  return_log_loss=True,
-                 prev_train_logs=None,
+                 prev_train_losses_log=None,
+                 prev_train_metrics_log=None,
                  # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
@@ -65,9 +61,9 @@ class BaseTrainer():
             Unique identifier for this training run. Generated if None.
         determinism_kwargs : dict, optional
             Settings for reproducibility (e.g., seed, determinism_type).
-        use_compile_model : bool, optional
+        use_torch_compile : bool, optional
             If True, compiles the model with `torch.compile`. Defaults to False.
-        compile_kwargs : dict, optional
+        torch_compile_kwargs : dict, optional
             Arguments passed to `torch.compile`. Defaults to {'mode': 'max-autotune', 'backend': 'inductor'}.
         prev_train_iter : int, optional
             The number of training iterations completed before this run. Used to resume training.
@@ -101,7 +97,7 @@ class BaseTrainer():
             Master directory for organized checkpoints. Exclusive with other save options.
         """
         self._validate_init_params(
-            use_compile_model=use_compile_model,
+            use_torch_compile=use_torch_compile,  # Renamed
             determinism_kwargs=determinism_kwargs,
             log_loss_interval_type=log_loss_interval_type,
             chkpt_step_type=chkpt_step_type,
@@ -124,11 +120,11 @@ class BaseTrainer():
         self.model = model
         self.device = get_model_device(model)
 
-        self.use_compile_model = use_compile_model
-        self.compile_kwargs = compile_kwargs
+        self.use_torch_compile = use_torch_compile  # Renamed
+        self.torch_compile_kwargs = torch_compile_kwargs  # Renamed
 
-        if self.use_compile_model:
-            self.model = torch.compile(self.model, **self.compile_kwargs)
+        if self.use_torch_compile:  # Renamed
+            self.model = torch.compile(self.model, **self.torch_compile_kwargs)  # Renamed
         
         self.dataloader = dataloader
 
@@ -147,7 +143,8 @@ class BaseTrainer():
         self.log_loss_interval_type = log_loss_interval_type
         self.log_loss_iter_interval = log_loss_iter_interval
         self.return_log_loss = return_log_loss
-        self.train_logs = prev_train_logs if prev_train_logs is not None else []
+        self.train_losses_log = prev_train_losses_log if prev_train_losses_log is not None else []
+        self.train_metrics_log = prev_train_metrics_log if prev_train_metrics_log is not None else []
 
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
@@ -157,6 +154,8 @@ class BaseTrainer():
         self.chkpt_step_type = chkpt_step_type           # <--- store it
         self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
         self.chkpt_list = []
+        self.chkpt_train_losses_log = []
+        self.chkpt_train_metrics_log = []
 
         if lr_scheduler is None:  # Renamed from scheduler
             ### Using constant scheduler with no warmup
@@ -170,7 +169,7 @@ class BaseTrainer():
 
     def _validate_init_params(
         self,
-        use_compile_model,
+        use_torch_compile,  # Renamed
         determinism_kwargs,
         log_loss_interval_type,
         chkpt_step_type,
@@ -184,7 +183,7 @@ class BaseTrainer():
         """
         ##### Assertions #####
 
-        if use_compile_model:
+        if use_torch_compile:  # Renamed
             if determinism_kwargs is not None:
                 if determinism_kwargs.get('determinism_type') is not None:
                     raise ValueError("Determinism should be used with torch.compile.")
@@ -301,13 +300,15 @@ class BaseTrainer():
                         mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
                         mean_epoch['epoch'] = epoch_num
                         mean_epoch['iter'] = it + 1
-                        self.train_logs.append(mean_epoch)
+                        self.train_losses_log.append(mean_epoch)
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
                         self._save_checkpoint_if_needed(
                             step=epoch_num,
                             total_steps=max_steps,
-                            dataloader=dataloader
+                            dataloader=dataloader,
+                            chkpt_train_losses_log=iter_out['to_log'],
+                            chkpt_train_metrics_log=None # TODO: Add metrics logging
                         )
                 
                 if self.use_train_logging and self.log_loss_interval_type == 'iter' and \
@@ -316,27 +317,43 @@ class BaseTrainer():
                     mean_it['iter'] = it + 1
                     mean_it['epoch'] = (it + 1) / num_batches
 
-                    self.train_logs.append(mean_it)
+                    self.train_losses_log.append(mean_it)
                     current_interval_logs = collections.defaultdict(list)
 
                 if self.chkpt_step_type == 'iter':                   # <--- gate here
                     self._save_checkpoint_if_needed(
                         step=it + 1,
                         total_steps=total_iterations,
-                        dataloader=dataloader
+                        dataloader=dataloader,
+                        chkpt_train_losses_log=iter_out['to_log'],
+                        chkpt_train_metrics_log=None # TODO: Add metrics logging
                     )
 
                 if self.chkpt_step_type == 'epoch' and (not is_last_batch_full) and \
                      (it + 1) == total_iterations and self.use_chkpt:
                     
-                    self._save_checkpoint(dataloader=dataloader)
+                    self._save_checkpoint(
+                        dataloader=dataloader,
+                        chkpt_train_losses_log=iter_out['to_log'],
+                        chkpt_train_metrics_log=None # TODO: Add metrics logging
+                    )
                       
         
         self.model.eval()
 
-        return {'logs': self.train_logs, 'chkpts': self.chkpt_list}
+        return {'logs': {
+                    'train_losses_log': self.train_losses_log,
+                    'train_metrics_log': self.train_metrics_log,
+                }, 
+                'chkpts': self.chkpt_list}
     
-    def _save_checkpoint_if_needed(self, step, total_steps, dataloader):
+    def _save_checkpoint_if_needed(self, 
+                                   step, 
+                                   total_steps, 
+                                   dataloader, 
+                                   chkpt_train_losses_log, 
+                                   chkpt_train_metrics_log
+                                   ):
         """
         Handles checkpoint creation and saving logic for both epoch and iteration training.
 
@@ -361,9 +378,13 @@ class BaseTrainer():
                 should_save = True
 
         if should_save:
-            self._save_checkpoint(dataloader)
+            self._save_checkpoint(
+                dataloader=dataloader, 
+                chkpt_train_losses_log=chkpt_train_losses_log,
+                chkpt_train_metrics_log=chkpt_train_metrics_log
+                )
 
-    def _save_checkpoint(self, dataloader):
+    def _save_checkpoint(self, dataloader, chkpt_train_losses_log, chkpt_train_metrics_log):
         """
         Saves the current state of the model, optimizer, and other components to a checkpoint.
 
@@ -376,13 +397,30 @@ class BaseTrainer():
             train_id=self.train_id,
             train_iter_num=self.current_train_iter,
             train_determinism_kwargs=self.determinism_kwargs,
-            use_torch_compile=self.use_compile_model,
             model=self.model,
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
-            loss=self.loss,
             dataset=dataloader.dataset,  # Use dataloader.dataset directly
-            dataloader=dataloader
+            dataloader=dataloader,
+            loss=self.loss,
+            use_torch_compile=self.use_torch_compile,  # Renamed
+            train_losses_log=self.train_losses_log,
+            train_metrics_log=self.train_metrics_log,
+            chkpt_train_losses_log=chkpt_train_losses_log,
+            chkpt_metrics_log=chkpt_train_metrics_log,
+            # --- Pass checkpointing args ---
+            chkpt_every_n_steps=self.chkpt_every_n_steps,
+            chkpt_step_type=self.chkpt_step_type,
+            chkpt_save_path=self.chkpt_save_path,
+            chkpt_save_dir=self.chkpt_save_dir,
+            chkpt_save_master_dir=self.chkpt_save_master_dir,
+            # --- Pass logging args ---
+            is_progress_bar=self.is_progress_bar,
+            progress_bar_log_iter_interval=self.progress_bar_log_iter_interval,
+            log_loss_interval_type=self.log_loss_interval_type,
+            use_train_logging=self.use_train_logging,
+            log_loss_iter_interval=self.log_loss_iter_interval,
+            return_log_loss=self.return_log_loss,
         )
 
         if self.return_chkpt:
@@ -451,119 +489,3 @@ class BaseTrainer():
         self.current_train_iter += 1  # Increment cumulative iteration counter
         return {"loss": loss_val, "to_log": to_log}
 
-    
-def create_trainer_from_chkpt(ckpt, 
-                              additional_trainer_kwargs=None, 
-                              new_model=None, 
-                              new_loss=None,
-                              new_optimizer=None,
-                              new_lr_scheduler=None,
-                              device='cuda' if torch.cuda.is_available() else 'cpu',
-                              ):
-    """
-    Creates a trainer instance from a checkpoint, with optional replacement of components.
-
-    Parameters
-    ----------
-    ckpt: dict
-        A dictionary containing the checkpoint data.
-    additional_trainer_kwargs: dict, optional
-        Additional keyword arguments to pass to the BaseTrainer constructor.
-    new_model: torch.nn.Module, optional
-        If provided, use this model instead of loading from checkpoint.
-    new_loss: losses.baseloss.BaseLoss, optional
-        If provided, use this loss function instead of loading from checkpoint.
-    new_optimizer: torch.optim.Optimizer, optional
-        If provided, use this optimizer instead of loading from checkpoint.
-    new_lr_scheduler: torch.optim.lr_scheduler._LRScheduler, optional
-        If provided, use this learning rate scheduler instead of loading from checkpoint.
-    device: torch.device, optional
-        If provided, use this device instead of the one stored in the checkpoint.
-        Defaults to CUDA if available, else CPU.
-
-    Returns
-    -------
-    BaseTrainer:
-        An instance of the BaseTrainer class initialized with components from the checkpoint
-        or with the provided new components.
-        If any of new_model, new_loss, new_optimizer, or new_lr_scheduler are provided,
-        train_id will be set to a new UUID.
-    """
-    if ckpt['train_determinism_kwargs'] is not None:
-        set_deterministic_run(
-            seed=ckpt['train_determinism_kwargs']['seed'],
-            use_cuda_det=ckpt['train_determinism_kwargs']['use_cuda_deterministic'],
-            cublas_workspace_config=ckpt['train_determinism_kwargs']['cublas_workspace_config']
-        )
-
-    if new_model is not None and new_optimizer is None:
-        raise ValueError("If new_model is provided, new_optimizer must also be provided.")
-
-    train_id = ckpt['train_id']
-    model_chkpt = ckpt['model']
-    loss_chkpt = ckpt['loss']
-    optimizer_chkpt = ckpt['optimizer']
-    lr_scheduler_chkpt = ckpt['lr_scheduler']
-
-    if new_model is not None or new_loss is not None or new_optimizer is not None or new_lr_scheduler is not None:
-        train_id = uuid.uuid4()
-    else:
-        train_id = ckpt['train_id']
-
-    if new_model is not None:
-        model = new_model
-    else:
-        model = create_load_model(
-            model_chkpt['name'],
-            model_chkpt['kwargs'],
-            model_chkpt['state_dict']
-        )
-
-    model = model.to(device)
-
-    if new_loss is not None:
-        loss = new_loss
-    else:
-        loss = create_load_loss(
-            loss_chkpt['name'],
-            loss_chkpt['kwargs'],
-            loss_chkpt['state_dict']
-        )
-
-    if new_optimizer is not None:
-        optimizer = new_optimizer
-    else:
-        # Pass model parameters to create_load_optimizer
-        optimizer = create_load_optimizer(
-            optimizer_chkpt['name'],
-            optimizer_chkpt['kwargs'],
-            optimizer_chkpt['state_dict'],
-            model_params=model.parameters()
-        )
-
-    if new_lr_scheduler is not None:
-        lr_scheduler = new_lr_scheduler
-    else:
-        lr_scheduler = create_load_lr_scheduler(
-            name=lr_scheduler_chkpt['name'],
-            kwargs=lr_scheduler_chkpt['kwargs'],
-            state_dict=lr_scheduler_chkpt['state_dict'],
-            optimizer=optimizer
-        )
-    
-    dataloader = get_dataloader_from_chkpt(checkpoint=ckpt)
-
-    trainer = BaseTrainer(
-        model=model,
-        loss=loss,
-        optimizer=optimizer,
-        lr_scheduler=lr_scheduler,
-        train_id=train_id,
-        determinism_kwargs=ckpt['train_determinism_kwargs'],
-        use_compile_model=False,  # Default to False when loading, can be overridden by additional_trainer_kwargs
-        dataloader=dataloader,
-        chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
-        **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
-    )
-
-    return trainer

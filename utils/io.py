@@ -5,7 +5,13 @@ import psutil  # Added import
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data import RandomSampler, SequentialSampler
 from torch.utils.data import IterableDataset
-from utils.helpers import get_model_device
+from utils.helpers import create_load_optimizer, create_load_lr_scheduler, get_model_device
+from vae_models.utils import create_load_model
+from losses.utils import create_load_loss
+from utils.io import get_dataloader_from_chkpt
+from utils.reproducibility import set_deterministic_run
+from trainers.basetrainer import BaseTrainer
+import uuid
 
 
 def find_optimal_num_workers(
@@ -170,10 +176,25 @@ def create_chkpt(
                 dataloader,
                 loss,
                 use_torch_compile=False,
-                train_loss_results=None, 
-                train_metrics=None,
-                chkpt_train_results=None,
-                chkpt_metrics=None,
+                torch_compile_kwargs=None,
+                train_losses_log=None,
+                train_metrics_log=None,
+                chkpt_train_losses_log=None,
+                chkpt_metrics_log=None,
+                return_chkpt=None,
+                # --- Add checkpointing args ---
+                chkpt_every_n_steps=None,
+                chkpt_step_type=None,
+                chkpt_save_path=None,
+                chkpt_save_dir=None,
+                chkpt_save_master_dir=None,
+                # --- Add logging args ---
+                is_progress_bar=None,
+                progress_bar_log_iter_interval=None,
+                log_loss_interval_type=None,
+                use_train_logging=None,
+                log_loss_iter_interval=None,
+                return_log_loss=None,
                       ):
     """
     Creates a checkpoint dictionary.
@@ -190,10 +211,22 @@ def create_chkpt(
         dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
         loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
         use_torch_compile: Boolean indicating whether torch.compile was used on the model.
-        train_loss_results: Dictionary containing loss results over training.
-        train_metrics: Dictionary containing metric results over training.
-        chkpt_train_results: Dictionary containing loss results at checkpoint time.
-        chkpt_metrics: Dictionary containing metric results at checkpoint time.
+        train_losses_log: Dictionary containing loss results over training.
+        train_metrics_log: Dictionary containing metric results over training.
+        chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
+        chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
+        return_chkpt: 
+        chkpt_every_n_steps:
+        chkpt_step_type:
+        chkpt_save_path:
+        chkpt_save_dir:
+        chkpt_save_master_dir:
+        is_progress_bar:
+        progress_bar_log_iter_interval:
+        log_loss_interval_type:
+        use_train_logging:
+        log_loss_iter_interval:
+        return_log_loss:
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -206,6 +239,7 @@ def create_chkpt(
         'train_determinism_kwargs': train_determinism_kwargs,
         'train_device': get_model_device(model),
         'use_torch_compile': use_torch_compile,
+        'torch_compile_kwargs': torch_compile_kwargs,
         'model': {
             'name': model.name, # Assuming model has a 'name' attribute
             'kwargs': model.kwargs, # Assuming model has a 'kwargs' attribute
@@ -244,13 +278,32 @@ def create_chkpt(
            },
            'state_dict': dataloader.state_dict() # Assuming using StatefulDataLoader
         },
-        'train_logs': {
-            'loss_results': train_loss_results,
-            'metrics': train_metrics,
+        'chkpt': {
+            'return_chkpt': return_chkpt,
+            'chkpt_every_n_steps': chkpt_every_n_steps,
+            'chkpt_step_type': chkpt_step_type,
+            'chkpt_save_path': chkpt_save_path,
+            'chkpt_save_dir': chkpt_save_dir,
+            'chkpt_save_master_dir': chkpt_save_master_dir,
         },
-        'chkpt_logs': {
-            'loss_results': chkpt_train_results,
-            'metrics': chkpt_metrics,
+        'logging': {
+            'is_progress_bar': is_progress_bar,
+            'progress_bar_log_iter_interval': progress_bar_log_iter_interval,
+            'log_loss_interval_type': log_loss_interval_type,
+            'use_train_logging': use_train_logging,
+            'log_loss_iter_interval': log_loss_iter_interval,
+            'return_log_loss': return_log_loss,
+        },
+        
+        'logs':{
+            'train': {
+                'loss_results': train_losses_log,
+                'metrics': train_metrics_log,
+            },
+            'chkpt': {
+                'loss_results': chkpt_train_losses_log,
+                'metrics': chkpt_metrics_log,
+            }
         }
     }
 
@@ -296,8 +349,11 @@ def save_chkpt(
         dataset,
         dataloader,
         loss,
-        loss_results=None,
-        metrics=None,
+        train_losses_log=None,
+        train_metrics_log=None,
+        chkpt_train_losses_log=None,
+        chkpt_metrics_log=None,
+        use_torch_compile=False,
         ):
     """
     Saves a training checkpoint.
@@ -306,20 +362,23 @@ def save_chkpt(
         save_path: Path to save the checkpoint file.
         train_id: Identifier for the training run.
         train_iter_num: Current number of training iterations completed.
-        train_determinism_kwargs: Dictionary containing determinism settings used for training. # Added
+        train_determinism_kwargs: Dictionary containing determinism settings used for training.
         model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
         optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
         lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
                       Optionally, 'name' and 'kwargs' attributes.
-        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes. # Added
-        dataloader: The dataloader configuration/object to save. Must have '_dict_' and 'state_dict' (if stateful) attributes/methods. # Added
+        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
+        dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
         loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
-        loss_results: Dictionary containing loss results (optional). # Added
-        metrics: Dictionary containing metric results (optional). # Added
+        train_losses_log: Dictionary containing loss results over training.
+        train_metrics_log: Dictionary containing metric results over training.
+        chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
+        chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
+        use_torch_compile: Boolean indicating whether torch.compile was used on the model.
     """
     checkpoint_data = create_chkpt(
         train_id=train_id,
-        train_iter_num=train_iter_num, # Updated
+        train_iter_num=train_iter_num,
         train_determinism_kwargs=train_determinism_kwargs,
         model=model,
         optimizer=optimizer,
@@ -327,8 +386,11 @@ def save_chkpt(
         dataset=dataset,
         dataloader=dataloader,
         loss=loss,
-        loss_results=loss_results,
-        metrics=metrics
+        use_torch_compile=use_torch_compile,
+        train_losses_log=train_losses_log,
+        train_metrics_log=train_metrics_log,
+        chkpt_train_losses_log=chkpt_train_losses_log,
+        chkpt_metrics_log=chkpt_metrics_log
     )
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
@@ -451,3 +513,246 @@ def get_dataloader_from_chkpt(checkpoint):
         loader.load_state_dict(checkpoint['dataloader']['state_dict'])
 
     return loader
+
+def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    """
+    Creates a trainer instance from a checkpoint with exact settings.
+    
+    This function precisely recreates the training environment from a checkpoint,
+    using all stored parameters and settings without any modifications.
+    
+    Parameters
+    ----------
+    chkpt: dict
+        A dictionary containing the checkpoint data.
+    device: torch.device or str, optional
+        If provided, use this device instead of the one stored in the checkpoint.
+        Defaults to CUDA if available, else CPU.
+        
+    Returns
+    -------
+    BaseTrainer:
+        An instance of the BaseTrainer class initialized with exactly the
+        same components and settings as stored in the checkpoint.
+    """
+    # Setup determinism with exact settings from checkpoint
+    if chkpt['train_determinism_kwargs'] is not None:
+        set_deterministic_run(
+            seed=chkpt['train_determinism_kwargs']['seed'],
+            use_cuda_det=chkpt['train_determinism_kwargs']['use_cuda_deterministic'],
+            cublas_workspace_config=chkpt['train_determinism_kwargs']['cublas_workspace_config']
+        )
+    
+    # Load model with original settings
+    model = create_load_model(
+        chkpt['model']['name'],
+        chkpt['model']['kwargs'],
+        chkpt['model']['state_dict']
+    )
+    model = model.to(device)
+    
+    # Load loss function with original settings
+    loss = create_load_loss(
+        chkpt['loss']['name'],
+        chkpt['loss']['kwargs'],
+        chkpt['loss']['state_dict']
+    )
+    
+    # Load optimizer with original settings
+    optimizer = create_load_optimizer(
+        chkpt['optimizer']['name'],
+        chkpt['optimizer']['kwargs'],
+        chkpt['optimizer']['state_dict'],
+        model_params=model.parameters()
+    )
+    
+    # Load lr_scheduler with original settings
+    lr_scheduler = create_load_lr_scheduler(
+        name=chkpt['lr_scheduler']['name'],
+        kwargs=chkpt['lr_scheduler']['kwargs'],
+        state_dict=chkpt['lr_scheduler']['state_dict'],
+        optimizer=optimizer
+    )
+    
+    # Recreate dataloader with exact settings
+    dataloader = get_dataloader_from_chkpt(chkpt)
+    
+    # Extract training logs
+    train_iter_num = chkpt['train_iter_num']
+    train_losses_log = chkpt['logs']['train']['loss_results']
+    train_metrics_log = chkpt['logs']['train']['metrics']
+    
+    # Extract checkpointing settings
+    chkpt_settings = chkpt['chkpt']
+    return_chkpt = chkpt_settings['return_chkpt']
+    chkpt_every_n_steps = chkpt_settings['chkpt_every_n_steps']
+    chkpt_step_type = chkpt_settings['chkpt_step_type']
+    chkpt_save_path = chkpt_settings['chkpt_save_path']
+    chkpt_save_dir = chkpt_settings['chkpt_save_dir']
+    chkpt_save_master_dir = chkpt_settings['chkpt_save_master_dir']
+    
+    # Extract logging settings
+    logging_settings = chkpt['logging']
+    is_progress_bar = logging_settings['is_progress_bar']
+    progress_bar_log_iter_interval = logging_settings['progress_bar_log_iter_interval']
+    log_loss_interval_type = logging_settings['log_loss_interval_type']
+    use_train_logging = logging_settings['use_train_logging']
+    log_loss_iter_interval = logging_settings['log_loss_iter_interval']
+    return_log_loss = logging_settings['return_log_loss']
+    
+    # Create trainer with exact settings from checkpoint
+    trainer = BaseTrainer(
+        model=model,
+        loss=loss,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        train_id=chkpt['train_id'],  # Use original train_id
+        prev_train_iter=train_iter_num,
+        determinism_kwargs=chkpt['train_determinism_kwargs'],
+        dataloader=dataloader,
+        # Set torch compile settings
+        use_torch_compile=chkpt['use_torch_compile'],
+        torch_compile_kwargs=chkpt['torch_compile_kwargs'],
+        # Set logging parameters
+        is_progress_bar=is_progress_bar,
+        progress_bar_log_iter_interval=progress_bar_log_iter_interval,
+        log_loss_interval_type=log_loss_interval_type,
+        use_train_logging=use_train_logging,
+        log_loss_iter_interval=log_loss_iter_interval,
+        return_log_loss=return_log_loss,
+        prev_train_losses_log=train_losses_log,
+        prev_train_metrics_log=train_metrics_log,
+        # Set checkpointing parameters
+        return_chkpt=return_chkpt,
+        chkpt_every_n_steps=chkpt_every_n_steps,
+        chkpt_step_type=chkpt_step_type,
+        chkpt_save_path=chkpt_save_path,
+        chkpt_save_dir=chkpt_save_dir,
+        chkpt_save_master_dir=chkpt_save_master_dir,
+    )
+    
+    return trainer
+
+
+def create_trainer_from_chkpt(ckpt,
+                              create_exact=False,
+                              new_model=None, 
+                              new_loss=None,
+                              new_optimizer=None,
+                              new_dataloader=None,
+                              new_lr_scheduler=None,
+                              additional_trainer_kwargs=None,
+                              device='cuda' if torch.cuda.is_available() else 'cpu',
+                              ):
+    """
+    Creates a trainer instance from a checkpoint, with optional replacement of components.
+
+    Parameters
+    ----------
+    ckpt: dict
+        A dictionary containing the checkpoint data.
+    additional_trainer_kwargs: dict, optional
+        Additional keyword arguments to pass to the BaseTrainer constructor.
+    new_model: torch.nn.Module, optional
+        If provided, use this model instead of loading from checkpoint.
+    new_loss: losses.baseloss.BaseLoss, optional
+        If provided, use this loss function instead of loading from checkpoint.
+    new_optimizer: torch.optim.Optimizer, optional
+        If provided, use this optimizer instead of loading from checkpoint.
+    new_lr_scheduler: torch.optim.lr_scheduler._LRScheduler, optional
+        If provided, use this learning rate scheduler instead of loading from checkpoint.
+    device: torch.device, optional
+        If provided, use this device instead of the one stored in the checkpoint.
+        Defaults to CUDA if available, else CPU.
+
+    Returns
+    -------
+    BaseTrainer:
+        An instance of the BaseTrainer class initialized with components from the checkpoint
+        or with the provided new components.
+        If any of new_model, new_loss, new_optimizer, or new_lr_scheduler are provided,
+        train_id will be set to a new UUID.
+    """
+
+    if create_exact:
+        return create_trainer_from_chkpt_exact(ckpt, device=device)
+
+    if ckpt['train_determinism_kwargs'] is not None:
+        set_deterministic_run(
+            seed=ckpt['train_determinism_kwargs']['seed'],
+            use_cuda_det=ckpt['train_determinism_kwargs']['use_cuda_deterministic'],
+            cublas_workspace_config=ckpt['train_determinism_kwargs']['cublas_workspace_config']
+        )
+
+    if new_model is not None and new_optimizer is None:
+        raise ValueError("If new_model is provided, new_optimizer must also be provided.")
+
+    train_id = ckpt['train_id']
+    model_chkpt = ckpt['model']
+    loss_chkpt = ckpt['loss']
+    optimizer_chkpt = ckpt['optimizer']
+    lr_scheduler_chkpt = ckpt['lr_scheduler']
+
+    resume_logging = True if dataloader is None else False
+
+    if new_model is not None or new_loss is not None or new_optimizer is not None or new_lr_scheduler is not None:
+        train_id = uuid.uuid4()
+    else:
+        continue_training_exact = True
+        train_id = ckpt['train_id']
+    
+    model = new_model if new_model is not None else create_load_model(
+        model_chkpt['name'],
+        model_chkpt['kwargs'],
+        model_chkpt['state_dict']
+    )
+    model = model.to(device)
+
+    loss = new_loss if new_loss is not None else create_load_loss(
+        loss_chkpt['name'],
+        loss_chkpt['kwargs'],
+        loss_chkpt['state_dict']
+    )
+
+    optimizer = new_optimizer if new_optimizer is not None else create_load_optimizer(
+        optimizer_chkpt['name'],
+        optimizer_chkpt['kwargs'],
+        optimizer_chkpt['state_dict'],
+        model_params=model.parameters()
+    )
+
+    lr_scheduler = new_lr_scheduler if new_lr_scheduler is not None else create_load_lr_scheduler(
+        name=lr_scheduler_chkpt['name'],
+        kwargs=lr_scheduler_chkpt['kwargs'],
+        state_dict=lr_scheduler_chkpt['state_dict'],
+        optimizer=optimizer
+    )
+    
+    dataloader = new_dataloader if new_dataloader is not None else get_dataloader_from_chkpt(ckpt) 
+
+    if resume_logging:
+        # Load the training logs from the checkpoint
+        train_iter_num = ckpt['train_iter_num']
+        train_losses_log = ckpt['train_logs']['loss_results']
+        train_metrics_log = ckpt['train_logs']['metrics']
+    else:
+        train_iter_num = None
+        train_losses_log = None
+        train_metrics_log = None
+        
+    trainer = BaseTrainer(
+        model=model,
+        loss=loss,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        train_id=train_id,
+        prev_train_iter=train_iter_num, 
+        determinism_kwargs=ckpt['train_determinism_kwargs'],
+        dataloader=dataloader,
+        prev_train_losses_log=train_losses_log,
+        prev_train_metrics_log=train_metrics_log,
+        chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
+        **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
+    )
+
+    return trainer
