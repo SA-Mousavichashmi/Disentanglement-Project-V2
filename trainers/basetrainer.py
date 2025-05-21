@@ -251,6 +251,7 @@ class BaseTrainer():
         current_interval_logs = collections.defaultdict(list)
         data_iterator = iter(dataloader)
         approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
+        
         kwargs = dict(
             desc=f"Training for {total_iterations} iter, {approx_epochs:.2f} epochs",
             total=total_iterations,
@@ -300,6 +301,7 @@ class BaseTrainer():
                         if self.use_train_logging and self.log_loss_interval_type == 'epoch':
                             mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
                             mean_epoch['epoch'] = epoch_num
+                            mean_epoch['iter'] = it + 1
                             self.train_logs.append(mean_epoch)
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
@@ -313,7 +315,9 @@ class BaseTrainer():
                     if self.use_train_logging and self.log_loss_interval_type == 'iteration' and \
                        ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
                         mean_it = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
-                        mean_it['iteration'] = it + 1
+                        mean_it['iter'] = it + 1
+                        mean_it['epoch'] = (it + 1) / num_batches
+
                         self.train_logs.append(mean_it)
                         current_interval_logs = collections.defaultdict(list)
 
