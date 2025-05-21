@@ -35,7 +35,7 @@ class BaseTrainer():
                  # logging args
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,
-                 log_loss_interval_type='iteration',
+                 log_loss_interval_type='iter',
                  use_train_logging=True,
                  log_loss_iter_interval=100,
                  return_log_loss=True,
@@ -43,7 +43,7 @@ class BaseTrainer():
                  # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
-                 chkpt_step_type='iteration',   # <--- new parameter
+                 chkpt_step_type='iter',   # <--- new parameter
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
                  chkpt_save_master_dir=None,
@@ -82,8 +82,8 @@ class BaseTrainer():
             Iterations between progress bar updates. Defaults to 50.
         return_log_loss : bool, optional
             Return logged losses from `train()`. Defaults to True.
-        log_loss_interval_type : {'epoch','iteration'}, optional
-            Granularity for loss logging. Defaults to 'iteration'.
+        log_loss_interval_type : {'epoch','iter'}, optional
+            Granularity for loss logging. Defaults to 'iter'.
         log_loss_iter_interval : int, optional
             Iterations between logged loss records when using iteration-level logging. Defaults to 100.
 
@@ -192,11 +192,11 @@ class BaseTrainer():
                     raise ValueError("CUBLAS_WORKSPACE_CONFIG should be used with torch.compile.")
 
         #### Logging assertions ####
-        if log_loss_interval_type not in ['epoch', 'iteration']:
-            raise ValueError("log_loss_interval_type must be either 'epoch' or 'iteration'")
+        if log_loss_interval_type not in ['epoch', 'iter']:
+            raise ValueError("log_loss_interval_type must be either 'epoch' or 'iter'")
         # validate step_type
-        if chkpt_step_type not in ['epoch', 'iteration']:           # <--- validate
-            raise ValueError("chkpt_step_type must be either 'epoch' or 'iteration'")
+        if chkpt_step_type not in ['epoch', 'iter']:           # <--- validate
+            raise ValueError("chkpt_step_type must be either 'epoch' or 'iter'")
 
         #### Checkpointing assertions ####
         # Ensure at most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir is set
@@ -231,7 +231,7 @@ class BaseTrainer():
             Dictionary containing training logs under the key 'logs'. If checkpointing is enabled and
             `self.return_chkpt` is True, also includes a list of checkpoints under the key 'chkpts'.
         """
-        assert step_unit in ['epoch', 'iteration'], "step_unit must be either 'epoch' or 'iteration'"
+        assert step_unit in ['epoch', 'iter'], "step_unit must be either 'epoch' or 'iter'"
 
         # Use the dataloader provided to train(), or fall back to self.dataloader
         if dataloader is None:
@@ -276,7 +276,7 @@ class BaseTrainer():
                 # accumulate logs
                 for key, val in iter_out['to_log'].items():
                     iteration_to_log[key].append(val)
-                    if self.use_train_logging and self.log_loss_interval_type == 'iteration':
+                    if self.use_train_logging and self.log_loss_interval_type == 'iter':
                         current_interval_logs[key].append(val)
 
                 # progress bar update
@@ -297,12 +297,11 @@ class BaseTrainer():
                     
                     epoch_num = (it + 1) // num_batches
 
-                    if step_unit == 'epoch':
-                        if self.use_train_logging and self.log_loss_interval_type == 'epoch':
-                            mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
-                            mean_epoch['epoch'] = epoch_num
-                            mean_epoch['iter'] = it + 1
-                            self.train_logs.append(mean_epoch)
+                    if self.use_train_logging and self.log_loss_interval_type == 'epoch':
+                        mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
+                        mean_epoch['epoch'] = epoch_num
+                        mean_epoch['iter'] = it + 1
+                        self.train_logs.append(mean_epoch)
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
                         self._save_checkpoint_if_needed(
@@ -310,18 +309,17 @@ class BaseTrainer():
                             total_steps=max_steps,
                             dataloader=dataloader
                         )
+                
+                if self.use_train_logging and self.log_loss_interval_type == 'iter' and \
+                    ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
+                    mean_it = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
+                    mean_it['iter'] = it + 1
+                    mean_it['epoch'] = (it + 1) / num_batches
 
-                if step_unit == 'iteration':
-                    if self.use_train_logging and self.log_loss_interval_type == 'iteration' and \
-                       ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
-                        mean_it = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
-                        mean_it['iter'] = it + 1
-                        mean_it['epoch'] = (it + 1) / num_batches
+                    self.train_logs.append(mean_it)
+                    current_interval_logs = collections.defaultdict(list)
 
-                        self.train_logs.append(mean_it)
-                        current_interval_logs = collections.defaultdict(list)
-
-                if self.chkpt_step_type == 'iteration':                   # <--- gate here
+                if self.chkpt_step_type == 'iter':                   # <--- gate here
                     self._save_checkpoint_if_needed(
                         step=it + 1,
                         total_steps=total_iterations,
