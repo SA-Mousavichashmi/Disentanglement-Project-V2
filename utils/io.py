@@ -10,7 +10,6 @@ from vae_models.utils import create_load_model
 from losses.utils import create_load_loss
 # from utils.io import get_dataloader_from_chkpt  # Removed to fix circular import
 from utils.reproducibility import set_deterministic_run
-from trainers.basetrainer import BaseTrainer
 import uuid
 
 
@@ -601,6 +600,7 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
     return_log_loss = logging_settings['return_log_loss']
     
     # Create trainer with exact settings from checkpoint
+    from trainers.basetrainer import BaseTrainer  # Import here to avoid circular import
     trainer = BaseTrainer(
         model=model,
         loss=loss,
@@ -740,6 +740,7 @@ def create_trainer_from_chkpt(ckpt,
         train_losses_log = None
         train_metrics_log = None
         
+    from trainers.basetrainer import BaseTrainer  # Import here to avoid circular import
     trainer = BaseTrainer(
         model=model,
         loss=loss,
