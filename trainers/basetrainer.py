@@ -250,8 +250,8 @@ class BaseTrainer():
         self.model.train()
 
         # Determine total iterations (epochs→iterations if needed)
-        num_batches = len(dataloader)
-        is_last_batch_full = len(dataloader.dataset) % dataloader.batch_size == 0
+        num_batches = len(self.dataloader)
+        is_last_batch_full = len(self.dataloader.dataset) % self.dataloader.batch_size == 0
         total_iterations = max_steps * num_batches if step_unit == 'epoch' else max_steps
         # total_epoch = max_steps if step_unit == 'epoch' else max_steps // 
 
@@ -259,7 +259,7 @@ class BaseTrainer():
         current_interval_logs = collections.defaultdict(list)
         epoch_accumulated_logs = collections.defaultdict(list) # Accumulates logs for the current epoch
 
-        data_iterator = iter(dataloader)
+        data_iterator = iter(self.dataloader)
         approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
         
         kwargs = dict(
@@ -274,7 +274,7 @@ class BaseTrainer():
                 try:
                     data = next(data_iterator)[0]
                 except StopIteration:
-                    data_iterator = iter(dataloader)
+                    data_iterator = iter(self.dataloader)
                     data = next(data_iterator)[0]
 
                 iter_out = self._train_iteration(data)
@@ -321,7 +321,7 @@ class BaseTrainer():
                         self._save_checkpoint_if_needed(
                             step=epoch_num,
                             total_steps=max_steps,
-                            dataloader=dataloader,
+                            dataloader=self.dataloader,
                             chkpt_train_losses_log=iter_out['to_log'],
                             chkpt_train_metrics_log=None # TODO: Add metrics logging
                         )
@@ -339,7 +339,7 @@ class BaseTrainer():
                     self._save_checkpoint_if_needed(
                         step=it + 1,
                         total_steps=total_iterations,
-                        dataloader=dataloader,
+                        dataloader=self.dataloader,
                         chkpt_train_losses_log=iter_out['to_log'],
                         chkpt_train_metrics_log=None # TODO: Add metrics logging
                     )
@@ -348,7 +348,7 @@ class BaseTrainer():
                      (it + 1) == total_iterations and self.use_chkpt:
                     
                     self._save_checkpoint(
-                        dataloader=dataloader,
+                        dataloader=self.dataloader,
                         chkpt_train_losses_log=iter_out['to_log'],
                         chkpt_train_metrics_log=None # TODO: Add metrics logging
                     )
