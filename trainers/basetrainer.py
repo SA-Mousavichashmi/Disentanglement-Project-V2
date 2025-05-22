@@ -168,14 +168,6 @@ class BaseTrainer():
         else:
             self.lr_scheduler = lr_scheduler  # Renamed from scheduler
         
-        if determinism_kwargs is not None:
-            # Set the random seed and configure for deterministic behavior
-            set_deterministic_run(
-                seed=determinism_kwargs['seed'],
-                use_cuda_det=determinism_kwargs['use_cuda_det'],
-                enforce_det=determinism_kwargs['enforce_det']
-            )
-
     def _validate_init_params(
         self,
         use_torch_compile,  # Renamed

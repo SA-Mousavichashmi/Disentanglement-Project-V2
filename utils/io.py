@@ -534,7 +534,11 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         An instance of the BaseTrainer class initialized with exactly the
         same components and settings as stored in the checkpoint.
     """
-        
+
+    if chkpt['train_determinism_kwargs'] is not None:
+        set_deterministic_run(**chkpt['train_determinism_kwargs'])
+        print(f"Determinism settings applied from checkpoint: {chkpt['train_determinism_kwargs']}")
+
     # Load model with original settings
     model = create_load_model(
         chkpt['model']['name'],
