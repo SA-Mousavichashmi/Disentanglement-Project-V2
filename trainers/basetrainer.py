@@ -242,10 +242,10 @@ class BaseTrainer():
         assert step_unit in ['epoch', 'iter'], "step_unit must be either 'epoch' or 'iter'"
 
         # Use the dataloader provided to train(), or fall back to self.dataloader
-        if dataloader is None:
-            dataloader = self.dataloader
-        if dataloader is None:
-            raise ValueError("Either dataloader in the constructor or data_loader in train() must be provided.")
+        if dataloader is None and self.dataloader is None:
+            raise ValueError("No dataloader provided for training. Please provide a dataloader.")
+        elif self.dataloader is None:
+            self.dataloader = dataloader
 
         self.model.train()
 
@@ -258,7 +258,7 @@ class BaseTrainer():
         iteration_to_log = collections.defaultdict(list)
         current_interval_logs = collections.defaultdict(list)
         epoch_accumulated_logs = collections.defaultdict(list) # Accumulates logs for the current epoch
-        
+
         data_iterator = iter(dataloader)
         approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
         
