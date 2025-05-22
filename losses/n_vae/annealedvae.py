@@ -42,8 +42,9 @@ class Loss(baseloss.BaseLoss):
                  anneal_steps=100000, 
                  log_kl_components=False, 
                  mode="post_forward",
+                 state_dict=None,
                  **kwargs):
-        super().__init__(mode=mode, **kwargs)
+        super().__init__(mode=mode,**kwargs)
 
         self.n_train_steps = 0
         self.gamma = gamma
@@ -51,6 +52,9 @@ class Loss(baseloss.BaseLoss):
         self.C_fin = C_fin
         self.anneal_steps = anneal_steps
         self.log_kl_components = log_kl_components
+
+        if state_dict is not None:
+            self.load_state_dict(state_dict)
 
     @property
     def name(self):

@@ -147,6 +147,18 @@ class Loss(baseloss.BaseLoss):
 
         return {'loss': vae_loss, 'to_log': log_data}
 
+    def state_dict(self):
+        """Returns the state dictionary of the loss function."""
+        return {
+            'discriminator': self.discriminator.state_dict(),
+            'optimizer_d': self.optimizer_d.state_dict(),
+        }
+
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary into the loss function."""
+        self.discriminator.load_state_dict(state_dict['discriminator']) # keep in mind the device
+        self.optimizer_d.load_state_dict(state_dict['optimizer_d']) # keep in mind the device
+
 class FactorDiscriminator(nn.Module):
 
     def __init__(self, neg_slope=0.2, latent_dim=10, hidden_units=1000):
