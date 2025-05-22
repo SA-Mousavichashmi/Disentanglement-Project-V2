@@ -538,7 +538,8 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
     if chkpt['train_determinism_kwargs'] is not None:
         set_deterministic_run(
             seed=chkpt['train_determinism_kwargs']['seed'],
-            use_cuda_det=chkpt['train_determinism_kwargs']['use_cuda_deterministic'],
+            use_cuda_det=chkpt['train_determinism_kwargs']['use_cuda_det'],
+            enforce_det=chkpt['train_determinism_kwargs']['enforce_det'],
             cublas_workspace_config=chkpt['train_determinism_kwargs']['cublas_workspace_config']
         )
     
