@@ -257,6 +257,8 @@ class BaseTrainer():
 
         iteration_to_log = collections.defaultdict(list)
         current_interval_logs = collections.defaultdict(list)
+        epoch_accumulated_logs = collections.defaultdict(list) # Accumulates logs for the current epoch
+        
         data_iterator = iter(dataloader)
         approx_epochs = total_iterations / num_batches if num_batches > 0 else float('inf')
         
@@ -286,6 +288,8 @@ class BaseTrainer():
                     iteration_to_log[key].append(val)
                     if self.use_train_logging and self.log_loss_interval_type == 'iter':
                         current_interval_logs[key].append(val)
+                    if self.use_train_logging and self.log_loss_interval_type == 'epoch':
+                        epoch_accumulated_logs[key].append(val) # Accumulate for epoch-level logging
 
                 # progress bar update
                 if (it + 1) % self.progress_bar_log_iter_interval == 0 or (it + 1) == total_iterations:
@@ -303,13 +307,15 @@ class BaseTrainer():
                 # checkpoint & logging at epoch or iteration boundaries based on chkpt_step_type
                 if (it + 1) % num_batches == 0:
                     
-                    epoch_num = (it + 1) // num_batches
+                    epoch_num = (it + 1) // num_batches 
 
                     if self.use_train_logging and self.log_loss_interval_type == 'epoch':
-                        mean_epoch = {k: np.mean(v) for k, v in iteration_to_log.items()}
-                        mean_epoch['epoch'] = epoch_num
-                        mean_epoch['iter'] = it + 1
+                        # Calculate mean for the completed epoch and reset accumulator
+                        mean_epoch = {k: np.mean(v) for k, v in epoch_accumulated_logs.items() if v}
+                        mean_epoch['iter'] = self.current_train_iter
+                        mean_epoch['epoch'] = self.current_train_epoch
                         self.train_losses_log.append(mean_epoch)
+                        epoch_accumulated_logs = collections.defaultdict(list) # Reset for the next epoch
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
                         self._save_checkpoint_if_needed(
@@ -323,8 +329,8 @@ class BaseTrainer():
                 if self.use_train_logging and self.log_loss_interval_type == 'iter' and \
                     ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
                     mean_it = {k: np.mean(v) for k, v in current_interval_logs.items() if v}
-                    mean_it['iter'] = it + 1
-                    mean_it['epoch'] = (it + 1) / num_batches
+                    mean_it['iter'] = self.current_train_iter
+                    mean_it['epoch'] = self.current_train_epoch
 
                     self.train_losses_log.append(mean_it)
                     current_interval_logs = collections.defaultdict(list)
@@ -496,5 +502,7 @@ class BaseTrainer():
         loss_val = loss.item() if loss is not None else 0.0
         
         self.current_train_iter += 1  # Increment cumulative iteration counter
+        self.current_train_epoch = self.current_train_iter / len(self.dataloader)
+
         return {"loss": loss_val, "to_log": to_log}
 
