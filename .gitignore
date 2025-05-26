@@ -184,3 +184,5 @@ dummy (tests).ipynb
 
 # Checkpoints save dir
 checkpoints/
+
+back_up/
