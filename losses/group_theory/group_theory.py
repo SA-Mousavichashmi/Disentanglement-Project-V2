@@ -55,11 +55,11 @@ class Loss(BaseLoss):
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
 
-        self.base_loss_f =   select( 
+        self.base_loss_f = select( 
                              name=self.base_loss_name, 
                              **self.base_loss_kwargs,
                              state_dict=self.base_loss_state_dict,
-                             device=self.device
+                             device=device
                              )  # base loss function
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
