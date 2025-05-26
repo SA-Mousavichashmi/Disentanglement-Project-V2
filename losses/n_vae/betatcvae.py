@@ -47,8 +47,8 @@ class Loss(baseloss.BaseLoss):
        autoencoders." Advances in Neural Information Processing Systems. 2018.
     """
 
-    def __init__(self, n_data, alpha=1., gamma=1., beta=6., log_kl_components=False, is_mss=True, mode="post_forward", **kwargs):
-        super().__init__(mode=mode, **kwargs)
+    def __init__(self, n_data, alpha=1., gamma=1., beta=6., log_kl_components=False, is_mss=True, **kwargs):
+        super().__init__(mode="post_forward", **kwargs)
         self._name = 'betatcvae'
         self.n_data = n_data
         self.alpha = alpha

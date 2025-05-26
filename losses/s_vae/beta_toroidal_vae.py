@@ -29,7 +29,7 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
     """
 
     def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(mode="post_forward", **kwargs)
         self.name = 'beta_toroidal_vae'
         self.beta = beta
         self.log_kl_components = log_kl_components

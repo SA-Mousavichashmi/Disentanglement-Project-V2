@@ -33,8 +33,8 @@ class Loss(baseloss.BaseLoss):
         a constrained variational framework." (2016).
     """
 
-    def __init__(self, beta=1.0, log_kl_components=False, mode="post_forward", **kwargs):
-        super().__init__(mode=mode, **kwargs)
+    def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
+        super().__init__(mode="post_forward", **kwargs)
         self.beta = beta
         self.log_kl_components = log_kl_components
 

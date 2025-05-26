@@ -50,7 +50,7 @@ class Loss(BaseLoss):
                  **kwargs
                  ):
         
-        super(Loss, self).__init__(**kwargs)
+        super(Loss, self).__init__(mode="optimizes_internally",**kwargs)
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
@@ -64,7 +64,6 @@ class Loss(BaseLoss):
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
-        self.mode = 'optimizes_internally'
         self.deterministic_rep = deterministic_rep
 
         # Store the weights

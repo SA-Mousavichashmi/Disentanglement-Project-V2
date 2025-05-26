@@ -40,11 +40,10 @@ class Loss(baseloss.BaseLoss):
                  C_fin=5.0, 
                  gamma=100.0, 
                  anneal_steps=100000, 
-                 log_kl_components=False, 
-                 mode="post_forward",
+                 log_kl_components=False,
                  state_dict=None,
                  **kwargs):
-        super().__init__(mode=mode,**kwargs)
+        super().__init__(mode="post_forward",**kwargs)
 
         self.n_train_steps = 0
         self.gamma = gamma
