@@ -290,8 +290,6 @@ class BaseTrainer():
                         
                     prog_bar_log.update(recent)
                     t.set_postfix(**prog_bar_log)
-                    
-                t.update()
 
                 # scheduler step
                 self.lr_scheduler.step()
