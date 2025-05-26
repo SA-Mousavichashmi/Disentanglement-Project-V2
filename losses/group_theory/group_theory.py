@@ -30,6 +30,7 @@ class Loss(BaseLoss):
     TODO: For Gaussian component instead instead of using fixed std for sampling from normal distribution, the std for each dim will learned approximately
     TODO: The discriminator must have the same architecture with Encoder
     """
+
     def __init__(self,
                  base_loss_name,
                  base_loss_kwargs,
@@ -53,6 +54,13 @@ class Loss(BaseLoss):
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
+
+        self.base_loss_f =   select( 
+                             name=self.base_loss_name, 
+                             **self.base_loss_kwargs,
+                             state_dict=self.base_loss_state_dict,
+                             device=self.device
+                             )  # base loss function
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
@@ -111,6 +119,22 @@ class Loss(BaseLoss):
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
         }
+
+    def state_dict(self):
+        state = {}
+        state['critic_state_dict'] = self.critic.state_dict() if self.critic is not None else None
+        state['critic_optimizer_state_dict'] = self.critic_optimizer.state_dict() if self.critic_optimizer is not None else None
+        state['base_loss_state_dict'] = self.base_loss_state_dict
+        return state
+
+    def load_state_dict(self, state_dict):
+        if self.critic is not None:
+            self.critic.load_state_dict(state_dict['critic_state_dict'])
+        if self.critic_optimizer is not None:
+            self.critic_optimizer.load_state_dict(state_dict['critic_optimizer_state_dict'])
+        
+        self.base_loss_state_dict = state_dict['base_loss_state_dict']
+        self.base_loss_f.load_state_dict(self.base_loss_state_dict)
     
     def _group_action_commutative_loss(self, data, model, kl_components, variance_components):
         """
@@ -236,14 +260,9 @@ class Loss(BaseLoss):
         is_train = model.training
         log_data = {}
         
-        base_loss_f = select(device=data.device, 
-                             name=self.base_loss_name, 
-                             **self.base_loss_kwargs,
-                             state_dict=self.base_loss_state_dict,
-                             )  # base loss function
         base_loss = 0
 
-        if base_loss_f.mode == 'post_forward':
+        if self.base_loss_f.mode == 'post_forward':
             model_out = model(data)
             inputs = {
                 'data': data, 
@@ -251,21 +270,21 @@ class Loss(BaseLoss):
                 **model_out,
             }
 
-            loss_out = base_loss_f(**inputs)
+            loss_out = self.base_loss_f(**inputs)
             base_loss = loss_out['loss']
             log_data.update(loss_out['to_log'])
 
-        elif base_loss_f.mode == 'pre_forward':
+        elif self.base_loss_f.mode == 'pre_forward':
             inputs = {
                 'model': model,
                 'data': data,
                 'is_train': False
             }
-            loss_out = base_loss_f(**inputs)
+            loss_out = self.base_loss_f(**inputs)
             base_loss = loss_out['loss']
             log_data.update(loss_out['to_log'])
-        
-        elif base_loss_f.mode == 'optimizes_internally':
+
+        elif self.base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode.")
 
         with torch.no_grad():
