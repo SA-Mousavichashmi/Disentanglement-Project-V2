@@ -10,7 +10,10 @@ from .. import select
 
 from .utils import Critic
 # Import the moved functions
-from .utils import generate_latent_translations, apply_group_action_latent_space, select_latent_components, generate_latent_translations_selected_components
+from .utils import  generate_latent_translations,\
+                    apply_group_action_latent_space, \
+                    select_latent_components, \
+                    generate_latent_translations_selected_components
 
 from ..n_vae.kl_div import kl_normal_loss
 
@@ -42,12 +45,14 @@ class Loss(BaseLoss):
                  meaningful_critic_lr,
                  meaningful_n_critic,
                  deterministic_rep,
+                 base_loss_state_dict=None,
                  **kwargs
                  ):
         
         super(Loss, self).__init__(**kwargs)
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
+        self.base_loss_state_dict = base_loss_state_dict
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
@@ -230,8 +235,12 @@ class Loss(BaseLoss):
     def __call__(self, data, model, vae_optimizer):
         is_train = model.training
         log_data = {}
-        # TODO : Start from base loss from specific state
-        base_loss_f = select(device=data.device, name=self.base_loss_name, **self.base_loss_kwargs) # base loss function
+        
+        base_loss_f = select(device=data.device, 
+                             name=self.base_loss_name, 
+                             **self.base_loss_kwargs,
+                             state_dict=self.base_loss_state_dict,
+                             )  # base loss function
         base_loss = 0
 
         if base_loss_f.mode == 'post_forward':
