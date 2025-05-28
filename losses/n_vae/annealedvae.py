@@ -110,5 +110,7 @@ class Loss(baseloss.BaseLoss):
         loss = rec_loss + self.gamma * (kl_loss - C).abs()
         log_data['loss'] = loss.item()
 
+        self.n_train_steps += 1
+
         return {'loss': loss, 'to_log': log_data}
 

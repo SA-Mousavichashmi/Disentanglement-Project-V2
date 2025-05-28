@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def select_latent_components(component_order, kl_components):
+def select_latent_components(component_order, kl_components, prob_threshold=None):
     """
     Selects a subset of latent components based on the provided component order and KL components.
 
@@ -19,45 +19,57 @@ def select_latent_components(component_order, kl_components):
     # Calculate selection probabilities using softmax
     probs = F.softmax(kl_components, dim=1)
 
-    # Sample 'component_order' indices for each batch item based on probabilities
-    selected_components = torch.multinomial(probs, component_order, replacement=False)
+    if prob_threshold is not None:
+        # Apply a threshold to the probabilities
+        probs = torch.where(probs < prob_threshold, torch.tensor(0.0, device=device), probs)
+        # Normalize probabilities again after thresholding
+        probs = F.softmax(probs, dim=1)
 
-    return selected_components
+    # select rows that have the number of non-zero elements in prob is bigger or equal than component_order
+    mask = probs != 0
+    mask = mask & (mask.sum(dim=1, keepdim=True) >= component_order)
 
+    # selected row indices
+    row_indices = torch.arange(kl_components.size(0), device=device)
+    selected_row_indices = row_indices[mask.any(dim=1)]
 
-def generate_latent_translations_selected_components(batch_size, latent_dim, selected_components_indices, selected_components_variances):
+    if mask.any():
+        # Select components based on the probabilities
+        selected_components_indices = torch.multinomial(probs[selected_row_indices], component_order, replacement=False)
+        return selected_row_indices, selected_components_indices
+    else:
+        # empty list
+        return None, None
+
+def generate_latent_translations_selected_components(data_num, latent_dim, selected_components_indices, range=3):
     """
     Generates random translation parameters for latent space transformation.
 
     In this function, we randomly select a subset of dimensions in the latent space based on the
-    `selected_components_indices` and modify them by sampling from a Gaussian distribution with mean 0 and
-    variance specified by `selected_components_variances`.
+    `selected_components_indices` and modify them by sampling from a uniform distribution within a specified range.
 
     Args:
-        batch_size (int): The number of transformation vectors to generate.
+        data_num (int): The number of transformation vectors to generate.
         latent_dim (int): The total dimensionality of the latent space.
         selected_components_indices (torch.Tensor): Indices of the selected components. Shape (batch, component_order).
-        selected_components_variances (torch.Tensor): Variances for each selected component. Shape (batch, component_order).
+        range (float): The range [-range, range] from which to sample translation values.
 
     Returns:
-        torch.Tensor: A tensor of shape (batch_size, latent_dim) containing the
+        torch.Tensor: A tensor of shape (data_num, latent_dim) containing the
                       random translation parameters. Only `component_order`
-                      dimensions per vector will have non-zero values drawn from N(0, selected_components_variances).
+                      dimensions per vector will have non-zero values drawn from U(-range, range).
     """
     # Ensure inputs are on the correct device (assuming kl_components determines the device)
     device = selected_components_indices.device
 
     # Initialize transformation parameters with zeros
-    transformation_parameters = torch.zeros(batch_size, latent_dim, device=device)
+    transformation_parameters = torch.zeros(data_num, latent_dim, device=device)
 
-    # Get the variances for the selected components
-    selected_variances = selected_components_variances
-
-    # Sample from N(0, 1)
-    random_samples = torch.randn(batch_size, selected_components_indices.size(1), device=device)
+    # Sample from uniform distribution in [-range, range]
+    random_samples = (2 * torch.rand(data_num, selected_components_indices.size(1), device=device) - 1) * range
 
     # Scale samples by the standard deviation (sqrt of variance)
-    transformation_values = random_samples * torch.sqrt(selected_variances)
+    transformation_values = random_samples  # No variance scaling as per the updated signature
 
     # Place the sampled and scaled values into the transformation_parameters tensor
     transformation_parameters.scatter_(1, selected_components_indices, transformation_values)
@@ -65,7 +77,7 @@ def generate_latent_translations_selected_components(batch_size, latent_dim, sel
     return transformation_parameters
 
 
-def generate_latent_translations(batch_size, latent_dim, component_order, kl_components, variance_components):
+def generate_latent_translations(data_num, latent_dim, component_order, kl_components, range=3):
     """
     Generates latent translations by combining component selection and parameter generation.
 
@@ -75,30 +87,27 @@ def generate_latent_translations(batch_size, latent_dim, component_order, kl_com
     3. Translation parameter generation using selected components
 
     Args:
-        batch_size (int): Number of transformation vectors to generate
+        data_num (int): Number of transformation vectors to generate
         latent_dim (int): Total dimensionality of latent space
         component_order (int): Number of components to select/modify per sample
         kl_components (torch.Tensor): Component selection weights (batch, latent_dim)
-        variance_components (torch.Tensor): Per-component variance values (batch, latent_dim)
 
     Returns:
-        torch.Tensor: Translation parameters tensor of shape (batch_size, latent_dim)
+        torch.Tensor: Translation parameters tensor of shape (data_num, latent_dim)
                       with non-zero values only in selected components, sampled from
                       N(0, variance_components[selected_indices])
     """
     # Ensure inputs are on the correct device (assuming kl_components determines the device)
     device = kl_components.device
-    variance_components = variance_components.to(device)
 
     # Select components and generate translations using helper functions
     selected_indices = select_latent_components(component_order, kl_components)
-    selected_variances = variance_components.gather(1, selected_indices)
     
     return generate_latent_translations_selected_components(
-        batch_size, 
+        data_num, 
         latent_dim,
         selected_indices,
-        selected_variances
+        range=range
     )
 
 

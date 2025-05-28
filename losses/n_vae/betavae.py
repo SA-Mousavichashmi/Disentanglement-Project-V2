@@ -57,7 +57,7 @@ class Loss(baseloss.BaseLoss):
     def load_state_dict(self, state_dict):
         return
 
-    def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
+    def __call__(self, data, reconstructions, stats_qzx, **kwargs):   
         if isinstance(stats_qzx, torch.Tensor):
             stats_qzx = stats_qzx.unbind(-1)     
 
