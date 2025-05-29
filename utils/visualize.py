@@ -8,7 +8,10 @@ class Visualizer():
     def __init__(self, 
                  vae_model, 
                  dataset,
-                 save_dir=None):  # Added save_dir parameter
+                 is_plot=True,
+                 is_save=False,  
+                 save_dir=None
+                 ):  # Added save_dir parameter
         """Initializes the visualizer class.
 
         Parameters
@@ -17,13 +20,21 @@ class Visualizer():
             The trained VAE model used for generating images and reconstructions.
         dataset : torch.utils.data.Dataset
             The dataset from which images will be sampled for visualization tasks.
+        is_plot : bool, optional
+            If True, plots are displayed. Defaults to True.
+        is_save : bool, optional
+            If True, plots are saved to `save_dir`. Defaults to False.
         save_dir : str, optional
-            Directory to save plots. If None, plots are displayed instead.
+            Directory to save plots. Required if `is_save` is True.
         """
-        
+
         self.vae_model = vae_model # The vae model for generating images
         self.dataset = dataset # the dataset to be used for visualization
         self.save_dir = save_dir  # Store save_dir
+        self.is_plot = is_plot
+        self.is_save = is_save
+
+        assert is_plot or is_save, "At least one of is_plot or is_save must be True"
 
 ################## Latent Traversal Methods ##################
 
@@ -69,6 +80,11 @@ class Visualizer():
             Defaults to 0.475.
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
+        
+        Raises
+        ------
+        ValueError
+            If `is_save` is True but `save_dir` is not provided.
         """
 
         if use_ref_img:
@@ -110,12 +126,18 @@ class Visualizer():
         fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12, y=0.95)  # Adjust title position
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
         
-        # Save or show plot
-        if self.save_dir:
+        # Save plot if requested
+        if self.is_save:
+            if not self.save_dir:
+                raise ValueError("save_dir must be provided when is_save=True")
             plt.savefig(os.path.join(self.save_dir, f'latent_traversal_dim_{latent_idx}.png'))
-            plt.close()
-        else:
+            
+        # Show plot if requested
+        if self.is_plot:
             plt.show()
+
+        # Always close the figure
+        plt.close()
 
     def plot_all_latent_traversals(self,
                                      num_samples=10,
@@ -157,6 +179,11 @@ class Visualizer():
         figsize : tuple, optional
             The base size of the matplotlib figure for a single row. The total height
             will be adjusted based on the number of latent dimensions. Defaults to (10, 3).
+        
+        Raises
+        ------
+        ValueError
+            If `is_save` is True but `save_dir` is not provided.
 
         """
 
@@ -213,12 +240,18 @@ class Visualizer():
         plt.tight_layout(pad=0.1, h_pad=0.5, w_pad=0.1)
         fig.suptitle('Latent Traversals for All Dimensions', fontsize=12, y=1.02) # Adjust y position of suptitle
         
-        # Save or show plot
-        if self.save_dir:
+        # Save plot if requested
+        if self.is_save:
+            if not self.save_dir:
+                raise ValueError("save_dir must be provided when is_save=True")
             plt.savefig(os.path.join(self.save_dir, 'all_latent_traversals.png'))
-            plt.close()
-        else:
+            
+        # Show plot if requested
+        if self.is_plot:
             plt.show()
+
+        # Always close the figure
+        plt.close()
 
 
 ################## Reconstruction Methods ##################
@@ -237,6 +270,11 @@ class Visualizer():
             A list of reconstructed image tensors (on CPU).
         figsize : tuple, optional
             The size of the matplotlib figure. Defaults to (10, 3).
+        
+        Raises
+        ------
+        ValueError
+            If `is_save` is True but `save_dir` is not provided.
         """
         num_images = len(imgs)
         fig, axes = plt.subplots(2, num_images, figsize=figsize)
@@ -270,12 +308,18 @@ class Visualizer():
 
         plt.tight_layout(pad=0.1)
         
-        # Save or show plot
-        if self.save_dir:
+        # Save plot if requested
+        if self.is_save:
+            if not self.save_dir:
+                raise ValueError("save_dir must be provided when is_save=True")
             plt.savefig(os.path.join(self.save_dir, 'reconstructions.png'))
-            plt.close()
-        else:
+            
+        # Show plot if requested
+        if self.is_plot:
             plt.show()
+
+        # Always close the figure
+        plt.close()
     
     def plot_random_reconstructions(self, num_samples=10, mode='mean', figsize=(10, 3)):
         """Randomly selects and plots a specified number of images and their reconstructions.

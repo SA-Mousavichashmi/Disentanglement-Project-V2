@@ -398,35 +398,16 @@ class BaseTrainer():
                 should_save = True
 
         if should_save:
-            if self.chkpt_save_path is not None:
-                chkpt_save_path = self.chkpt_save_path
-
-            elif self.chkpt_save_dir is not None:
-                subfolder_chkpt_name = self.base_subfolder_chkpt_name.format(chkpt_num=self.chkpt_num)
-
-                # Create subfolder if it doesn't exist
-                os.makedirs(self.chkpt_save_dir, exist_ok=True)
-                # Create the full checkpoint save path
-                chkpt_save_path = os.path.join(
-                    self.chkpt_save_dir, 
-                    subfolder_chkpt_name
-                )
-                self.chkpt_num += 1
-            else:
-                chkpt_save_path = None
-
             self._save_checkpoint(
                 dataloader=dataloader, 
                 chkpt_train_losses_log=chkpt_train_losses_log,
                 chkpt_train_metrics_log=chkpt_train_metrics_log,
-                chkpt_save_path=chkpt_save_path
                 )
 
     def _save_checkpoint(self, 
                          dataloader, 
                          chkpt_train_losses_log, 
                          chkpt_train_metrics_log,
-                         chkpt_save_path=None,
                          ):
         """
         Saves the current state of the model, optimizer, and other components to a checkpoint.
@@ -436,12 +417,30 @@ class BaseTrainer():
         dataloader : torch.utils.data.DataLoader
             DataLoader used for training.
         """
+        chkpt_save_path = None
+        if self.chkpt_save_path is not None:
+            chkpt_save_path = self.chkpt_save_path
+
+        elif self.chkpt_save_dir is not None:
+            subfolder_chkpt_name = self.base_subfolder_chkpt_name.format(chkpt_num=self.chkpt_num)
+            chkpt_file_name = f"{subfolder_chkpt_name}.pth"
+
+            # Create the full checkpoint save path
+            chkpt_save_path = os.path.join(
+                self.chkpt_save_dir, 
+                subfolder_chkpt_name,
+                chkpt_file_name
+            )
+            
+            self.chkpt_num += 1
+        else:
+            chkpt_save_path = None
+
         # Print checkpoint message
         if chkpt_save_path is not None:
             print(f"Creating and saving checkpoint at {chkpt_save_path} at iteration {self.current_train_iter}")
         else:
             print(f"Creating checkpoint at iteration {self.current_train_iter}, but not saving it to disk.")
-
 
         chkpt = create_chkpt(
             train_id=self.train_id,
