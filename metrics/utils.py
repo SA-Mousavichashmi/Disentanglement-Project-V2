@@ -15,6 +15,7 @@ from tqdm import tqdm, trange
 
 from utils import math
 import metrics
+from utils.helpers import get_cpu_core_num
 
 
 METRICS = [
@@ -72,7 +73,7 @@ class MetricAggregator:
             assert 'args' in metric_config, "Each metric dictionary must contain an 'args' key."
         self.metrics = metrics
     
-    def _get_representation(self, model, data_loader, device='cpu'):
+    def _get_representation_dataloader(self, model, data_loader, device='cpu'):
         """Get the latent representation and ground truth factors from the model and data loader.
 
         Args:
@@ -99,8 +100,38 @@ class MetricAggregator:
                 gt_factors.append(labels.cpu())
 
         return torch.cat(latent_reps), torch.cat(gt_factors)
+
+    def _get_representation_dataset(self, model, dataset, sample_num, seed, device='cpu'):
+        """Get the latent representation and ground truth factors from the model and dataset.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            dataset (torch.utils.data.Dataset): The dataset containing the data.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            tuple: A tuple containing the latent representations and ground truth factors in cpu
+        """
+        # Create a torch generator for reproducible sampling of dataset indices
+        g = torch.Generator()
+        g.manual_seed(seed)
+        
+        # Generate random indices using torch.randperm and the seeded generator
+        # Then take the first 'sample_num' indices
+        indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
+        
+        sample_dataset = torch.utils.data.Subset(dataset, indices)
+        data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
+
+        return self._get_representation_dataloader(model, data_loader, device)
     
-    def compute(self, model, data_loader, device='cpu'):
+    def _get_representation(self, model, device='cpu', **kwargs):
+        if 'data_loader' in kwargs:
+            return self._get_representation_dataloader(model, device=device, **kwargs)
+        elif 'dataset' in kwargs:
+            return self._get_representation_dataset(model, device=device, **kwargs)
+
+    def compute(self, model, device='cpu', **kwargs):
         """Computes the disentanglement metrics for the given model and data loader.
 
         Args:
@@ -111,7 +142,7 @@ class MetricAggregator:
         Returns:
             dict: A dictionary containing the computed metrics.
         """
-        latent_reps, gt_factors = self._get_representation(model, data_loader, device)
+        latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
 
         results = {}
         for metric in self.metrics:

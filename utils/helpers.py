@@ -1,7 +1,12 @@
 import random
 import numpy as np
 import torch
+import os  # Import the os module
 
+
+def get_cpu_core_num():
+    """Return the number of CPU threads available."""
+    return os.cpu_count()  # Use os.cpu_count() instead of torch.get_num_threads()
 
 #-------------- TRAINING HELPERS -----------------
 def get_device(on_cpu=False, gpu_id=0): # Added parameters to signature
