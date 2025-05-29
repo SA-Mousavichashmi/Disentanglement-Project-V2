@@ -519,7 +519,7 @@ class BaseTrainer():
                 "dataset_size": len(self.dataloader.dataset),
                 "pin_memory": self.dataloader.pin_memory,
                 "persistent_workers": self.dataloader.persistent_workers,
-                "shuffle": self.dataloader.shuffle
+                "shuffle": True
             },
             "training_state": {
                 "prev_iter": self.prev_train_iter

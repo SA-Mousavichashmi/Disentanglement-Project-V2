@@ -1,10 +1,14 @@
 import matplotlib.pyplot as plt
 import torch
+import os  # Added for path handling
 from vae_models import utils as vae_model_utils # Corrected import to vae_models.utils
 from vae_models.n_vae import utils as n_vae_utils # Corrected import to vae_models.n_vae.utils
 
 class Visualizer():
-    def __init__(self, vae_model, dataset):
+    def __init__(self, 
+                 vae_model, 
+                 dataset,
+                 save_dir=None):  # Added save_dir parameter
         """Initializes the visualizer class.
 
         Parameters
@@ -13,10 +17,13 @@ class Visualizer():
             The trained VAE model used for generating images and reconstructions.
         dataset : torch.utils.data.Dataset
             The dataset from which images will be sampled for visualization tasks.
+        save_dir : str, optional
+            Directory to save plots. If None, plots are displayed instead.
         """
         
         self.vae_model = vae_model # The vae model for generating images
         self.dataset = dataset # the dataset to be used for visualization
+        self.save_dir = save_dir  # Store save_dir
 
 ################## Latent Traversal Methods ##################
 
@@ -102,7 +109,13 @@ class Visualizer():
 
         fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12, y=0.95)  # Adjust title position
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
-        plt.show()
+        
+        # Save or show plot
+        if self.save_dir:
+            plt.savefig(os.path.join(self.save_dir, f'latent_traversal_dim_{latent_idx}.png'))
+            plt.close()
+        else:
+            plt.show()
 
     def plot_all_latent_traversals(self,
                                      num_samples=10,
@@ -199,7 +212,13 @@ class Visualizer():
         # Adjust layout to prevent overlap and add a main title
         plt.tight_layout(pad=0.1, h_pad=0.5, w_pad=0.1)
         fig.suptitle('Latent Traversals for All Dimensions', fontsize=12, y=1.02) # Adjust y position of suptitle
-        plt.show()
+        
+        # Save or show plot
+        if self.save_dir:
+            plt.savefig(os.path.join(self.save_dir, 'all_latent_traversals.png'))
+            plt.close()
+        else:
+            plt.show()
 
 
 ################## Reconstruction Methods ##################
@@ -250,7 +269,13 @@ class Visualizer():
                 ax.set_title('Reconstruction', fontsize=10)
 
         plt.tight_layout(pad=0.1)
-        plt.show()
+        
+        # Save or show plot
+        if self.save_dir:
+            plt.savefig(os.path.join(self.save_dir, 'reconstructions.png'))
+            plt.close()
+        else:
+            plt.show()
     
     def plot_random_reconstructions(self, num_samples=10, mode='mean', figsize=(10, 3)):
         """Randomly selects and plots a specified number of images and their reconstructions.
