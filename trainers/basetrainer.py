@@ -14,6 +14,8 @@ import uuid
 from utils.helpers import get_model_device
 from collections import OrderedDict
 from utils.reproducibility import set_deterministic_run
+import os
+import json
 
 class BaseTrainer():
 
@@ -116,16 +118,16 @@ class BaseTrainer():
 
         self.determinism_kwargs = determinism_kwargs
 
-        self.loss = loss  # renamed
+        self.loss = loss
         self.optimizer = optimizer
         self.model = model
         self.device = get_model_device(model)
 
-        self.use_torch_compile = use_torch_compile  # Renamed
-        self.torch_compile_kwargs = torch_compile_kwargs  # Renamed
+        self.use_torch_compile = use_torch_compile
+        self.torch_compile_kwargs = torch_compile_kwargs
 
-        if self.use_torch_compile:  # Renamed
-            self.model = torch.compile(self.model, **self.torch_compile_kwargs)  # Renamed
+        if self.use_torch_compile:
+            self.model = torch.compile(self.model, **self.torch_compile_kwargs)
         
         self.dataloader = dataloader
 
@@ -166,11 +168,16 @@ class BaseTrainer():
                 total_iters=0  # Apply the factor immediately and keep it constant
             )
         else:
-            self.lr_scheduler = lr_scheduler  # Renamed from scheduler
+            self.lr_scheduler = lr_scheduler
         
+        if self.chkpt_save_dir is not None:
+            self.chkpt_num = 1
+            self.base_subfolder_chkpt_name = "chkpt_{chkpt_num}"
+
+
     def _validate_init_params(
         self,
-        use_torch_compile,  # Renamed
+        use_torch_compile,
         determinism_kwargs,
         log_loss_interval_type,
         chkpt_step_type,
@@ -238,6 +245,14 @@ class BaseTrainer():
             raise ValueError("No dataloader provided for training. Please provide a dataloader.")
         elif self.dataloader is None:
             self.dataloader = dataloader
+
+        if self.chkpt_save_dir:
+            train_metadata = self.create_train_metadata()
+            # Save train_metadata as a JSON file
+            metadata_path = os.path.join(self.chkpt_save_dir, 'train_metadata.json')
+            with open(metadata_path, 'w') as f:
+                json.dump(train_metadata, f, indent=4)
+                  
 
         self.model.train()
 
@@ -357,7 +372,7 @@ class BaseTrainer():
                                    total_steps, 
                                    dataloader, 
                                    chkpt_train_losses_log, 
-                                   chkpt_train_metrics_log
+                                   chkpt_train_metrics_log,
                                    ):
         """
         Handles checkpoint creation and saving logic for both epoch and iteration training.
@@ -383,13 +398,36 @@ class BaseTrainer():
                 should_save = True
 
         if should_save:
+            if self.chkpt_save_path is not None:
+                chkpt_save_path = self.chkpt_save_path
+
+            elif self.chkpt_save_dir is not None:
+                subfolder_chkpt_name = self.base_subfolder_chkpt_name.format(chkpt_num=self.chkpt_num)
+
+                # Create subfolder if it doesn't exist
+                os.makedirs(self.chkpt_save_dir, exist_ok=True)
+                # Create the full checkpoint save path
+                chkpt_save_path = os.path.join(
+                    self.chkpt_save_dir, 
+                    subfolder_chkpt_name
+                )
+                self.chkpt_num += 1
+            else:
+                chkpt_save_path = None
+
             self._save_checkpoint(
                 dataloader=dataloader, 
                 chkpt_train_losses_log=chkpt_train_losses_log,
-                chkpt_train_metrics_log=chkpt_train_metrics_log
+                chkpt_train_metrics_log=chkpt_train_metrics_log,
+                chkpt_save_path=chkpt_save_path
                 )
 
-    def _save_checkpoint(self, dataloader, chkpt_train_losses_log, chkpt_train_metrics_log):
+    def _save_checkpoint(self, 
+                         dataloader, 
+                         chkpt_train_losses_log, 
+                         chkpt_train_metrics_log,
+                         chkpt_save_path=None,
+                         ):
         """
         Saves the current state of the model, optimizer, and other components to a checkpoint.
 
@@ -428,16 +466,72 @@ class BaseTrainer():
             return_log_loss=self.return_log_loss,
         )
 
+        if chkpt_save_path is not None:
+            torch.save(
+                chkpt,
+                chkpt_save_path
+            )
+
         if self.return_chkpt:
             self.chkpt_list.append(chkpt)
-
-        if self.chkpt_save_path is not None:
-            print(f"Saving checkpoint to {self.chkpt_save_path}")
-            torch.save(chkpt, self.chkpt_save_path)
-
-            if not self.return_chkpt:
-                del chkpt
-
+        else:
+            del chkpt
+    
+    def create_train_metadata(self):
+        """
+        Creates and returns a dictionary containing comprehensive metadata 
+        about the training configuration.
+        
+        Returns:
+            dict: Training metadata dictionary
+        """
+        return {
+            "train_id": str(self.train_id),
+            "model": {
+                "name": self.model.name,
+                "device": str(self.device),
+                "compiled": self.use_torch_compile,
+                "compile_kwargs": self.torch_compile_kwargs
+            },
+            "optimizer": {
+                "name": type(self.optimizer).__name__,
+                "params": self.optimizer.defaults
+            },
+            "lr_scheduler": {
+                "name": type(self.lr_scheduler).__name__ if self.lr_scheduler else None,
+                "state": self.lr_scheduler.state_dict() if self.lr_scheduler else None
+            },
+            "loss": {
+                "name": self.loss.name,
+                "kwargs": self.loss.kwargs,
+                "mode": self.loss.mode
+            },
+            "dataloader": {
+                "batch_size": self.dataloader.batch_size,
+                "num_workers": self.dataloader.num_workers,
+                "dataset_size": len(self.dataloader.dataset),
+                "pin_memory": self.dataloader.pin_memory,
+                "persistent_workers": self.dataloader.persistent_workers,
+                "shuffle": self.dataloader.shuffle
+            },
+            "training_state": {
+                "prev_iter": self.prev_train_iter
+            },
+            "checkpointing": {
+                "step_type": self.chkpt_step_type,
+                "every_n_steps": self.chkpt_every_n_steps,
+                "save_path": self.chkpt_save_path,
+                "save_dir": self.chkpt_save_dir,
+                "master_dir": self.chkpt_save_master_dir
+            },
+            "logging": {
+                "loss_interval_type": self.log_loss_interval_type,
+                "loss_iter_interval": self.log_loss_iter_interval,
+                "progress_bar_interval": self.progress_bar_log_iter_interval
+            },
+            "determinism": self.determinism_kwargs
+        }
+    
     def _train_iteration(self, samples):
         """
         Trains the model for one iteration on a batch of data.
