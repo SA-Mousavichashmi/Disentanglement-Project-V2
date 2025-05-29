@@ -436,6 +436,13 @@ class BaseTrainer():
         dataloader : torch.utils.data.DataLoader
             DataLoader used for training.
         """
+        # Print checkpoint message
+        if chkpt_save_path is not None:
+            print(f"Creating and saving checkpoint at {chkpt_save_path} at iteration {self.current_train_iter}")
+        else:
+            print(f"Creating checkpoint at iteration {self.current_train_iter}, but not saving it to disk.")
+
+
         chkpt = create_chkpt(
             train_id=self.train_id,
             train_iter_num=self.current_train_iter,
