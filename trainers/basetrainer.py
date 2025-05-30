@@ -17,6 +17,7 @@ from utils.reproducibility import set_deterministic_run
 import os
 import json
 from utils.visualize import Visualizer
+from pathlib import Path
 
 class BaseTrainer():
 
@@ -202,12 +203,15 @@ class BaseTrainer():
         else:
             self.lr_scheduler = lr_scheduler
         
+        
         if self.chkpt_save_dir is not None:
 
             self.base_subfolder_chkpt_name = "chkpt_{chkpt_num}"
 
             if check_dir_empty(self.chkpt_save_dir):
                 self.chkpt_num = 0
+                self.chkpt_result_file_name = 'chkpt_result.json'
+                Path(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name)).write_text("{}")
             else:
                 with open(os.path.join(self.chkpt_save_dir, 'train_metadata.json'), 'r') as f:
                     chkpt_train_metadata = json.load(f)                
@@ -543,7 +547,18 @@ class BaseTrainer():
             ) 
 
         if self.chkpt_viz:
-            self._save_visualization(chkpt_save_dir)       
+            self._save_visualization(chkpt_save_dir)
+
+        if self.chkpt_save_dir is not None:
+            chkpt_result = json.loads(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name))
+
+            chkpt_result[self.chkpt_num] = {
+                'train_losses': self.train_losses_log,
+                'train_metrics': self.train_metrics_log,
+            }
+
+            with open(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name), 'w') as f:
+                json.dump(chkpt_result, f, indent=4)
 
         if self.return_chkpt:
             self.chkpt_list.append(chkpt)
