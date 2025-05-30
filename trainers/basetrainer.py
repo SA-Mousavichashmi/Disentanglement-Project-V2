@@ -460,6 +460,9 @@ class BaseTrainer():
             chkpt_save_dir = os.path.join(self.chkpt_save_dir, subfolder_chkpt_name)
             chkpt_save_path = os.path.join(chkpt_save_dir, chkpt_file_name)
             
+            # Create the directory if it doesn't exist
+            os.makedirs(chkpt_save_dir, exist_ok=True)
+
             self.chkpt_num += 1
         else:
             chkpt_save_path = None
