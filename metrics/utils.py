@@ -112,6 +112,10 @@ class MetricAggregator:
         Returns:
             tuple: A tuple containing the latent representations and ground truth factors in cpu
         """
+
+        if sample_num > len(dataset):
+            raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
+
         # Create a torch generator for reproducible sampling of dataset indices
         g = torch.Generator()
         g.manual_seed(seed)

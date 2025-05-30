@@ -16,6 +16,7 @@ from collections import OrderedDict
 from utils.reproducibility import set_deterministic_run
 import os
 import json
+from utils.visualize import Visualizer
 
 class BaseTrainer():
 
@@ -31,21 +32,27 @@ class BaseTrainer():
                  prev_train_iter=0,
                  dataloader=None,
                  # logging args
+                 # progress bar args
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,
-                 log_loss_interval_type='iter',
                  use_train_logging=True,
+                 # loss logging args
+                 log_loss_interval_type='iter',
                  log_loss_iter_interval=200,
-                 return_log_loss=True,
+                 # metrics logging args
+                 log_metrics_interval_type='iter', 
+                 log_metrics_iter_interval=200,
+                 return_logs=True,
                  prev_train_losses_log=None,
                  prev_train_metrics_log=None,
                  # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
-                 chkpt_step_type='iter',   # <--- new parameter
+                 chkpt_step_type='iter',
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
                  chkpt_save_master_dir=None,
+                 chkpt_viz=False, 
                  ):
         """
         Initializes the BaseTrainer.
@@ -79,7 +86,7 @@ class BaseTrainer():
             Enable progress bar. Defaults to True.
         progress_bar_log_iter_interval : int, optional
             Iterations between progress bar updates. Defaults to 50.
-        return_log_loss : bool, optional
+        return_logs : bool, optional
             Return logged losses from `train()`. Defaults to True.
         log_loss_interval_type : {'epoch','iter'}, optional
             Granularity for loss logging. Defaults to 'iter'.
@@ -139,22 +146,31 @@ class BaseTrainer():
         else:
             self.current_train_epoch = 0
 
+        # logging parameters
         self.is_progress_bar = is_progress_bar
         self.progress_bar_log_iter_interval = progress_bar_log_iter_interval
 
         self.use_train_logging = use_train_logging
+
         self.log_loss_interval_type = log_loss_interval_type
         self.log_loss_iter_interval = log_loss_iter_interval
-        self.return_log_loss = return_log_loss
+
+        self.log_metrics_interval_type = log_metrics_interval_type
+        self.log_metrics_iter_interval = log_metrics_iter_interval
+
+        self.return_logs = return_logs
         self.train_losses_log = prev_train_losses_log if prev_train_losses_log is not None else []
         self.train_metrics_log = prev_train_metrics_log if prev_train_metrics_log is not None else []
 
+        # checkpointing parameters
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
         self.chkpt_save_dir = chkpt_save_dir
         self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
-        self.chkpt_step_type = chkpt_step_type           # <--- store it
+        self.chkpt_step_type = chkpt_step_type 
+        self.chkpt_viz = chkpt_viz
+
         self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
         self.chkpt_list = []
         self.chkpt_train_losses_log = []
@@ -180,6 +196,7 @@ class BaseTrainer():
         use_torch_compile,
         determinism_kwargs,
         log_loss_interval_type,
+        log_metrics_interval_type,
         chkpt_step_type,
         chkpt_save_path,
         chkpt_save_dir,
@@ -201,6 +218,10 @@ class BaseTrainer():
         #### Logging assertions ####
         if log_loss_interval_type not in ['epoch', 'iter']:
             raise ValueError("log_loss_interval_type must be either 'epoch' or 'iter'")
+        
+        if log_metrics_interval_type not in ['epoch', 'iter']:
+            raise ValueError("log_metrics_interval_type must be either 'epoch' or 'iter'")
+
         # validate step_type
         if chkpt_step_type not in ['epoch', 'iter']:           # <--- validate
             raise ValueError("chkpt_step_type must be either 'epoch' or 'iter'")
@@ -314,13 +335,19 @@ class BaseTrainer():
                     
                     epoch_num = (it + 1) // num_batches 
 
-                    if self.use_train_logging and self.log_loss_interval_type == 'epoch':
-                        # Calculate mean for the completed epoch and reset accumulator
-                        mean_epoch = {k: np.mean(v) for k, v in epoch_accumulated_logs.items() if v}
-                        mean_epoch['iter'] = self.current_train_iter
-                        mean_epoch['epoch'] = self.current_train_epoch
-                        self.train_losses_log.append(mean_epoch)
-                        epoch_accumulated_logs = collections.defaultdict(list) # Reset for the next epoch
+                    if self.use_train_logging:
+
+                        if self.log_loss_interval_type == 'epoch':
+                            # Calculate mean for the completed epoch and reset accumulator
+                            mean_epoch = {k: np.mean(v) for k, v in epoch_accumulated_logs.items() if v}
+                            mean_epoch['iter'] = self.current_train_iter
+                            mean_epoch['epoch'] = self.current_train_epoch
+                            self.train_losses_log.append(mean_epoch)
+                            epoch_accumulated_logs = collections.defaultdict(list) # Reset for the next epoch
+                        
+                        if self.log_metrics_interval_type == 'epoch':
+                            metric_log = {}
+                            pass  # TODO: Add metrics logging here
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
                         self._save_checkpoint_if_needed(
@@ -417,7 +444,9 @@ class BaseTrainer():
         dataloader : torch.utils.data.DataLoader
             DataLoader used for training.
         """
+        chkpt_save_dir = None
         chkpt_save_path = None
+
         if self.chkpt_save_path is not None:
             chkpt_save_path = self.chkpt_save_path
 
@@ -426,11 +455,8 @@ class BaseTrainer():
             chkpt_file_name = f"{subfolder_chkpt_name}.pth"
 
             # Create the full checkpoint save path
-            chkpt_save_path = os.path.join(
-                self.chkpt_save_dir, 
-                subfolder_chkpt_name,
-                chkpt_file_name
-            )
+            chkpt_save_dir = os.path.join(self.chkpt_save_dir, subfolder_chkpt_name)
+            chkpt_save_path = os.path.join(chkpt_save_dir, chkpt_file_name)
             
             self.chkpt_num += 1
         else:
@@ -469,19 +495,33 @@ class BaseTrainer():
             log_loss_interval_type=self.log_loss_interval_type,
             use_train_logging=self.use_train_logging,
             log_loss_iter_interval=self.log_loss_iter_interval,
-            return_log_loss=self.return_log_loss,
+            return_logs=self.return_logs,
         )
 
         if chkpt_save_path is not None:
             torch.save(
                 chkpt,
                 chkpt_save_path
-            )
+            ) 
+
+        if self.chkpt_viz:
+            self._save_visualization(chkpt_save_dir)       
 
         if self.return_chkpt:
             self.chkpt_list.append(chkpt)
         else:
             del chkpt
+    
+    def _save_visualization(self, dir):
+        visualizer = Visualizer(
+            vae_model=self.model,
+            dataset=self.dataloader.dataset,
+            is_plot=False,
+            save_dir=dir
+        )
+
+        visualizer.plot_all_latent_traversals()
+        visualizer.plot_random_reconstructions()
     
     def create_train_metadata(self):
         """

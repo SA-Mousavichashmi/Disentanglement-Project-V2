@@ -193,7 +193,7 @@ def create_chkpt(
                 log_loss_interval_type=None,
                 use_train_logging=None,
                 log_loss_iter_interval=None,
-                return_log_loss=None,
+                return_logs=None, # Renamed from return_log_loss
                       ):
     """
     Creates a checkpoint dictionary.
@@ -225,7 +225,7 @@ def create_chkpt(
         log_loss_interval_type:
         use_train_logging:
         log_loss_iter_interval:
-        return_log_loss:
+        return_logs: # Renamed from return_log_loss
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -291,7 +291,7 @@ def create_chkpt(
             'log_loss_interval_type': log_loss_interval_type,
             'use_train_logging': use_train_logging,
             'log_loss_iter_interval': log_loss_iter_interval,
-            'return_log_loss': return_log_loss,
+            'return_logs': return_logs, # Renamed from return_log_loss
         },
         
         'logs':{
@@ -389,7 +389,9 @@ def save_chkpt(
         train_losses_log=train_losses_log,
         train_metrics_log=train_metrics_log,
         chkpt_train_losses_log=chkpt_train_losses_log,
-        chkpt_metrics_log=chkpt_metrics_log
+        chkpt_metrics_log=chkpt_metrics_log,
+        # Add the new parameter to the call
+        return_logs=True # Assuming default to True when saving
     )
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")

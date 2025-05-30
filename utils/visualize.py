@@ -8,8 +8,7 @@ class Visualizer():
     def __init__(self, 
                  vae_model, 
                  dataset,
-                 is_plot=True,
-                 is_save=False,  
+                 is_plot=True,  
                  save_dir=None
                  ):  # Added save_dir parameter
         """Initializes the visualizer class.
@@ -32,9 +31,8 @@ class Visualizer():
         self.dataset = dataset # the dataset to be used for visualization
         self.save_dir = save_dir  # Store save_dir
         self.is_plot = is_plot
-        self.is_save = is_save
-
-        assert is_plot or is_save, "At least one of is_plot or is_save must be True"
+        self.is_save = save_dir is not None  # Determine if saving is enabled based on save_dir
+        
 
 ################## Latent Traversal Methods ##################
 
