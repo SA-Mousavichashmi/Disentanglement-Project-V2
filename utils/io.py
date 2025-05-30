@@ -11,6 +11,7 @@ from losses.utils import create_load_loss
 # from utils.io import get_dataloader_from_chkpt  # Removed to fix circular import
 from utils.reproducibility import set_deterministic_run
 import uuid
+import json
 
 
 def find_optimal_num_workers(
@@ -160,6 +161,21 @@ def has_shuffle(loader) -> bool:
     # RandomSampler indicates shuffle=True
     return isinstance(sampler, RandomSampler)
 
+def check_dir_empty(dir):
+    """
+    Checks if a directory is empty.
+
+    Args:
+        dir: The directory path to check.
+
+    Returns:
+        bool: True if the directory is empty, False otherwise.
+    """
+    if not os.path.exists(dir):
+        raise FileNotFoundError(f"Directory {dir} does not exist.")
+    
+    return len(os.listdir(dir)) == 0  # Check if the directory has any files or subdirectories
+
 ##################### Checkpoint utils #####################
 
 CHKPT_DIR = 'checkpoints' # Default directory for checkpoints
@@ -283,7 +299,7 @@ def create_chkpt(
             'chkpt_step_type': chkpt_step_type,
             'chkpt_save_path': chkpt_save_path,
             'chkpt_save_dir': chkpt_save_dir,
-            'chkpt_save_master_dir': chkpt_save_master_dir,
+            'chkpt_save_master_dir': chkpt_save_master_dir
         },
         'logging': {
             'is_progress_bar': is_progress_bar,
@@ -619,8 +635,6 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         use_train_logging=use_train_logging,
         log_loss_iter_interval=log_loss_iter_interval,
         return_log_loss=return_log_loss,
-        prev_train_losses_log=train_losses_log,
-        prev_train_metrics_log=train_metrics_log,
         # Set checkpointing parameters
         return_chkpt=return_chkpt,
         chkpt_every_n_steps=chkpt_every_n_steps,
@@ -756,3 +770,36 @@ def create_trainer_from_chkpt(ckpt,
     )
 
     return trainer
+
+def is_chkpt_dir_compatible(chkpt_dir: str, train_id):
+    """
+    Checks if the checkpoint directory is compatible with the given train_id
+    by checking the 'train_id' in the 'train_metadata.json' file.
+
+    Args:
+        chkpt_dir (str): The path to the checkpoint directory.
+        train_id (str): The train_id to check against.
+
+    Returns:
+        bool: True if the checkpoint directory is compatible, False otherwise.
+    """
+    if not os.path.exists(chkpt_dir):
+        return False
+
+    # Check if the train_metadata.json file exists in the checkpoint directory
+    metadata_file = os.path.join(chkpt_dir, 'train_metadata.json')
+
+    metadata = None
+    with open(metadata_file, 'r') as f:
+        metadata = json.load(f)
+
+    stored_train_id = metadata.get('train_id')
+
+    # Convert UUID to string for consistent comparison if train_id is a UUID object
+    if isinstance(train_id, uuid.UUID):
+        train_id = str(train_id)
+    
+    if stored_train_id != train_id:
+        return False
+
+    return True

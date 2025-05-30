@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from tqdm import trange
 import collections
-from utils.io import create_chkpt
+from utils.io import create_chkpt, check_dir_empty, check_compatibility_chkpt
 import uuid
 from utils.helpers import get_model_device
 from collections import OrderedDict
@@ -77,9 +77,9 @@ class BaseTrainer():
         torch_compile_kwargs : dict, optional
             Arguments passed to `torch.compile`. Defaults to {'mode': 'max-autotune', 'backend': 'inductor'}.
         prev_train_iter : int, optional
-            The number of training iterations completed before this run. Used to resume training.
+            The number of training iterations completed before this run. Used to resume training. Defaults to 0.
         dataloader : torch.utils.data.DataLoader, optional
-            DataLoader to use for training.
+            DataLoader to use for training. Defaults to None.
 
         Logging Parameters
         ------------------
@@ -87,25 +87,39 @@ class BaseTrainer():
             Enable progress bar. Defaults to True.
         progress_bar_log_iter_interval : int, optional
             Iterations between progress bar updates. Defaults to 50.
+        use_train_logging : bool, optional
+            If True, enables logging of training losses and metrics. Defaults to True.
         return_logs : bool, optional
-            Return logged losses from `train()`. Defaults to True.
+            If True, the `train()` method will return logged losses and metrics. Defaults to True.
         log_loss_interval_type : {'epoch','iter'}, optional
             Granularity for loss logging. Defaults to 'iter'.
         log_loss_iter_interval : int, optional
-            Iterations between logged loss records when using iteration-level logging. Defaults to 100.
+            Iterations between logged loss records when using iteration-level logging. Defaults to 200.
+        prev_train_losses_log : list, optional
+            A list of previously logged training losses to resume logging. Defaults to None.
+        log_metrics_interval_type : {'epoch','iter'}, optional
+            Granularity for metrics logging. Defaults to 'iter'.
+        log_metrics_iter_interval : int, optional
+            Iterations between logged metrics records when using iteration-level logging. Defaults to 200.
+        prev_train_metrics_log : list, optional
+            A list of previously logged training metrics to resume logging. Defaults to None.
 
         Checkpointing Parameters
         ------------------------
         return_chkpt : bool, optional
-            Return checkpoint dicts from `train()`. Defaults to False.
+            If True, the `train()` method will return checkpoint dicts. Defaults to False.
         chkpt_every_n_steps : int, optional
             Interval for checkpoint creation (epochs or iterations). None = only final. Defaults to None.
+        chkpt_step_type : {'epoch','iter'}, optional
+            Granularity for checkpointing. Defaults to 'iter'.
         chkpt_save_path : str, optional
-            File path to save final checkpoint. Exclusive with other save options.
+            File path to save final checkpoint. Exclusive with other save options. Defaults to None.
         chkpt_save_dir : str, optional
-            Directory to save checkpoints. Exclusive with other save options.
+            Directory to save checkpoints. Exclusive with other save options. Defaults to None.
         chkpt_save_master_dir : str, optional
-            Master directory for organized checkpoints. Exclusive with other save options.
+            Master directory for organized checkpoints. Exclusive with other save options. Defaults to None.
+        chkpt_viz : bool, optional
+            If True, saves visualizations (e.g., latent traversals, reconstructions) with checkpoints. Defaults to False.
         """
         self._validate_init_params(
             use_torch_compile=use_torch_compile,  # Renamed
@@ -121,7 +135,7 @@ class BaseTrainer():
 
         if train_id is None:
             # Generate a new UUID for the training session
-            self.train_id = uuid.uuid4()
+            self.train_id = str(uuid.uuid4())
         else:
             self.train_id = train_id
 
@@ -189,9 +203,29 @@ class BaseTrainer():
             self.lr_scheduler = lr_scheduler
         
         if self.chkpt_save_dir is not None:
-            self.chkpt_num = 1
+
             self.base_subfolder_chkpt_name = "chkpt_{chkpt_num}"
 
+            if check_dir_empty(self.chkpt_save_dir):
+                self.chkpt_num = 0
+            else:
+                with open(os.path.join(self.chkpt_save_dir, 'train_metadata.json'), 'r') as f:
+                    chkpt_train_metadata = json.load(f)                
+                
+                chkpt_train_id = chkpt_train_metadata.get('train_id', None)
+
+                if chkpt_train_id != self.train_id:
+                    raise ValueError(f"Checkpointing directory {self.chkpt_save_dir} already contains a \
+                                      different training run with ID {chkpt_train_id}.")
+
+                # Find the maximum existing checkpoint number
+                existing_chkpt_nums = []
+                for item in os.listdir(self.chkpt_save_dir):
+                    if item.startswith("chkpt_") and os.path.isdir(os.path.join(self.chkpt_save_dir, item)):
+                        num = int(item.split('_')[1])
+                        existing_chkpt_nums.append(num)
+                
+                self.chkpt_num = max(existing_chkpt_nums)
 
     def _validate_init_params(
         self,
@@ -453,6 +487,7 @@ class BaseTrainer():
             chkpt_save_path = self.chkpt_save_path
 
         elif self.chkpt_save_dir is not None:
+            self.chkpt_num += 1
             subfolder_chkpt_name = self.base_subfolder_chkpt_name.format(chkpt_num=self.chkpt_num)
             chkpt_file_name = f"{subfolder_chkpt_name}.pth"
 
@@ -462,7 +497,6 @@ class BaseTrainer():
             
             os.makedirs(chkpt_save_dir, exist_ok=True)
 
-            self.chkpt_num += 1
         else:
             chkpt_save_path = None
 
