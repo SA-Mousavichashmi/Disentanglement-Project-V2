@@ -35,16 +35,17 @@ class BaseTrainer():
                  # progress bar args
                  is_progress_bar=True,
                  progress_bar_log_iter_interval=50,
+                 # train logging args
                  use_train_logging=True,
+                 return_logs=True,
                  # loss logging args
                  log_loss_interval_type='iter',
                  log_loss_iter_interval=200,
+                 prev_train_losses_log=None,
                  # metrics logging args
                  log_metrics_interval_type='iter', 
                  log_metrics_iter_interval=200,
-                 return_logs=True,
-                 prev_train_losses_log=None,
-                 prev_train_metrics_log=None,
+                 prev_train_metrics_log=None, 
                  # checkpointing args
                  return_chkpt=False,
                  chkpt_every_n_steps=None,
@@ -110,6 +111,7 @@ class BaseTrainer():
             use_torch_compile=use_torch_compile,  # Renamed
             determinism_kwargs=determinism_kwargs,
             log_loss_interval_type=log_loss_interval_type,
+            log_metrics_interval_type=log_metrics_interval_type,
             chkpt_step_type=chkpt_step_type,
             chkpt_save_path=chkpt_save_path,
             chkpt_save_dir=chkpt_save_dir,
