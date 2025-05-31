@@ -550,14 +550,16 @@ class BaseTrainer():
             self._save_visualization(chkpt_save_dir)
 
         if self.chkpt_save_dir is not None:
-            chkpt_result = json.loads(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name))
+            chkpt_result_filepath = os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name)
+            with open(chkpt_result_filepath, 'r') as f:
+                chkpt_result = json.load(f) # Correctly load JSON from the file
 
             chkpt_result[self.chkpt_num] = {
                 'train_losses': self.train_losses_log,
                 'train_metrics': self.train_metrics_log,
             }
 
-            with open(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name), 'w') as f:
+            with open(chkpt_result_filepath, 'w') as f:
                 json.dump(chkpt_result, f, indent=4)
 
         if self.return_chkpt:
