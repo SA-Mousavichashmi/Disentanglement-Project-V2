@@ -218,7 +218,7 @@ class Loss(BaseLoss):
 
         # 7: Compute comparison loss between x_gg' and x_g'g
         if self.commutative_comparison_dist == 'gaussian':
-            commutative_loss = F.mse_loss(x_ggprime, x_gprimeg, reduction='mean')
+            commutative_loss = F.mse_loss(x_ggprime, x_gprimeg, reduction='sum') / data.size(0)  # Average over batch size
         elif self.rec_dist == 'bernoulli':
             pass # TODO: Implement it!
 
