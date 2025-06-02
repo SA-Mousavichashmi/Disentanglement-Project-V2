@@ -174,7 +174,7 @@ class Loss(BaseLoss):
             selected_row_indices, selected_component_indices = select_latent_components(
                 component_order=comp_order,
                 kl_components=kl_components,
-                comp_latent_select_threshold=self.comp_latent_select_threshold
+                prob_threshold=self.comp_latent_select_threshold  # Changed parameter name
             )
 
             if selected_row_indices is not None and selected_component_indices is not None:
@@ -267,7 +267,7 @@ class Loss(BaseLoss):
                 selected_row_indices, selected_component_indices = select_latent_components(
                     component_order=comp_order,
                     kl_components=current_kl_components,
-                    comp_latent_select_threshold=self.comp_latent_select_threshold
+                    prob_threshold=self.comp_latent_select_threshold  # Changed parameter name
                 )
 
                 if selected_row_indices is not None and selected_component_indices is not None:
