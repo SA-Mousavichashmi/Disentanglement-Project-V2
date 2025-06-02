@@ -71,8 +71,8 @@ class Loss(BaseLoss):
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
 
-        if self.commutative_weight == 0 and self.meaningful_weight == 0:
-            raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
+        # if self.commutative_weight == 0 and self.meaningful_weight == 0:
+        #     raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
 
         # Store the component orders
         self.commutative_component_order = commutative_component_order
