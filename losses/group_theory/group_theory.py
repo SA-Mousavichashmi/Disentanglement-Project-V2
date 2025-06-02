@@ -98,8 +98,8 @@ class Loss(BaseLoss):
             raise ValueError("commutative_comparison_dist must be either 'gaussian' or 'bernoulli'.")
         
         self.comp_latent_select_threshold = comp_latent_select_threshold
-        if self.comp_latent_select_threshold <= 0 or self.comp_latent_select_threshold > 1:
-            raise ValueError("comp_latent_select_threshold must be in the range (0, 1].")
+        if self.comp_latent_select_threshold < 0 or self.comp_latent_select_threshold >= 1:
+            raise ValueError("comp_latent_select_threshold must be in the range [0, 1).")
 
     @property
     def name(self):
