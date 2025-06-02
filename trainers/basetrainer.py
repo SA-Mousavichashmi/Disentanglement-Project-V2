@@ -552,11 +552,12 @@ class BaseTrainer():
         if self.chkpt_save_dir is not None:
             chkpt_result_filepath = os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name)
             with open(chkpt_result_filepath, 'r') as f:
-                chkpt_result = json.load(f) # Correctly load JSON from the file
+                chkpt_result = json.load(f)
 
+            # Save only the current iteration's logs instead of entire history
             chkpt_result[self.chkpt_num] = {
-                'train_losses': self.train_losses_log,
-                'train_metrics': self.train_metrics_log,
+                'train_losses': chkpt_train_losses_log,  # Current iteration's loss log
+                'train_metrics': chkpt_train_metrics_log  # Current iteration's metrics log
             }
 
             with open(chkpt_result_filepath, 'w') as f:
