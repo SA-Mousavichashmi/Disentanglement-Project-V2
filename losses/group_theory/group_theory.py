@@ -46,7 +46,7 @@ class Loss(BaseLoss):
                  meaningful_critic_lr,
                  meaningful_n_critic,
                  deterministic_rep,
-                 comp_latent_select_threshold,
+                 comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  **kwargs
                  ):
