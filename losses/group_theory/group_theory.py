@@ -48,6 +48,7 @@ class Loss(BaseLoss):
                  deterministic_rep,
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
+                 warm_up_steps=0,  # Add this parameter
                  **kwargs
                  ):
         
@@ -101,6 +102,10 @@ class Loss(BaseLoss):
         if self.comp_latent_select_threshold < 0 or self.comp_latent_select_threshold >= 1:
             raise ValueError("comp_latent_select_threshold must be in the range [0, 1).")
 
+        # Add warm-up parameters
+        self.warm_up_steps = warm_up_steps
+        self.current_step = 0
+
     @property
     def name(self):
         return 'group_theory'
@@ -122,7 +127,9 @@ class Loss(BaseLoss):
             'meaningful_critic_lr': self.meaningful_critic_lr,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
-            'comp_latent_select_threshold': self.comp_latent_select_threshold
+            'comp_latent_select_threshold': self.comp_latent_select_threshold,
+            'warm_up_steps': self.warm_up_steps,
+            'current_step': self.current_step
         }
 
     def state_dict(self):
@@ -326,16 +333,21 @@ class Loss(BaseLoss):
 
         kl_components_raw = kl_normal_loss(mean, logvar, raw=True) # shape: (batch_size, latent_dim)
 
-        # Group action losses
+        # Increment step counter
+        self.current_step += 1
+        
+        # Group action losses (only after warm-up)
         group_loss = 0
-
-        # Commutative
-        if self.commutative_weight > 0:
+        in_warm_up = self.current_step <= self.warm_up_steps
+        
+        # Commutative loss (skip during warm-up)
+        if self.commutative_weight > 0 and not in_warm_up:
             g_commutative_loss = self._group_action_commutative_loss(data, model, kl_components_raw)
             log_data['g_commutative_loss'] = g_commutative_loss.item()
             group_loss += self.commutative_weight * g_commutative_loss
 
-        if self.meaningful_weight > 0:
+        # Meaningful loss (skip during warm-up)
+        if self.meaningful_weight > 0 and not in_warm_up:
             
             # Initialize critic if not already done based on the first data sample channel
             if  self.critic is None:
