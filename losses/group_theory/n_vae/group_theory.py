@@ -2,20 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..baseloss import BaseLoss
+from ...baseloss import BaseLoss
 
-from ..reconstruction import reconstruction_loss
-from .. import select
+from ...reconstruction import reconstruction_loss
+from ... import select
 
 
-from .utils import Critic
+from ..utils import Critic
 # Import the moved functions
-from .utils import  generate_latent_translations,\
+from ..utils import  generate_latent_translations,\
                     apply_group_action_latent_space, \
                     select_latent_components, \
                     generate_latent_translations_selected_components
 
-from ..n_vae.kl_div import kl_normal_loss
+from ...n_vae.kl_div import kl_normal_loss
 
 
 class Loss(BaseLoss):

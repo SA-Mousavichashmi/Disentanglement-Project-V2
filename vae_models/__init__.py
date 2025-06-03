@@ -18,6 +18,8 @@ MODEL_LIST = [
     'toroidal_vae',
     'toroidal_vae_burgess',
     'toroidal_vae_locatello',
+    # S-N-VAE models
+    's_n_vae_locatello',
 ]
 
 def select(name, **kwargs):
@@ -56,4 +58,8 @@ def select(name, **kwargs):
         return Model(**kwargs)
     if name == 'toroidal_vae': # Generic toroidal VAE with selectable encoder/decoder
         from .s_vae.toroidal_vae.toroidal_vae import Model
+        return Model(**kwargs)
+    # Add logic for s_n_vae models here
+    if name == 's_n_vae_locatello':
+        from .s_n_vae.s_n_vae_locatello import Model
         return Model(**kwargs)
