@@ -339,6 +339,8 @@ class Loss(BaseLoss):
         # Group action losses (only after warm-up)
         group_loss = 0
         in_warm_up = self.current_step <= self.warm_up_steps
+
+        print(f"Current step: {self.current_step}, Warm-up steps: {self.warm_up_steps}, In warm-up: {in_warm_up}")
         
         # Commutative loss (skip during warm-up)
         if self.commutative_weight > 0 and not in_warm_up:
