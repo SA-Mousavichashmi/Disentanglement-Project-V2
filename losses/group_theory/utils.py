@@ -2,44 +2,30 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def select_latent_components(component_order, kl_components, prob_threshold=None):
-    """
-    Selects a subset of latent components based on the provided component order and KL components.
-
-    Args:
-        component_order (int): The number of latent dimensions to randomly select.
-        kl_components (torch.Tensor): KL divergence values for each component. Shape (batch, latent_dim).
-
-    Returns:
-        torch.Tensor: A tensor of shape (batch_size, component_order) containing the selected indices.
-    """
-    # Ensure inputs are on the correct device (assuming kl_components determines the device)
+def select_latent_components(component_order: int,
+                             kl_components: torch.Tensor,
+                             prob_threshold: float | None = None):
     device = kl_components.device
-
-    # Calculate selection probabilities using softmax
-    probs = F.softmax(kl_components, dim=1)
+    probs = F.softmax(kl_components, dim=1)          # 1️⃣
 
     if prob_threshold is not None:
-        # Apply a threshold to the probabilities
-        probs = torch.where(probs < prob_threshold, torch.tensor(0.0, device=device), probs)
-        # Normalize probabilities again after thresholding
-        probs = F.softmax(probs, dim=1)
-
-    # select rows that have the number of non-zero elements in prob is bigger or equal than component_order
-    mask = probs != 0
-    mask = mask & (mask.sum(dim=1, keepdim=True) >= component_order)
-
-    # selected row indices
-    row_indices = torch.arange(kl_components.size(0), device=device)
-    selected_row_indices = row_indices[mask.any(dim=1)]
-
-    if mask.any():
-        # Select components based on the probabilities
-        selected_components_indices = torch.multinomial(probs[selected_row_indices], component_order, replacement=False)
-        return selected_row_indices, selected_components_indices
+        # keep probabilities ≥ threshold, zero-out the rest
+        probs = torch.where(probs >= prob_threshold, probs, torch.zeros_like(probs))
+        row_mask = (probs.sum(1) > 0)                # at least one surviving dim
+        probs = probs[row_mask]                      # 2️⃣ keep only valid rows
+        if probs.size(0) == 0:
+            return None, None
+        probs = probs / probs.sum(1, keepdim=True)   # 3️⃣ renormalise WITHOUT soft-max
     else:
-        # empty list
+        row_mask = torch.ones(kl_components.size(0), dtype=torch.bool, device=device)
+
+    sel_rows = torch.where(row_mask)[0]
+    if probs.size(1) < component_order:
         return None, None
+
+    sel_components = torch.multinomial(probs, component_order, replacement=False)
+    return sel_rows, sel_components
+
 
 def generate_latent_translations_selected_components(data_num, latent_dim, selected_components_indices, range=3):
     """

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils.scheduler import get_scheduler
 
 from ...baseloss import BaseLoss
 
@@ -22,13 +23,7 @@ class Loss(BaseLoss):
     """
     Compute Group theory losses in addition to base losses of models (BetaVAE, FactorVAE, etc.)
 
-    The Group theory losses is as follows:
-    1. Group action commutative loss
-    2. Group action meaningful loss (Group equivariance)
-
-    TODO: It is assumed that latent space is just consist of R^1 components to compatible to other models. But S^1 component with powerSpherical distribution should be added
-    TODO: For Gaussian component instead instead of using fixed std for sampling from normal distribution, the std for each dim will learned approximately
-    TODO: The discriminator must have the same architecture with Encoder
+    Now supports scheduling for commutative_weight and meaningful_weight parameters.
     """
 
     def __init__(self,
@@ -46,13 +41,40 @@ class Loss(BaseLoss):
                  meaningful_critic_lr,
                  meaningful_n_critic,
                  deterministic_rep,
+                 group_action_latent_range=2.5,
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
+                 # New scheduler parameters
+                 commutative_weight_scheduler=None,
+                 meaningful_weight_scheduler=None,
                  **kwargs
                  ):
         
-        super(Loss, self).__init__(mode="optimizes_internally",**kwargs)
+        # Initialize schedulers
+        schedulers = {}
+        
+        if commutative_weight_scheduler is not None:
+            scheduler_config = commutative_weight_scheduler.copy()
+            scheduler_type = scheduler_config.pop('type')
+            schedulers['commutative_weight'] = get_scheduler(
+                scheduler_type=scheduler_type,
+                param_name='commutative_weight',
+                **scheduler_config
+            )
+            commutative_weight = schedulers['commutative_weight'].initial_value
+        
+        if meaningful_weight_scheduler is not None:
+            scheduler_config = meaningful_weight_scheduler.copy()
+            scheduler_type = scheduler_config.pop('type')
+            schedulers['meaningful_weight'] = get_scheduler(
+                scheduler_type=scheduler_type,
+                param_name='meaningful_weight',
+                **scheduler_config
+            )
+            meaningful_weight = schedulers['meaningful_weight'].initial_value
+            
+        super(Loss, self).__init__(mode="optimizes_internally", schedulers=schedulers, **kwargs)
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
@@ -71,6 +93,7 @@ class Loss(BaseLoss):
         # Store the weights
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
+        self.group_action_latent_range = group_action_latent_range
 
         # if self.commutative_weight == 0 and self.meaningful_weight == 0:
         #     raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
@@ -112,7 +135,7 @@ class Loss(BaseLoss):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             'base_loss_name': self.base_loss_name,
             'base_loss_kwargs': self.base_loss_kwargs,
             'rec_dist': self.rec_dist,
@@ -131,6 +154,25 @@ class Loss(BaseLoss):
             'warm_up_steps': self.warm_up_steps,
             'current_step': self.current_step
         }
+        
+        # Add scheduler configurations
+        if 'commutative_weight' in self.schedulers:
+            kwargs_dict['commutative_weight_scheduler'] = {
+                'type': 'linear',  # Store this in scheduler if needed
+                'initial_value': self.schedulers['commutative_weight'].initial_value,
+                'final_value': getattr(self.schedulers['commutative_weight'], 'final_value', None),
+                'total_steps': getattr(self.schedulers['commutative_weight'], 'total_steps', None),
+            }
+            
+        if 'meaningful_weight' in self.schedulers:
+            kwargs_dict['meaningful_weight_scheduler'] = {
+                'type': 'linear',
+                'initial_value': self.schedulers['meaningful_weight'].initial_value,
+                'final_value': getattr(self.schedulers['meaningful_weight'], 'final_value', None),
+                'total_steps': getattr(self.schedulers['meaningful_weight'], 'total_steps', None),
+            }
+        
+        return kwargs_dict
 
     def state_dict(self):
         state = {}
@@ -206,11 +248,13 @@ class Loss(BaseLoss):
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
             selected_components_indices=g_component_index,
+            range=self.group_action_latent_range,
         )
         gprime = generate_latent_translations_selected_components(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
             selected_components_indices=g_prime_component_indices,
+            range=self.group_action_latent_range,
         )
 
         # 5: Compute g.g'.x
@@ -292,6 +336,7 @@ class Loss(BaseLoss):
                 data_num=len(selected_row_indices),
                 latent_dim=latent_dim,
                 selected_components_indices=selected_component_indices,
+                range=self.group_action_latent_range,
             )
             
             # Apply group action in latent space using imported function
@@ -304,6 +349,10 @@ class Loss(BaseLoss):
     def __call__(self, data, model, vae_optimizer):
         log_data = {}
         base_loss = 0
+
+        # Step schedulers if training
+        if model.training and self.schedulers:
+            self.step_schedulers()
 
         if self.base_loss_f.mode == 'post_forward':
             model_out = model(data)
@@ -335,6 +384,11 @@ class Loss(BaseLoss):
 
         # Increment step counter
         self.current_step += 1
+        
+        # Log scheduler values
+        if self.schedulers:
+            scheduler_values = self.get_scheduler_values()
+            log_data.update({f'scheduled_{k}': v for k, v in scheduler_values.items()})
         
         # Group action losses (only after warm-up)
         group_loss = 0

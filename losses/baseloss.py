@@ -6,6 +6,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import abc
+from typing import Dict, Optional, Any
+from utils.scheduler import BaseHyperparameterScheduler
 
 class BaseLoss(abc.ABC):
     """
@@ -26,9 +28,12 @@ class BaseLoss(abc.ABC):
         Determines how the loss operates: if 'post_forward', it only takes standard model forward outputs/data points
         and returns a loss. If 'pre_forward', it takes in the model and performs respective forward computations itself.
         If 'optimizes_internally', takes model, does forward computations AND backward updates.
+        
+    schedulers: dict, optional
+        Dictionary of hyperparameter schedulers with parameter names as keys.
     """
 
-    def __init__(self, mode, rec_dist="bernoulli", **kwargs):
+    def __init__(self, mode, rec_dist="bernoulli", schedulers=None, **kwargs):
         
         assert mode in ["post_forward", "pre_forward", "optimizes_internally"], \
             f"Invalid mode: {mode}. Choose from 'post_forward', 'pre_forward', or 'optimizes_internally'."
@@ -38,6 +43,19 @@ class BaseLoss(abc.ABC):
 
         self.rec_dist = rec_dist
         self.mode = mode
+        self.schedulers = schedulers or {}
+        
+    def step_schedulers(self):
+        """Step all schedulers and update corresponding attributes."""
+        for param_name, scheduler in self.schedulers.items():
+            new_value = scheduler.step()
+            if hasattr(self, param_name):
+                setattr(self, param_name, new_value)
+    
+    def get_scheduler_values(self) -> Dict[str, float]:
+        """Get current values from all schedulers."""
+        return {param_name: scheduler.get_value() 
+                for param_name, scheduler in self.schedulers.items()}
 
     @property
     @abc.abstractmethod
@@ -88,3 +106,4 @@ class BaseLoss(abc.ABC):
         kwargs:
             Loss specific arguments
         """
+        pass
