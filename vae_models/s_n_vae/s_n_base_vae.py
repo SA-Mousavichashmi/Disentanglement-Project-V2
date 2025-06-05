@@ -9,7 +9,7 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 import utils.initialization
-from power_spherical import PowerSpherical
+from power_spherical import PowerSpherical # type: ignore
 import abc
 
 
@@ -29,15 +29,19 @@ class S_N_VAE_base(abc.ABC, nn.Module):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_factor_topologies : list of str
             List specifying the topology of each latent factor. Each element should be
-            either 'R1' or 'R' for normal distribution or 'S1' for power spherical distribution.
+            'R1' for normal distribution or 'S1' for power spherical distribution.
             Example: ['R1', 'S1', 'R1']
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
         """
         super(S_N_VAE_base, self).__init__()
 
-        # Normalize topology names: 'R' -> 'R1'
-        self.latent_factor_topologies = [t if t != 'R' else 'R1' for t in latent_factor_topologies]
+        # Validate latent_factor_topologies
+        for topology in latent_factor_topologies:
+            if topology not in ['R1', 'S1']:
+                raise ValueError(f"Unsupported topology: {topology}. Only 'R1' and 'S1' are supported.")
+        
+        self.latent_factor_topologies = latent_factor_topologies
         self.latent_factor_num = len(self.latent_factor_topologies)
         
         self.img_size = img_size
@@ -108,6 +112,16 @@ class S_N_VAE_base(abc.ABC, nn.Module):
             Reformatted stats with shape (batch_size, latent_factor_num, max_params)
             where max_params is padded to accommodate all factor types.
         """
+        # Validate encoder output size
+        expected_params = self.total_encoder_params
+        actual_params = encoder_output.shape[1]
+        if actual_params != expected_params:
+            raise ValueError(
+                f"Encoder output has {actual_params} parameters, "
+                f"but expected {expected_params}. "
+                "Check encoder architecture and latent_factor_topologies configuration."
+            )
+        
         batch_size = encoder_output.shape[0]
         max_params = max(self.factor_params)
         

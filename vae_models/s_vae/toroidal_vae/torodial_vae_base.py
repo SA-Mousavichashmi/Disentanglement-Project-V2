@@ -207,6 +207,23 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
             raise ValueError(f"Unknown sampling type: {type}")
         
         return samples_qzx
+    
+    def get_representations(self, x, is_deterministic=False):
+        """
+        Returns the latent representation of the input data x.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Batch of data. Shape (batch_size, n_chan, height, width)
+        is_deterministic : bool
+            If True, returns the deterministic mean/mode of the latent distribution.
+            If False, returns a stochastic sample using the reparameterization trick.
+        """
+        if is_deterministic:
+            return self.sample_qzx(x, type='deterministic')
+        else:
+            return self.sample_qzx(x, type='stochastic')
 
     def generate(self, num_samples, device):
         """

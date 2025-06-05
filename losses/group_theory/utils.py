@@ -15,7 +15,7 @@ def select_latent_components(component_order: int,
         probs = probs[row_mask]                      # 2️⃣ keep only valid rows
         if probs.size(0) == 0:
             return None, None
-        probs = probs / probs.sum(1, keepdim=True)   # 3️⃣ renormalise WITHOUT soft-max
+        probs = probs / probs.sum(1, keepdim=True)   # 3️⃣ renormalize WITHOUT soft-max
     else:
         row_mask = torch.ones(kl_components.size(0), dtype=torch.bool, device=device)
 
