@@ -30,7 +30,6 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
 
     def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
         super().__init__(mode="post_forward", **kwargs)
-        self.name = 'beta_toroidal_vae'
         self.beta = beta
         self.log_kl_components = log_kl_components
 
@@ -45,6 +44,14 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
             'log_kl_components': self.log_kl_components,
             'rec_dist': getattr(self, 'rec_dist', None),
         }
+    
+    def state_dict(self):
+    # No state to save for this loss function beyond what BaseLoss handles
+        return 
+
+    def load_state_dict(self, state_dict):
+    # No state to load for this loss function beyond what BaseLoss handles
+        return
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):   
         """
