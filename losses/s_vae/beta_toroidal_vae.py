@@ -86,20 +86,17 @@ class BetaToroidalVAELoss(baseloss.BaseLoss):
         rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
         kl_components = kl_power_spherical_uniform_loss(latent_factors_dist_param, return_components=True) # Returns shape (latent_factor_num,)
         kl_total = kl_components.sum() # Scalar tensor
-        loss = rec_loss + self.beta * kl_total
-
-        # 2. Initialize the dictionary for logging
+        loss = rec_loss + self.beta * kl_total        # 2. Initialize the dictionary for logging
         log_data = {}
 
         # 3. Add items in the desired order
         log_data['loss'] = loss.item()
         log_data['rec_loss'] = rec_loss.item()
         log_data['kl_loss'] = kl_total.item()
-
+        
         if self.log_kl_components:
             # Add individual components last
-            # for i, value in enumerate(kl_components):
-            #      log_data[f'kl_loss_{i}'] = value.item()
-            log_data['kl_components'] = kl_components.cpu() # Log the tensor directly
+            for i, value in enumerate(kl_components):
+                log_data[f'kl_loss_{i}'] = value.item()
 
         return {'loss': loss, 'to_log': log_data}
