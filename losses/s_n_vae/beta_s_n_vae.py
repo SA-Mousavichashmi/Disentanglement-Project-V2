@@ -30,7 +30,6 @@ class BetaSNVAELoss(baseloss.BaseLoss):
 
     def __init__(self, beta=1.0, latent_factor_topologies=None, log_kl_components=False, **kwargs):
         super().__init__(mode="post_forward", **kwargs)
-        self.name = 'beta_s_n_vae'
         self.beta = beta
         if latent_factor_topologies is None:
             raise ValueError("latent_factor_topologies must be provided.")
@@ -55,7 +54,7 @@ class BetaSNVAELoss(baseloss.BaseLoss):
         return 
 
     def load_state_dict(self, state_dict):
-        # No state to load for this loss function beyond what BaseLoss handles
+    # No state to load for this loss function beyond what BaseLoss handles
         return
 
 
