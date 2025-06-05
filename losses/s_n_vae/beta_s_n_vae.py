@@ -49,6 +49,15 @@ class BetaSNVAELoss(baseloss.BaseLoss):
             'log_kl_components': self.log_kl_components,
             'rec_dist': getattr(self, 'rec_dist', None),
         }
+    
+    def state_dict(self):
+    # No state to save for this loss function beyond what BaseLoss handles
+        return 
+
+    def load_state_dict(self, state_dict):
+        # No state to load for this loss function beyond what BaseLoss handles
+        return
+
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         # stats_qzx has shape (batch_size, latent_factor_num, dist_nparams)
