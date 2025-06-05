@@ -53,7 +53,7 @@ class BaseVisualizer(ABC):
                                      latent_idx,
                                      max_traversal_type, 
                                      max_traversal,
-                                     num_samples=10,
+                                     num_samples=7,
                                      use_ref_img=True, 
                                      ref_img=None, 
                                      figsize=(10, 3) 
@@ -149,7 +149,7 @@ class BaseVisualizer(ABC):
     def plot_all_latent_traversals(self,
                                      max_traversal,
                                      max_traversal_type, 
-                                     num_samples=10,
+                                     num_samples=7,
                                      use_ref_img=True, 
                                      ref_img=None,  
                                      figsize=(10, 3)
