@@ -165,15 +165,16 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         """
         # Extract mu and kappa
         mu_raw = stats_qzx_raw[:, :, :2]
-        kappa_raw = stats_qzx_raw[:, :, 2] # Shape: (batch_size, latent_factor_num)
+        kappa_raw = stats_qzx_raw[:, :, 2] # Shape: (batch_size, latent_factor_num)        # Normalize mu
 
-        # Normalize mu
+        # Normalize mu to ensure it lies on the unit circle (S^1)
         mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
 
-        # Ensure kappa is positive
+        # Apply softplus to kappa to ensure it is positive
         kappa_positive = F.softplus(kappa_raw)
-
-        # Combine normalized mu and positive kappa
+        # Ensure kappa has a minimum value to avoid numerical instability
+        kappa_positive = kappa_positive.clamp_min(1e-35)
+    
         # Need to unsqueeze kappa to concatenate along the last dimension
         stats_qzx = torch.cat([mu_normalized, kappa_positive.unsqueeze(-1)], dim=-1)
         return stats_qzx
