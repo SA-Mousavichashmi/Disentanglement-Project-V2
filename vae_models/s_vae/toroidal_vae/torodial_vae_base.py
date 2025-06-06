@@ -70,6 +70,7 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
     def reparameterize(self, latent_factors_dist_param):
         """
         Samples from the Power Spherical distribution for each latent factor using the reparameterization trick.
+        Assumes latent_factors_dist_param already contains normalized mu and positive kappa.
 
         During training, it samples from the distribution q(z|x) defined by the encoder's output parameters (mu, kappa).
         During evaluation (self.training=False), it deterministically returns the mean (mu) of the distribution.
@@ -80,6 +81,7 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
             A list containing the parameters (mu and kappa) for the Power Spherical distribution
             for each latent factor. Each tensor in the list has shape (batch_size, dist_nparams),
             where dist_nparams is 3 (2 for mu, 1 for kappa). The list has length `self.latent_factor_num`.
+            It is assumed that mu is already normalized and kappa is already positive.
 
         Returns
         -------
@@ -96,8 +98,8 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
             latent_factor_kappa = latent_factors_dist_param[i][:, 2] # kappa is the third parameter
 
             if self.training: # TODO we can omit the this flag, the necessity of this flag is to be checked
-                latent_factor_q_z_x = PowerSpherical(latent_factor_mu, latent_factor_kappa)
-                sample_qzx = latent_factor_q_z_x.rsample()
+                powerSpherical = PowerSpherical(latent_factor_mu, latent_factor_kappa)
+                sample_qzx = powerSpherical.rsample()
             else:
                 # During evaluation, we use the mean of the distribution
                 sample_qzx = latent_factor_mu
@@ -124,21 +126,10 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
         encoder_output = self.encoder(x) # Assuming encoder returns a dict like {'stats_qzx': ...}
         stats_qzx_raw = encoder_output['stats_qzx'] # stats_qzx has the shape (batch_size, latent_factor_num, dist_nparams)
 
-        # Extract mu and kappa
-        mu_raw = stats_qzx_raw[:, :, :2]
-        kappa_raw = stats_qzx_raw[:, :, 2] # Shape: (batch_size, latent_factor_num)
+        # Process raw encoder statistics
+        stats_qzx = self._process_encoder_stats(stats_qzx_raw)
 
-        # Normalize mu
-        mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
-
-        # Ensure kappa is positive
-        kappa_positive = F.softplus(kappa_raw) + 1e-4 # Add epsilon for numerical stability
-
-        # Combine normalized mu and positive kappa
-        # Need to unsqueeze kappa to concatenate along the last dimension
-        stats_qzx = torch.cat([mu_normalized, kappa_positive.unsqueeze(-1)], dim=-1)
-
-        latent_factors_dist_param = stats_qzx.unbind(1)
+        latent_factors_dist_param = stats_qzx.unbind(1) # Unbind to get a list of tensors for each latent factor
 
         # Reparameterization trick
         samples_qzx = self.reparameterize(latent_factors_dist_param)['samples_qzx']
@@ -156,6 +147,37 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
         """Reset parameters using weight_init."""
         self.apply(utils.initialization.weights_init)
     
+    def _process_encoder_stats(self, stats_qzx_raw):
+        """
+        Processes the raw encoder output statistics (mu and kappa) to ensure mu is normalized
+        and kappa is positive.
+
+        Parameters
+        ----------
+        stats_qzx_raw : torch.Tensor
+            Raw statistics from the encoder. Shape (batch_size, latent_factor_num, dist_nparams).
+
+        Returns
+        -------
+        torch.Tensor
+            Processed statistics with normalized mu and positive kappa.
+            Shape (batch_size, latent_factor_num, dist_nparams).
+        """
+        # Extract mu and kappa
+        mu_raw = stats_qzx_raw[:, :, :2]
+        kappa_raw = stats_qzx_raw[:, :, 2] # Shape: (batch_size, latent_factor_num)
+
+        # Normalize mu
+        mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
+
+        # Ensure kappa is positive
+        kappa_positive = F.softplus(kappa_raw) + 1e-4 # Add epsilon for numerical stability
+
+        # Combine normalized mu and positive kappa
+        # Need to unsqueeze kappa to concatenate along the last dimension
+        stats_qzx = torch.cat([mu_normalized, kappa_positive.unsqueeze(-1)], dim=-1)
+        return stats_qzx
+
     def reconstruct(self, x, mode):
         """
         Reconstructs the input data x using the VAE model.
@@ -167,16 +189,19 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
         mode : str
             Mode for reconstruction. Options are 'mean' or 'sample'.
         """
-        stats_qzx = self.encoder(x)['stats_qzx']
+        stats_qzx_raw = self.encoder(x)['stats_qzx']
+        processed_stats_qzx = self._process_encoder_stats(stats_qzx_raw)
 
         if mode == 'mean':
-            # Extract the mean (mu) directly from the encoder's output
-            # stats_qzx has shape (batch_size, latent_factor_num, dist_nparams)
-            # mu is the first 2 parameters of dist_nparams
-            samples_qzx = stats_qzx[:, :, :2].flatten(start_dim=1)
+            # Extract the mean (mu) directly from the processed encoder's output
+            # mu is already normalized per factor by _process_encoder_stats
+            samples_qzx = processed_stats_qzx[:, :, :2].flatten(start_dim=1)
+            # The following line is removed as mu is already normalized per factor
+            # samples_qzx = F.normalize(samples_qzx, p=2, dim=-1)  # Normalize the mean to ensure it's on S^1
+
         elif mode == 'sample':
             # Use the reparameterize method to get a sample (respecting self.training)
-            latent_factors_dist_param = stats_qzx.unbind(1)
+            latent_factors_dist_param = processed_stats_qzx.unbind(1)
             samples_qzx = self.reparameterize(latent_factors_dist_param)['samples_qzx']
         else:
             raise ValueError(f"Unknown reconstruction mode: {mode}")
@@ -196,13 +221,16 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
         type : str
             Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
         """
-        stats_qzx = self.encoder(x)['stats_qzx']
-        latent_factors_dist_param = stats_qzx.unbind(1)
+        stats_qzx_raw = self.encoder(x)['stats_qzx']
+        processed_stats_qzx = self._process_encoder_stats(stats_qzx_raw)
+        latent_factors_dist_param = processed_stats_qzx.unbind(1)
 
         if type == 'stochastic':
             samples_qzx = self.reparameterize(latent_factors_dist_param)['samples_qzx']
         elif type == 'deterministic':
-            samples_qzx = stats_qzx[:, :, :2].flatten(start_dim=1)  # Extract the mean (mu) directly from the encoder's output
+            # Extract the mean (mu) directly from the processed encoder's output
+            # mu is already normalized per factor by _process_encoder_stats
+            samples_qzx = processed_stats_qzx[:, :, :2].flatten(start_dim=1)
         else:
             raise ValueError(f"Unknown sampling type: {type}")
         
