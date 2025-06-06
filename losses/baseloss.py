@@ -51,7 +51,8 @@ class BaseLoss(abc.ABC):
         self.schedulers = {}
         if schedulers_kwargs:
             for kwargs in schedulers_kwargs:
-                scheduler = get_scheduler(**kwargs)
+                scheduler_name = kwargs['name']
+                scheduler = get_scheduler(scheduler_name, **kwargs['kwargs'])
                 self.schedulers[scheduler.param_name] = scheduler
 
     def step_schedulers(self):

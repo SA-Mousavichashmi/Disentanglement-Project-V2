@@ -44,14 +44,20 @@ class Loss(BaseLoss):
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
-                 **kwargs                 ):        # Initialize schedulers using base class method
-        super(Loss, self).__init__(mode="optimizes_internally", rec_dist=rec_dist, schedulers_kwargs=schedulers_kwargs, **kwargs)
+                 **kwargs
+                 ):        # Initialize schedulers using base class method
+        
+        super(Loss, self).__init__(mode="optimizes_internally", 
+                                   rec_dist=rec_dist, 
+                                   schedulers_kwargs=schedulers_kwargs, 
+                                   **kwargs)
         
         # Set initial values from schedulers if they exist
         if 'commutative_weight' in self.schedulers:
             commutative_weight = self.schedulers['commutative_weight'].initial_value
         if 'meaningful_weight' in self.schedulers:
             meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
