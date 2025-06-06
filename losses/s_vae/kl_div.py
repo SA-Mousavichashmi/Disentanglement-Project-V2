@@ -1,6 +1,6 @@
 import torch
 import math
-from power_spherical import PowerSpherical, HypersphericalUniform
+from power_spherical import PowerSpherical, HypersphericalUniform # type: ignore
 import torch.distributions as D
 
 def kl_power_spherical_uniform_loss(latent_factors_dist_param, return_components=False):

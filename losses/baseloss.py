@@ -49,8 +49,7 @@ class BaseLoss(abc.ABC):
         """Step all schedulers and update corresponding attributes."""
         for param_name, scheduler in self.schedulers.items():
             new_value = scheduler.step()
-            if hasattr(self, param_name):
-                setattr(self, param_name, new_value)
+            setattr(self, param_name, new_value)
     
     def get_scheduler_values(self) -> Dict[str, float]:
         """Get current values from all schedulers."""
