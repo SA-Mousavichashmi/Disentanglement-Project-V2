@@ -238,7 +238,7 @@ class CyclicalAnnealingScheduler(BaseHyperparameterScheduler):
         self.current_step = state_dict['current_step']
         self.current_value = self.get_value() # Recalculate current_value
 
-def get_scheduler(scheduler_type: str, **kwargs) -> BaseHyperparameterScheduler:
+def get_scheduler(name: str, **kwargs) -> BaseHyperparameterScheduler:
     """Factory function to create schedulers."""
     schedulers = {
         'linear': LinearScheduler,
@@ -247,7 +247,7 @@ def get_scheduler(scheduler_type: str, **kwargs) -> BaseHyperparameterScheduler:
         'cyclical': CyclicalAnnealingScheduler,
     }
     
-    if scheduler_type not in schedulers:
-        raise ValueError(f"Unknown scheduler type: {scheduler_type}. Available: {list(schedulers.keys())}")
+    if name not in schedulers:
+        raise ValueError(f"Unknown scheduler type: {name}. Available: {list(schedulers.keys())}")
     
-    return schedulers[scheduler_type](**kwargs)
+    return schedulers[name](**kwargs)

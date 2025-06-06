@@ -4,13 +4,10 @@ import torch.nn.functional as F
 from utils.scheduler import get_scheduler
 
 from ...baseloss import BaseLoss
-
 from ...reconstruction import reconstruction_loss
 from ... import select
 
-
 from ..utils import Critic
-# Import the moved functions
 from ..utils import  generate_latent_translations,\
                     apply_group_action_latent_space, \
                     select_latent_components, \
@@ -50,27 +47,24 @@ class Loss(BaseLoss):
                  meaningful_weight_scheduler=None,
                  **kwargs
                  ):
-        
-        # Initialize schedulers
+          # Initialize schedulers
         schedulers = {}
         
         if commutative_weight_scheduler is not None:
-            scheduler_config = commutative_weight_scheduler.copy()
-            scheduler_type = scheduler_config.pop('type')
+            scheduler_name = commutative_weight_scheduler['name']
             schedulers['commutative_weight'] = get_scheduler(
-                scheduler_type=scheduler_type,
+                name=scheduler_name,
                 param_name='commutative_weight',
-                **scheduler_config
+                **commutative_weight_scheduler['kwargs']
             )
             commutative_weight = schedulers['commutative_weight'].initial_value
         
         if meaningful_weight_scheduler is not None:
-            scheduler_config = meaningful_weight_scheduler.copy()
-            scheduler_type = scheduler_config.pop('type')
+            scheduler_name = meaningful_weight_scheduler['name']
             schedulers['meaningful_weight'] = get_scheduler(
-                scheduler_type=scheduler_type,
+                name=scheduler_name,
                 param_name='meaningful_weight',
-                **scheduler_config
+                **meaningful_weight_scheduler['kwargs']
             )
             meaningful_weight = schedulers['meaningful_weight'].initial_value
             
@@ -154,24 +148,25 @@ class Loss(BaseLoss):
             'warm_up_steps': self.warm_up_steps,
             'current_step': self.current_step
         }
-        
-        # Add scheduler configurations
+          # Add scheduler configurations
         if 'commutative_weight' in self.schedulers:
+            scheduler = self.schedulers['commutative_weight']
             kwargs_dict['commutative_weight_scheduler'] = {
-                'type': 'linear',  # Store this in scheduler if needed
-                'initial_value': self.schedulers['commutative_weight'].initial_value,
-                'final_value': getattr(self.schedulers['commutative_weight'], 'final_value', None),
-                'total_steps': getattr(self.schedulers['commutative_weight'], 'total_steps', None),
+                'name': scheduler.name,
+                'kwargs': {
+                    **scheduler.kwargs
+                }
             }
-            
+
         if 'meaningful_weight' in self.schedulers:
+            scheduler = self.schedulers['meaningful_weight']
             kwargs_dict['meaningful_weight_scheduler'] = {
-                'type': 'linear',
-                'initial_value': self.schedulers['meaningful_weight'].initial_value,
-                'final_value': getattr(self.schedulers['meaningful_weight'], 'final_value', None),
-                'total_steps': getattr(self.schedulers['meaningful_weight'], 'total_steps', None),
+                'name': scheduler.name,
+                'kwargs': {
+                    **scheduler.kwargs
+                }
             }
-        
+
         return kwargs_dict
 
     def state_dict(self):
@@ -179,6 +174,12 @@ class Loss(BaseLoss):
         state['critic_state_dict'] = self.critic.state_dict() if self.critic is not None else None
         state['critic_optimizer_state_dict'] = self.critic_optimizer.state_dict() if self.critic_optimizer is not None else None
         state['base_loss_state_dict'] = self.base_loss_state_dict
+        
+        # Save scheduler states
+        state['scheduler_states'] = {}
+        for param_name, scheduler in self.schedulers.items():
+            state['scheduler_states'][param_name] = scheduler.state_dict()
+                
         return state
 
     def load_state_dict(self, state_dict):
@@ -189,7 +190,12 @@ class Loss(BaseLoss):
         
         self.base_loss_state_dict = state_dict['base_loss_state_dict']
         self.base_loss_f.load_state_dict(self.base_loss_state_dict)
-    
+        
+        # Load scheduler states
+        if 'scheduler_states' in state_dict:
+            for param_name, scheduler_state in state_dict['scheduler_states'].items():
+                self.schedulers[param_name].load_state_dict(scheduler_state)
+
     def _group_action_commutative_loss(self, data, model, kl_components):
         """
         In this loss, we encourage that the group action in data space has commutative property:
