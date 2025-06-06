@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from utils.scheduler import get_scheduler
+from collections import OrderedDict
 
 from ...baseloss import BaseLoss
 from ...reconstruction import reconstruction_loss
@@ -353,8 +354,12 @@ class Loss(BaseLoss):
         return fake_images
 
     def __call__(self, data, model, vae_optimizer):
-        log_data = {}
+        log_data = OrderedDict()
         base_loss = 0
+
+        # Log scheduler values
+        if self.schedulers:
+            log_data.update({f'scheduled_{param_name}': getattr(self, param_name) for param_name in self.schedulers.keys()})
 
         if self.base_loss_f.mode == 'post_forward':
             model_out = model(data)
@@ -386,12 +391,7 @@ class Loss(BaseLoss):
 
         # Increment step counter
         self.current_step += 1
-        
-        # Log scheduler values
-        if self.schedulers:
-            scheduler_values = self.get_scheduler_values()
-            log_data.update({f'scheduled_{k}': v for k, v in scheduler_values.items()})
-        
+                
         # Group action losses (only after warm-up)
         group_loss = 0
         in_warm_up = self.current_step <= self.warm_up_steps
@@ -474,6 +474,10 @@ class Loss(BaseLoss):
             # but here you can combine them if desired.
             final_loss = total_loss  # or total_loss + d_losses.mean() purely for logging
             log_data['loss'] = final_loss.item()
+
+            # Step schedulers if training
+            if model.training and self.schedulers:
+                self.step_schedulers()
 
             return {'loss': final_loss, 'to_log': log_data}
         
