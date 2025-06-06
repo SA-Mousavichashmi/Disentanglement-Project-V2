@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.scheduler import get_scheduler
 from collections import OrderedDict
 
 from ...baseloss import BaseLoss
@@ -43,33 +42,16 @@ class Loss(BaseLoss):
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
-                 # New scheduler parameters
-                 commutative_weight_scheduler=None,
-                 meaningful_weight_scheduler=None,
-                 **kwargs
-                 ):
-          # Initialize schedulers
-        schedulers = {}
+                 # schedulers kwargs
+                 schedulers_kwargs=None,
+                 **kwargs                 ):        # Initialize schedulers using base class method
+        super(Loss, self).__init__(mode="optimizes_internally", rec_dist=rec_dist, schedulers_kwargs=schedulers_kwargs, **kwargs)
         
-        if commutative_weight_scheduler is not None:
-            scheduler_name = commutative_weight_scheduler['name']
-            schedulers['commutative_weight'] = get_scheduler(
-                name=scheduler_name,
-                param_name='commutative_weight',
-                **commutative_weight_scheduler['kwargs']
-            )
-            commutative_weight = schedulers['commutative_weight'].initial_value
-        
-        if meaningful_weight_scheduler is not None:
-            scheduler_name = meaningful_weight_scheduler['name']
-            schedulers['meaningful_weight'] = get_scheduler(
-                name=scheduler_name,
-                param_name='meaningful_weight',
-                **meaningful_weight_scheduler['kwargs']
-            )
-            meaningful_weight = schedulers['meaningful_weight'].initial_value
-            
-        super(Loss, self).__init__(mode="optimizes_internally", schedulers=schedulers, **kwargs)
+        # Set initial values from schedulers if they exist
+        if 'commutative_weight' in self.schedulers:
+            commutative_weight = self.schedulers['commutative_weight'].initial_value
+        if 'meaningful_weight' in self.schedulers:
+            meaningful_weight = self.schedulers['meaningful_weight'].initial_value
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
         self.base_loss_state_dict = base_loss_state_dict
@@ -147,26 +129,19 @@ class Loss(BaseLoss):
             'deterministic_rep': self.deterministic_rep,
             'comp_latent_select_threshold': self.comp_latent_select_threshold,
             'warm_up_steps': self.warm_up_steps,
-            'current_step': self.current_step
-        }
-          # Add scheduler configurations
-        if 'commutative_weight' in self.schedulers:
-            scheduler = self.schedulers['commutative_weight']
-            kwargs_dict['commutative_weight_scheduler'] = {
-                'name': scheduler.name,
-                'kwargs': {
-                    **scheduler.kwargs
-                }
-            }
-
-        if 'meaningful_weight' in self.schedulers:
-            scheduler = self.schedulers['meaningful_weight']
-            kwargs_dict['meaningful_weight_scheduler'] = {
-                'name': scheduler.name,
-                'kwargs': {
-                    **scheduler.kwargs
-                }
-            }
+            'current_step': self.current_step        }
+        
+        # Add scheduler configurations
+        if self.schedulers:
+            schedulers_kwargs = []
+            for param_name, scheduler in self.schedulers.items():
+                schedulers_kwargs.append({
+                    'name': scheduler.name,
+                    'param_name': param_name,
+                    'kwargs':{**scheduler.kwargs}
+                })
+                
+            kwargs_dict['schedulers_kwargs'] = schedulers_kwargs
 
         return kwargs_dict
 
@@ -475,8 +450,8 @@ class Loss(BaseLoss):
             final_loss = total_loss  # or total_loss + d_losses.mean() purely for logging
             log_data['loss'] = final_loss.item()
 
-            # Step schedulers if training
-            if model.training and self.schedulers:
+            # Step schedulers if training and not in warm-up
+            if model.training and self.schedulers and not in_warm_up:
                 self.step_schedulers()
 
             return {'loss': final_loss, 'to_log': log_data}
@@ -487,8 +462,8 @@ class Loss(BaseLoss):
         total_loss.backward()
         vae_optimizer.step()
 
-        # Step schedulers if training
-        if model.training and self.schedulers:
+        # Step schedulers if training and not in warm-up
+        if model.training and self.schedulers and not in_warm_up:
             self.step_schedulers()
 
         log_data['loss'] = total_loss.item()
