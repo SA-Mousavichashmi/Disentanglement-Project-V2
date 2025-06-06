@@ -13,7 +13,7 @@ from power_spherical import PowerSpherical # type: ignore
 import abc
 
 
-class S_N_VAE_base(abc.ABC, nn.Module):
+class S_N_VAE_base(nn.Module, abc.ABC):
     """
     Base VAE model for mixed topologies that combines R1 (normal) and S1 (power spherical) components.
     Supports latent spaces with mixed topologies like ['R1', 'S1', 'R1'].

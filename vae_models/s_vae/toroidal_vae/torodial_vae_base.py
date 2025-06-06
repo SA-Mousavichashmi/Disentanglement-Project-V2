@@ -171,7 +171,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
 
         # Ensure kappa is positive
-        kappa_positive = F.softplus(kappa_raw) + 1e-4 # Add epsilon for numerical stability
+        kappa_positive = F.softplus(kappa_raw)
 
         # Combine normalized mu and positive kappa
         # Need to unsqueeze kappa to concatenate along the last dimension
