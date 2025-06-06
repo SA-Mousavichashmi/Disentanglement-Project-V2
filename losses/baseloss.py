@@ -44,16 +44,18 @@ class BaseLoss(abc.ABC):
 
         self.rec_dist = rec_dist
         self.mode = mode
-        
         self.schedulers = self._init_schedulers(schedulers_kwargs) if schedulers_kwargs is not None else {}
+
+        print(self.schedulers)
     
     def _init_schedulers(self, schedulers_kwargs: Optional[List[Dict[str, Any]]] = None):
-        self.schedulers = {}
+        schedulers = {}
         if schedulers_kwargs:
             for kwargs in schedulers_kwargs:
                 scheduler_name = kwargs['name']
                 scheduler = get_scheduler(scheduler_name, **kwargs['kwargs'])
-                self.schedulers[scheduler.param_name] = scheduler
+                schedulers[scheduler.param_name] = scheduler         
+        return schedulers
 
     def step_schedulers(self):
         """Step all schedulers and update corresponding attributes."""
