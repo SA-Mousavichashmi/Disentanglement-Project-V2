@@ -356,10 +356,6 @@ class Loss(BaseLoss):
         log_data = {}
         base_loss = 0
 
-        # Step schedulers if training
-        if model.training and self.schedulers:
-            self.step_schedulers()
-
         if self.base_loss_f.mode == 'post_forward':
             model_out = model(data)
             inputs = {
@@ -486,6 +482,10 @@ class Loss(BaseLoss):
         vae_optimizer.zero_grad()
         total_loss.backward()
         vae_optimizer.step()
+
+        # Step schedulers if training
+        if model.training and self.schedulers:
+            self.step_schedulers()
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
