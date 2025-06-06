@@ -45,8 +45,6 @@ class BaseLoss(abc.ABC):
         self.rec_dist = rec_dist
         self.mode = mode
         self.schedulers = self._init_schedulers(schedulers_kwargs) if schedulers_kwargs is not None else {}
-
-        print(self.schedulers)
     
     def _init_schedulers(self, schedulers_kwargs: Optional[List[Dict[str, Any]]] = None):
         schedulers = {}
