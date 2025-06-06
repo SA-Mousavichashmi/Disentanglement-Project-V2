@@ -13,7 +13,7 @@ from power_spherical import PowerSpherical  # type: ignore
 import abc
 
 
-class Toroidal_VAE_Base(abc.ABC, nn.Module):
+class Toroidal_VAE_Base(nn.Module, abc.ABC):
     """
     Base S-VAE (with S^1 * ... * S^1 latent space, N-Torus latent space) using Power spherical distribution.
     """
@@ -30,7 +30,7 @@ class Toroidal_VAE_Base(abc.ABC, nn.Module):
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
         """
-        super(Toroidal_VAE_Base, self).__init__()
+        super().__init__()
 
         self.latent_factor_num = latent_factor_num
         self.img_size = img_size
