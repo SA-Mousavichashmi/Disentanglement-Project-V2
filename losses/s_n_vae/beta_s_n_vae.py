@@ -5,7 +5,7 @@ import torch
 from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from ..n_vae.kl_div import kl_normal_loss
-from ..s_vae.kl_div import kl_power_spherical_uniform_loss
+from ..s_vae.kl_div import kl_power_spherical_uniform_loss, kl_power_spherical_uniform_factor_wise
 
 
 class BetaSNVAELoss(baseloss.BaseLoss):
@@ -95,10 +95,8 @@ class BetaSNVAELoss(baseloss.BaseLoss):
                 mean = factor_params_tensor[:, 0]
                 logvar = factor_params_tensor[:, 1]
                 kl_component = kl_normal_loss(mean, logvar, return_components=False).sum()
-            elif topology == 'S1':
-                # For Power Spherical distribution, params are (mu_x, mu_y, kappa)
-                # kl_power_spherical_uniform_loss expects a single tensor for each factor
-                kl_component = kl_power_spherical_uniform_loss(factor_params_tensor, return_components=False).sum()
+            elif topology == 'S1':                # For Power Spherical distribution, params are (mu_x, mu_y, kappa)
+                kl_component = kl_power_spherical_uniform_factor_wise(factor_params_tensor)
             else:
                 raise ValueError(f"Unknown latent factor topology: {topology}")
             

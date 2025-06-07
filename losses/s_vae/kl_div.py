@@ -3,6 +3,31 @@ import math
 from power_spherical import PowerSpherical, HypersphericalUniform # type: ignore
 import torch.distributions as D
 
+def kl_power_spherical_uniform_factor_wise(params):
+    """
+    Calculates KL divergence for a single latent factor between Power Spherical posterior
+    and uniform prior on the hypersphere.
+
+    Parameters
+    ----------
+    params : torch.Tensor
+        Tensor of shape (batch_size, D + 1), where:
+            - params[:, :-1] (shape: (batch_size, D)) are the location parameters `mu`
+            - params[:, -1] (shape: (batch_size,)) is the concentration parameter `kappa`
+        `D` is the dimension of the hypersphere (i.e., latent space dimension per factor).
+
+    Returns
+    -------
+    torch.Tensor
+        Scalar tensor representing average KL divergence for this factor over the batch.
+    """
+    mu = params[:, :-1]
+    kappa = params[:, -1]
+    q_z_x = PowerSpherical(mu, kappa)
+    dim = mu.shape[-1]
+    p_z = HypersphericalUniform(dim, device=mu.device)
+    return D.kl.kl_divergence(q_z_x, p_z).mean()
+
 def kl_power_spherical_uniform_loss(latent_factors_dist_param, return_components=False):
     """
     Calculates the KL divergence between Power Spherical posterior distributions q(z|x)
@@ -37,22 +62,7 @@ def kl_power_spherical_uniform_loss(latent_factors_dist_param, return_components
     kl_components = []
 
     for params in latent_factors_dist_param:
-        # Assuming the last element is kappa and the rest is mu
-        mu = params[:, :-1]  # Shape (batch_size, D)
-        kappa = params[:, -1] # Shape (batch_size,)
-        
-        # Ensure kappa is positive and non-zero for stability
-        # kappa = torch.clamp(kappa, min=1e-6) 
-
-        q_z_x = PowerSpherical(mu, kappa)
-        
-        # Determine dimension D for the hypersphere
-        dim = mu.shape[-1]
-        p_z = HypersphericalUniform(dim, device=mu.device)
-        
-        # KL divergence per batch element for this factor, then averaged
-        kl_factor = D.kl.kl_divergence(q_z_x, p_z).mean()
-        
+        kl_factor = kl_power_spherical_uniform_factor_wise(params)
         kl_components.append(kl_factor)
 
     kl_components_tensor = torch.stack(kl_components) # Shape (latent_factor_num,)
