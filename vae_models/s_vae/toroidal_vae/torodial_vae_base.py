@@ -173,7 +173,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         # Apply softplus to kappa to ensure it is positive
         kappa_positive = F.softplus(kappa_raw)
         # Ensure kappa has a minimum value to avoid numerical instability
-        kappa_positive = kappa_positive.clamp_min(1e-35)
+        kappa_positive = kappa_positive.clamp_min(1e-36)
     
         # Need to unsqueeze kappa to concatenate along the last dimension
         stats_qzx = torch.cat([mu_normalized, kappa_positive.unsqueeze(-1)], dim=-1)
