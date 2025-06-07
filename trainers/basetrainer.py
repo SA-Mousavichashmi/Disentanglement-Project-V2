@@ -363,12 +363,20 @@ class BaseTrainer():
                 if (it + 1) % self.progress_bar_log_iter_interval == 0 or (it + 1) == total_iterations:
                     recent = {k: np.mean(v[-self.progress_bar_log_iter_interval:]) 
                               for k, v in iteration_to_log.items() if v}
+                    
+                    if self.loss.schedulers:
+                        for param_name in self.loss.schedulers.keys():
+                            recent['sched_' + param_name] = getattr(self.loss, param_name)
                         
                     prog_bar_log.update(recent)
                     t.set_postfix(**prog_bar_log)
 
                 # scheduler step
                 self.lr_scheduler.step()
+
+                # Step schedulers at the beginning of each iteration
+                if  self.loss.schedulers and self.model.training:
+                    self.loss.step_schedulers()
 
                 # checkpoint & logging at epoch or iteration boundaries based on chkpt_step_type
                 if (it + 1) % num_batches == 0:
@@ -685,6 +693,7 @@ class BaseTrainer():
 
         # Extract any logged metrics and return both loss and logs
         to_log = loss_out.get('to_log', {})
+        
         loss_val = loss.item() if loss is not None else 0.0
         
         self.current_train_iter += 1  # Increment cumulative iteration counter

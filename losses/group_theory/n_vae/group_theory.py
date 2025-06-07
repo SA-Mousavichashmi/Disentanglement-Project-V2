@@ -338,10 +338,6 @@ class Loss(BaseLoss):
         log_data = OrderedDict()
         base_loss = 0
 
-        # Log scheduler values
-        if self.schedulers:
-            log_data.update({f'scheduled_{param_name}': getattr(self, param_name) for param_name in self.schedulers.keys()})
-
         if self.base_loss_f.mode == 'post_forward':
             model_out = model(data)
             inputs = {
@@ -456,10 +452,6 @@ class Loss(BaseLoss):
             final_loss = total_loss  # or total_loss + d_losses.mean() purely for logging
             log_data['loss'] = final_loss.item()
 
-            # Step schedulers if training and not in warm-up
-            if model.training and self.schedulers and not in_warm_up:
-                self.step_schedulers()
-
             return {'loss': final_loss, 'to_log': log_data}
         
         # Optimize group action losses only
@@ -467,10 +459,6 @@ class Loss(BaseLoss):
         vae_optimizer.zero_grad()
         total_loss.backward()
         vae_optimizer.step()
-
-        # Step schedulers if training and not in warm-up
-        if model.training and self.schedulers and not in_warm_up:
-            self.step_schedulers()
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
