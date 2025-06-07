@@ -111,29 +111,32 @@ class S_N_VAE_base(nn.Module, abc.ABC):
         stats_qzx : torch.Tensor
             Parsed parameters with shape (batch_size, total_encoder_params)
         """     
-        # Use raw_params directly; modifications will be in-place
-        stats_qzx = raw_params
-        
-        # Parse and modify parameters for S1 factors
+        processed_factors = []
         start_idx = 0
         for i, (topology, n_params) in enumerate(zip(self.latent_factor_topologies, self.factor_params)):
             end_idx = start_idx + n_params
-            
+
             if topology == 'S1':
                 # Extract and process S1 parameters
-                mu_raw = stats_qzx[:, start_idx:start_idx+2]
-                kappa_raw = stats_qzx[:, start_idx+2]
-                
+                mu_raw = raw_params[:, start_idx:start_idx+2]
+                kappa_raw = raw_params[:, start_idx+2]
+
                 mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
                 kappa_positive = F.softplus(kappa_raw)
                 kappa_positive = kappa_positive.clamp_min(1e-36)
+
+                # Concatenate processed mu and kappa for this factor
+                processed_factor = torch.cat([mu_normalized, kappa_positive.unsqueeze(-1)], dim=-1)
+                processed_factors.append(processed_factor)
                 
-                # Update the stats_qzx tensor
-                stats_qzx[:, start_idx:start_idx+2] = mu_normalized
-                stats_qzx[:, start_idx+2] = kappa_positive
+            elif topology == 'R1':
+                # Use raw mean and logvar directly
+                processed_factor = raw_params[:, start_idx:end_idx]
+                processed_factors.append(processed_factor)
             
             start_idx = end_idx
-            
+
+        stats_qzx = torch.cat(processed_factors, dim=-1)
         return stats_qzx
 
     def reparameterize(self, stats_qzx):
