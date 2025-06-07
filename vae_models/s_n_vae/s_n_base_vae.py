@@ -97,58 +97,40 @@ class S_N_VAE_base(nn.Module, abc.ABC):
                 "Build your own architecture or reshape images!"
             )
 
-    def _parse_encoder_output(self, encoder_output):
+    def _parse_encoder_output(self, raw_params):
         """
         Parse the encoder output into factor-specific parameters.
         
         Parameters
         ----------
-        encoder_output : torch.Tensor
+        raw_params : torch.Tensor
             Encoder output with shape (batch_size, total_encoder_params)
             
         Returns
         -------
         stats_qzx : torch.Tensor
-            Reformatted stats with shape (batch_size, latent_factor_num, max_params)
-            where max_params is padded to accommodate all factor types.
-        """
-        # Validate encoder output size
-        expected_params = self.total_encoder_params
-        actual_params = encoder_output.shape[1]
-        if actual_params != expected_params:
-            raise ValueError(
-                f"Encoder output has {actual_params} parameters, "
-                f"but expected {expected_params}. "
-                "Check encoder architecture and latent_factor_topologies configuration."
-            )
+            Parsed parameters with shape (batch_size, total_encoder_params)
+        """     
+        # Use raw_params directly; modifications will be in-place
+        stats_qzx = raw_params
         
-        batch_size = encoder_output.shape[0]
-        max_params = max(self.factor_params)
-        
-        # Create tensor to hold all factor parameters with padding
-        stats_qzx = torch.zeros(batch_size, self.latent_factor_num, max_params, 
-                               device=encoder_output.device, dtype=encoder_output.dtype)
-        
-        # Parse encoder output into factor-specific parameters
+        # Parse and modify parameters for S1 factors
         start_idx = 0
         for i, (topology, n_params) in enumerate(zip(self.latent_factor_topologies, self.factor_params)):
             end_idx = start_idx + n_params
-            factor_params = encoder_output[:, start_idx:end_idx]
             
-            if topology == 'R1':
-                # For R1: params are [mean, logvar]
-                stats_qzx[:, i, :n_params] = factor_params
-            elif topology == 'S1':
-                # For S1: params are [mu_x, mu_y, kappa]
-                # Normalize mu and ensure kappa is positive
-                mu_raw = factor_params[:, :2]  # First 2 params are mu
-                kappa_raw = factor_params[:, 2]  # Third param is kappa
+            if topology == 'S1':
+                # Extract and process S1 parameters
+                mu_raw = stats_qzx[:, start_idx:start_idx+2]
+                kappa_raw = stats_qzx[:, start_idx+2]
                 
                 mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
-                kappa_positive = F.softplus(kappa_raw) + 1e-4
+                kappa_positive = F.softplus(kappa_raw)
+                kappa_positive.clamp_min_(1e-36)
                 
-                stats_qzx[:, i, :2] = mu_normalized
-                stats_qzx[:, i, 2] = kappa_positive
+                # Update the stats_qzx tensor
+                stats_qzx[:, start_idx:start_idx+2] = mu_normalized
+                stats_qzx[:, start_idx+2] = kappa_positive
             
             start_idx = end_idx
             
@@ -157,53 +139,44 @@ class S_N_VAE_base(nn.Module, abc.ABC):
     def reparameterize(self, stats_qzx):
         """
         Reparameterization trick for mixed topologies.
-        
+
         Parameters
         ----------
         stats_qzx : torch.Tensor
-            Factor parameters with shape (batch_size, latent_factor_num, max_params)
-            
-        Returns
-        -------
-        dict
-            Dictionary with 'samples_qzx': sampled latent representations
+            Factor parameters with shape (batch_size, total_encoder_params)
         """
         batch_size = stats_qzx.shape[0]
         latent_samples = []
-        
-        for i, topology in enumerate(self.latent_factor_topologies):
-            factor_params = stats_qzx[:, i, :]
-            
+        start_idx = 0
+
+        for topology, n_params in zip(self.latent_factor_topologies, self.factor_params):
+            end_idx = start_idx + n_params
+            factor = stats_qzx[:, start_idx:end_idx]
+
             if topology == 'R1':
-                # Normal distribution reparameterization
-                mean = factor_params[:, 0]
-                logvar = factor_params[:, 1]
-                
+                mean = factor[:, 0]
+                logvar = factor[:, 1]
                 if self.training:
                     std = torch.exp(0.5 * logvar)
                     eps = torch.randn_like(std)
                     sample = mean + std * eps
                 else:
                     sample = mean
-                
-                latent_samples.append(sample.unsqueeze(-1))  # Shape: (batch_size, 1)
-                
+                latent_samples.append(sample.unsqueeze(-1))
+
             elif topology == 'S1':
-                # Power Spherical distribution reparameterization
-                mu = factor_params[:, :2]
-                kappa = factor_params[:, 2]
-                
+                mu = factor[:, :2]
+                kappa = factor[:, 2]
                 if self.training:
                     q_z_x = PowerSpherical(mu, kappa)
                     sample = q_z_x.rsample()
                 else:
                     sample = mu
-                
-                latent_samples.append(sample)  # Shape: (batch_size, 2)
-        
-        # Concatenate all samples
-        samples_qzx = torch.cat(latent_samples, dim=-1)  # Shape: (batch_size, total_latent_dim)
-        
+                latent_samples.append(sample)
+
+            start_idx = end_idx
+
+        samples_qzx = torch.cat(latent_samples, dim=-1)
         return {'samples_qzx': samples_qzx}
 
     def forward(self, x):
@@ -216,33 +189,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Batch of data. Shape (batch_size, n_chan, height, width)
         """
         # Get encoder output
-        encoder_output = self.encoder(x)
-        if isinstance(encoder_output, dict):
-            # If encoder returns dict, extract the parameter tensor
-            # Different encoders might use different keys
-            if 'stats_qzx' in encoder_output:
-                raw_params = encoder_output['stats_qzx']
-                # If already has the right shape, use as is; otherwise flatten
-                if raw_params.dim() == 3:
-                    # Already in (batch_size, factor_num, params) format
-                    batch_size, factor_num, param_dim = raw_params.shape
-                    raw_params = raw_params.view(batch_size, -1)
-                elif raw_params.dim() == 2:
-                    # In (batch_size, total_params) format - use as is
-                    pass
-                else:
-                    raise ValueError(f"Unexpected encoder output shape: {raw_params.shape}")
-            else:
-                # Try other common keys
-                for key in ['output', 'params', 'logits']:
-                    if key in encoder_output:
-                        raw_params = encoder_output[key]
-                        break
-                else:
-                    raise ValueError("Could not find parameter tensor in encoder output")
-        else:
-            # Encoder returns tensor directly
-            raw_params = encoder_output
+        raw_params = self.encoder(x).squeeze(-1) # raw params shape (batch_size, total_encoder_params)
 
         # Parse encoder output into factor-specific parameters
         stats_qzx = self._parse_encoder_output(raw_params)
@@ -275,30 +222,16 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Mode for reconstruction. Options are 'mean' or 'sample'.
         """
         # Get encoder output and parse it
-        encoder_output = self.encoder(x)
-        if isinstance(encoder_output, dict):
-            if 'stats_qzx' in encoder_output:
-                raw_params = encoder_output['stats_qzx']
-                if raw_params.dim() == 3:
-                    batch_size, factor_num, param_dim = raw_params.shape
-                    raw_params = raw_params.view(batch_size, -1)
-            else:
-                for key in ['output', 'params', 'logits']:
-                    if key in encoder_output:
-                        raw_params = encoder_output[key]
-                        break
-        else:
-            raw_params = encoder_output
-            
+        raw_params = self.encoder(x)
         stats_qzx = self._parse_encoder_output(raw_params)
 
         if mode == 'mean':
             # Use deterministic reconstruction
             batch_size = stats_qzx.shape[0]
             latent_samples = []
-            
-            for i, topology in enumerate(self.latent_factor_topologies):
-                factor_params = stats_qzx[:, i, :]
+            start_idx = 0
+            for topology, n_params in zip(self.latent_factor_topologies, self.factor_params):
+                factor_params = stats_qzx[:, start_idx:start_idx+n_params]
                 
                 if topology == 'R1':
                     # Use mean directly
@@ -308,6 +241,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
                     # Use normalized mu directly
                     mu = factor_params[:, :2]
                     latent_samples.append(mu)
+                start_idx += n_params
             
             samples_qzx = torch.cat(latent_samples, dim=-1)
             
@@ -332,32 +266,17 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
         """
         # Get encoder output and parse it
-        encoder_output = self.encoder(x)
-        if isinstance(encoder_output, dict):
-            if 'stats_qzx' in encoder_output:
-                raw_params = encoder_output['stats_qzx']
-                if raw_params.dim() == 3:
-                    batch_size, factor_num, param_dim = raw_params.shape
-                    raw_params = raw_params.view(batch_size, -1)
-            else:
-                for key in ['output', 'params', 'logits']:
-                    if key in encoder_output:
-                        raw_params = encoder_output[key]
-                        break
-        else:
-            raw_params = encoder_output
-            
+        raw_params = self.encoder(x)
         stats_qzx = self._parse_encoder_output(raw_params)
 
         if type == 'stochastic':
             samples_qzx = self.reparameterize(stats_qzx)['samples_qzx']
         elif type == 'deterministic':
             # Use means/modes
-            batch_size = stats_qzx.shape[0]
             latent_samples = []
-            
-            for i, topology in enumerate(self.latent_factor_topologies):
-                factor_params = stats_qzx[:, i, :]
+            start_idx = 0
+            for topology, n_params in zip(self.latent_factor_topologies, self.factor_params):
+                factor_params = stats_qzx[:, start_idx:start_idx+n_params]
                 
                 if topology == 'R1':
                     mean = factor_params[:, 0]
@@ -365,6 +284,8 @@ class S_N_VAE_base(nn.Module, abc.ABC):
                 elif topology == 'S1':
                     mu = factor_params[:, :2]
                     latent_samples.append(mu)
+                
+                start_idx += n_params
             
             samples_qzx = torch.cat(latent_samples, dim=-1)
         else:
