@@ -57,35 +57,53 @@ class BetaSNVAELoss(baseloss.BaseLoss):
     # No state to load for this loss function beyond what BaseLoss handles
         return
 
-
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
-        # stats_qzx has shape (batch_size, latent_factor_num, dist_nparams)
-        # We need to unbind along latent_factor_num to process each factor individually
-        latent_factors_dist_param = stats_qzx.unbind(1)  # List of length latent_factor_num
-
-        if len(self.latent_factor_topologies) != len(latent_factors_dist_param):
+        # stats_qzx has shape (batch_size, total_encoder_params)
+        # We need to parse the flattened parameter tensor based on latent_factor_topologies
+        
+        # Calculate parameter counts for each factor type
+        factor_params = []
+        for topology in self.latent_factor_topologies:
+            if topology == 'R1':
+                factor_params.append(2)  # mean, logvar
+            elif topology == 'S1':
+                factor_params.append(3)  # mu_x, mu_y, kappa
+            else:
+                raise ValueError(f"Unknown latent factor topology: {topology}")
+        
+        # Verify the total parameter count matches
+        total_expected_params = sum(factor_params)
+        if stats_qzx.shape[1] != total_expected_params:
             raise ValueError(
-                f"Number of latent factor topologies ({len(self.latent_factor_topologies)}) "
-                f"does not match number of latent factors in stats_qzx ({len(latent_factors_dist_param)})."
+                f"Expected {total_expected_params} parameters but got {stats_qzx.shape[1]} "
+                f"for topologies {self.latent_factor_topologies}."
             )
 
         # 1. Calculate all values first
         rec_loss = reconstruction_loss(data, reconstructions, distribution=self.rec_dist)
 
         kl_components_list = []
-        for i, topology in enumerate(self.latent_factor_topologies):
-            factor_params = latent_factors_dist_param[i]
+        start_idx = 0
+        
+        for i, (topology, n_params) in enumerate(zip(self.latent_factor_topologies, factor_params)):
+            end_idx = start_idx + n_params
+            factor_params_tensor = stats_qzx[:, start_idx:end_idx]
+            
             if topology == 'R1':
                 # For Normal distribution, params are (mean, logvar)
                 # kl_normal_loss expects two tensors: mean and logvar
-                kl_component = kl_normal_loss(factor_params[:, 0], factor_params[:, 1], return_components=False).sum()
+                mean = factor_params_tensor[:, 0]
+                logvar = factor_params_tensor[:, 1]
+                kl_component = kl_normal_loss(mean, logvar, return_components=False).sum()
             elif topology == 'S1':
-                # For Power Spherical distribution, params are (concentration, location, scale)
+                # For Power Spherical distribution, params are (mu_x, mu_y, kappa)
                 # kl_power_spherical_uniform_loss expects a single tensor for each factor
-                kl_component = kl_power_spherical_uniform_loss(factor_params, return_components=False).sum()
+                kl_component = kl_power_spherical_uniform_loss(factor_params_tensor, return_components=False).sum()
             else:
                 raise ValueError(f"Unknown latent factor topology: {topology}")
+            
             kl_components_list.append(kl_component)
+            start_idx = end_idx
 
         kl_total = torch.stack(kl_components_list).sum()  # Scalar tensor
         loss = rec_loss + self.beta * kl_total
@@ -100,7 +118,8 @@ class BetaSNVAELoss(baseloss.BaseLoss):
 
         if self.log_kl_components:
             # Add individual components last
-            for i, value in enumerate(torch.stack(kl_components_list)):
-                log_data[f'kl_loss_{i}'] = value.item()
+            for i, value in enumerate(kl_components_list):
+                topology = self.latent_factor_topologies[i]
+                log_data[f'kl_loss_{i}_{topology}'] = value.item()
 
         return {'loss': loss, 'to_log': log_data}
