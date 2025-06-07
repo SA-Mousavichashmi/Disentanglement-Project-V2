@@ -189,7 +189,8 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Batch of data. Shape (batch_size, n_chan, height, width)
         """
         # Get encoder output
-        raw_params = self.encoder(x).squeeze(-1) # raw params shape (batch_size, total_encoder_params)
+        encoder_output = self.encoder(x)
+        raw_params = encoder_output['stats_qzx'].squeeze(-1) # raw params shape (batch_size, total_encoder_params)
 
         # Parse encoder output into factor-specific parameters
         stats_qzx = self._parse_encoder_output(raw_params)
@@ -222,7 +223,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Mode for reconstruction. Options are 'mean' or 'sample'.
         """
         # Get encoder output and parse it
-        raw_params = self.encoder(x)
+        raw_params = self.encoder(x)['stats_qzx'].squeeze(-1)
         stats_qzx = self._parse_encoder_output(raw_params)
 
         if mode == 'mean':
@@ -266,7 +267,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Type of sampling to perform. Options are 'stochastic' or 'deterministic'.
         """
         # Get encoder output and parse it
-        raw_params = self.encoder(x)
+        raw_params = self.encoder(x)['stats_qzx'].squeeze(-1)  # raw params shape (batch_size, total_encoder_params)
         stats_qzx = self._parse_encoder_output(raw_params)
 
         if type == 'stochastic':
