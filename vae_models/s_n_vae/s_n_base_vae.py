@@ -126,7 +126,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
                 
                 mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
                 kappa_positive = F.softplus(kappa_raw)
-                kappa_positive.clamp_min_(1e-36)
+                kappa_positive = kappa_positive.clamp_min(1e-36)
                 
                 # Update the stats_qzx tensor
                 stats_qzx[:, start_idx:start_idx+2] = mu_normalized
