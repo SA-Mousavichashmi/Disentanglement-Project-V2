@@ -44,7 +44,7 @@ def get_traversal_range(max_traversal_type, max_traversal, mean=0, std=1):
     return (mean - deviation, mean + deviation)
 
 def traverse_single_latent(vae_model,
-                           latent_idx,
+                           latent_factor_idx,
                            num_samples=10,
                            max_traversal_type='probability',
                            max_traversal=0.95,
@@ -60,7 +60,7 @@ def traverse_single_latent(vae_model,
     ----------
     vae_model : torch.nn.Module
         The VAE model.
-    latent_idx : int
+    latent_factor_idx : int
         The index of the latent dimension to traverse.
     max_traversal_type : str
         Specifies how the traversal range is determined ('probability' or 'absolute').
@@ -82,7 +82,7 @@ def traverse_single_latent(vae_model,
         A tensor containing the generated images corresponding to the traversal.
         Shape (num_samples, C, H, W).
     """
-    assert latent_idx in range(vae_model.latent_dim), f"latent_idx must be in range [0, {vae_model.latent_dim-1}]"
+    assert latent_factor_idx in range(vae_model.latent_dim), f"latent_factor_idx must be in range [0, {vae_model.latent_dim-1}]"
     device = get_device(vae_model)
 
     if ref_img is not None:
@@ -103,11 +103,11 @@ def traverse_single_latent(vae_model,
         base_latent = mu
 
         # Get mean for the specific index
-        mean_val = mu[:, latent_idx].item() 
+        mean_val = mu[:, latent_factor_idx].item() 
 
         # Determine std deviation based on use_ref_img_lat_std
         if use_ref_img_lat_std:
-            std_dev = torch.exp(0.5 * logvar[:, latent_idx]).item() # Use std from encoder
+            std_dev = torch.exp(0.5 * logvar[:, latent_factor_idx]).item() # Use std from encoder
         else:
             std_dev = 1.0 # Use default std
 
@@ -136,7 +136,7 @@ def traverse_single_latent(vae_model,
     traversal_values = torch.linspace(min_val, max_val, num_samples, device=device)
 
     # Modify the specified latent dimension
-    latent_vectors[:, latent_idx] = traversal_values
+    latent_vectors[:, latent_factor_idx] = traversal_values
 
     # Decode the latent vectors into images
     generated_images = decode_latents(vae_model, latent_vectors)
@@ -177,10 +177,10 @@ def traverse_all_latents(vae_model,
         Each tensor has shape (num_samples, C, H, W).
     """
     all_traversals = []
-    for latent_idx in range(vae_model.latent_dim):
+    for latent_factor_idx in range(vae_model.latent_dim):
         # Pass ref_img and use_ref_img_lat_std to traverse_single_latent
         traversal_images = traverse_single_latent(vae_model=vae_model, 
-                                                  latent_idx=latent_idx,
+                                                  latent_factor_idx=latent_factor_idx,
                                                   num_samples=num_samples,
                                                   max_traversal_type=max_traversal_type, 
                                                   max_traversal=max_traversal,  

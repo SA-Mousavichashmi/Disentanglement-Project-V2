@@ -46,7 +46,7 @@ def get_toroidal_traversal_range(max_traversal_type, max_traversal, center_angle
     return (min_angle, max_angle)
 
 def traverse_single_toroidal_latent(vae_model,
-                                   latent_idx,
+                                   latent_factor_idx,
                                    num_samples=10,
                                    max_traversal_type='fraction',
                                    max_traversal=0.5,
@@ -60,7 +60,7 @@ def traverse_single_toroidal_latent(vae_model,
     ----------
     vae_model : torch.nn.Module
         The toroidal VAE model.
-    latent_idx : int
+    latent_factor_idx : int
         The index of the latent dimension to traverse.
     num_samples : int, optional
         The number of steps or images to generate along the traversal. Defaults to 10.    max_traversal_type : str
@@ -77,7 +77,7 @@ def traverse_single_toroidal_latent(vae_model,
         A tensor containing the generated images corresponding to the traversal.
         Shape (num_samples, C, H, W).
     """
-    assert latent_idx in range(vae_model.latent_factor_num), f"latent_idx must be in range [0, {vae_model.latent_factor_num-1}]"
+    assert latent_factor_idx in range(vae_model.latent_factor_num), f"latent_factor_idx must be in range [0, {vae_model.latent_factor_num-1}]"
     device = get_device(vae_model)
 
     if ref_img is not None:
@@ -105,7 +105,7 @@ def traverse_single_toroidal_latent(vae_model,
 
         # Use the encoded angles as the base
         base_angles = angles
-        center_angle = angles[:, latent_idx].item()
+        center_angle = angles[:, latent_factor_idx].item()
           # Get the traversal range
         min_angle, max_angle = get_toroidal_traversal_range(
             max_traversal_type=max_traversal_type,
@@ -129,7 +129,7 @@ def traverse_single_toroidal_latent(vae_model,
 
     # Create latent vectors for traversal
     latent_angles = base_angles.repeat(num_samples, 1)
-    latent_angles[:, latent_idx] = traversal_angles
+    latent_angles[:, latent_factor_idx] = traversal_angles
 
     # Convert angles to the format expected by the decoder
     # The toroidal VAE decoder expects latent vectors in (cos, sin) format
@@ -177,7 +177,7 @@ def traverse_all_toroidal_latents(vae_model,
     for latent_idx in range(vae_model.latent_factor_num):
         traversal_images = traverse_single_toroidal_latent(
             vae_model=vae_model,
-            latent_idx=latent_idx,
+            latent_factor_idx=latent_idx,
             num_samples=num_samples,
             max_traversal_type=max_traversal_type,
             max_traversal=max_traversal,

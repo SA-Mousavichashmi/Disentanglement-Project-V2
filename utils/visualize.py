@@ -38,7 +38,7 @@ class BaseVisualizer(ABC):
         pass
 
     @abstractmethod
-    def _generate_single_traversal(self, latent_idx, num_samples, max_traversal_type, max_traversal, ref_img):
+    def _generate_single_traversal(self, latent_factor_idx, num_samples, max_traversal_type, max_traversal, ref_img):
         """Generate traversal images for a single latent dimension."""
         pass
 
@@ -50,7 +50,7 @@ class BaseVisualizer(ABC):
 ################## Latent Traversal Methods ##################
 
     def plot_single_latent_traversal(self, 
-                                     latent_idx,
+                                     latent_factor_idx,
                                      max_traversal_type, 
                                      max_traversal,
                                      num_samples=7,
@@ -66,7 +66,7 @@ class BaseVisualizer(ABC):
 
         Parameters
         ----------
-        latent_idx : int
+        latent_factor_idx : int
             The index of the latent dimension to traverse.
         num_samples : int, optional
             The number of steps or images to generate and plot along the traversal.
@@ -108,7 +108,7 @@ class BaseVisualizer(ABC):
             ref_img = None # Use the prior (mean=0, std=1) for traversal
           # Generate the traversal images using the abstract method
         traversal_images = self._generate_single_traversal(
-            latent_idx=latent_idx,
+            latent_factor_idx=latent_factor_idx,
             num_samples=num_samples, 
             max_traversal_type=max_traversal_type, 
             max_traversal=max_traversal,  
@@ -130,14 +130,14 @@ class BaseVisualizer(ABC):
                 ax.imshow(img)
             ax.axis('off')
 
-        fig.suptitle(f'Traversal of Latent Dimension {latent_idx}', fontsize=12, y=0.95)  # Adjust title position
+        fig.suptitle(f'Traversal of Latent Dimension {latent_factor_idx}', fontsize=12, y=0.95)  # Adjust title position
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
         
         # Save plot if requested
         if self.is_save:
             if not self.save_dir:
                 raise ValueError("save_dir must be provided when is_save=True")
-            plt.savefig(os.path.join(self.save_dir, f'latent_traversal_dim_{latent_idx}.png'))
+            plt.savefig(os.path.join(self.save_dir, f'latent_traversal_dim_{latent_factor_idx}.png'))
             
         # Show plot if requested
         if self.is_plot:
@@ -224,10 +224,10 @@ class BaseVisualizer(ABC):
         elif num_samples == 1:
             axes = axes.reshape(-1, 1)
 
-        for latent_idx in range(num_latent_dims):
-            traversal_images = all_traversals[latent_idx]
+        for latent_factor_idx in range(num_latent_dims):
+            traversal_images = all_traversals[latent_factor_idx]
             for sample_idx in range(num_samples):
-                ax = axes[latent_idx][sample_idx]
+                ax = axes[latent_factor_idx][sample_idx]
                 img = traversal_images[sample_idx].permute(1, 2, 0).numpy() # Convert CHW to HWC
                 if img.shape[2] == 1:
                     ax.imshow(img, cmap='gray')
@@ -236,7 +236,7 @@ class BaseVisualizer(ABC):
                 ax.axis('off')
                 # Add a title to the first image of each row indicating the latent dimension
                 if sample_idx == 0:
-                    ax.text(-0.1, 0.5, f'Latent {latent_idx}', horizontalalignment='right',
+                    ax.text(-0.1, 0.5, f'Latent {latent_factor_idx}', horizontalalignment='right',
                             verticalalignment='center', transform=ax.transAxes, fontsize=8)
 
         # Adjust layout to prevent overlap and add a main title
@@ -380,7 +380,7 @@ class NVAEVisualizer(BaseVisualizer):
         return self.vae_model.latent_dim
     
     def _generate_single_traversal(self, 
-                                   latent_idx, 
+                                   latent_factor_idx, 
                                    ref_img,
                                    num_samples, 
                                    max_traversal_type='probability', 
@@ -389,7 +389,7 @@ class NVAEVisualizer(BaseVisualizer):
         """Generate traversal images for a single latent dimension using N-VAE utils."""
         return self.n_vae_utils.traverse_single_latent(
             vae_model=self.vae_model,
-            latent_idx=latent_idx,
+            latent_factor_idx=latent_factor_idx,
             num_samples=num_samples,
             max_traversal_type=max_traversal_type,
             max_traversal=max_traversal,
@@ -426,7 +426,7 @@ class SVAEVisualizer(BaseVisualizer):
         return self.vae_model.latent_factor_num
 
     def _generate_single_traversal(self, 
-                                   latent_idx, 
+                                   latent_factor_idx, 
                                    num_samples,
                                    ref_img, 
                                    max_traversal_type='fraction', 
@@ -438,7 +438,7 @@ class SVAEVisualizer(BaseVisualizer):
 
         return self.s_vae_utils.traverse_single_toroidal_latent(
             vae_model=self.vae_model,
-            latent_idx=latent_idx,
+            latent_factor_idx=latent_factor_idx,
             num_samples=num_samples,
             max_traversal_type=max_traversal_type,
             max_traversal=max_traversal,
@@ -461,6 +461,61 @@ class SVAEVisualizer(BaseVisualizer):
             max_traversal=max_traversal,
             ref_img=ref_img
         )
+
+
+class SNVAEVisualizer(BaseVisualizer):
+    """Visualizer for S-N-VAE models (Mixed topology VAE with both R1 and S1 latent factors)."""
+    
+    def __init__(self, vae_model, dataset, is_plot=True, save_dir=None):
+        super().__init__(vae_model, dataset, is_plot, save_dir)
+        # Import here to avoid circular imports and make it clear which utils are used
+        from vae_models.s_n_vae import utils as sn_vae_utils
+        self.sn_vae_utils = sn_vae_utils
+        
+        # Validate that the model has the required attributes
+        if not hasattr(vae_model, 'latent_factor_topologies'):
+            raise ValueError("VAE model must have 'latent_factor_topologies' attribute for S-N-VAE visualization")
+        
+        self.latent_factor_topologies = vae_model.latent_factor_topologies
+    
+    def _get_latent_dimension_count(self):
+        """Get the number of latent factors from the S-N-VAE model."""
+        return self.vae_model.latent_factor_num
+    
+    def _generate_single_traversal(self, 
+                                   latent_factor_idx, 
+                                   num_samples,
+                                   max_traversal_type='mixed', 
+                                   max_traversal=0.95, 
+                                   ref_img=None):
+        """Generate traversal images for a single latent dimension using S-N VAE utils."""
+        return self.sn_vae_utils.traverse_single_mixed_latent(
+            vae_model=self.vae_model,
+            latent_factor_idx=latent_factor_idx,
+            num_samples=num_samples,
+            max_traversal_type=max_traversal_type,
+            max_traversal=max_traversal,
+            ref_img=ref_img
+        )
+    
+    def _generate_all_traversals(self, 
+                                 num_samples,
+                                 max_traversal_type='mixed', 
+                                 max_traversal=0.95, 
+                                 ref_img=None):
+        """Generate traversal images for all latent dimensions using S-N VAE utils."""
+        return self.sn_vae_utils.traverse_all_mixed_latents(
+            vae_model=self.vae_model,
+            num_samples=num_samples,
+            max_traversal_type=max_traversal_type,
+            max_traversal=max_traversal,
+            ref_img=ref_img
+        )
+    
+    @property
+    def latent_factor_num(self):
+        """Get the number of latent factors."""
+        return self._get_latent_dimension_count()
 
 
 ################## Legacy Compatibility ##################
