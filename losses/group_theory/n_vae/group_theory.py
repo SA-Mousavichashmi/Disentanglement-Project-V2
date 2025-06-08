@@ -17,12 +17,11 @@ from ...n_vae.kl_div import kl_normal_loss
 
 
 class Loss(BaseLoss):
-    """
-    Compute Group theory losses in addition to base losses of models (BetaVAE, FactorVAE, etc.)
+    """    Compute Group theory losses in addition to base losses of models (BetaVAE, FactorVAE, etc.)
 
     Now supports scheduling for commutative_weight and meaningful_weight parameters.
     """
-
+    
     def __init__(self,
                  base_loss_name,
                  base_loss_kwargs,
@@ -38,14 +37,16 @@ class Loss(BaseLoss):
                  meaningful_critic_lr,
                  meaningful_n_critic,
                  deterministic_rep,
-                 group_action_latent_range=2.5,
+                 group_action_latent_range=1,
+                 group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
                  **kwargs
-                 ):        # Initialize schedulers using base class method
+                 ):
+        # Initialize schedulers using base class method
         
         super(Loss, self).__init__(mode="optimizes_internally", 
                                    rec_dist=rec_dist, 
@@ -71,12 +72,11 @@ class Loss(BaseLoss):
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
-        self.deterministic_rep = deterministic_rep
-
-        # Store the weights
+        self.deterministic_rep = deterministic_rep        # Store the weights
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
         self.group_action_latent_range = group_action_latent_range
+        self.group_action_latent_distribution = group_action_latent_distribution
 
         # if self.commutative_weight == 0 and self.meaningful_weight == 0:
         #     raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
@@ -114,9 +114,7 @@ class Loss(BaseLoss):
 
     @property
     def name(self):
-        return 'group_theory'
-
-    @property
+        return 'group_theory'    @property
     def kwargs(self):
         kwargs_dict = {
             'base_loss_name': self.base_loss_name,
@@ -133,9 +131,12 @@ class Loss(BaseLoss):
             'meaningful_critic_lr': self.meaningful_critic_lr,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
+            'group_action_latent_range': self.group_action_latent_range,
+            'group_action_latent_distribution': self.group_action_latent_distribution,
             'comp_latent_select_threshold': self.comp_latent_select_threshold,
             'warm_up_steps': self.warm_up_steps,
-            'current_step': self.current_step        }
+            'current_step': self.current_step
+            }
         
         # Add scheduler configurations
         if self.schedulers:
@@ -237,12 +238,14 @@ class Loss(BaseLoss):
             latent_dim=latent_dim,
             selected_components_indices=g_component_index,
             range=self.group_action_latent_range,
+            distribution=self.group_action_latent_distribution,
         )
         gprime = generate_latent_translations_selected_components(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
             selected_components_indices=g_prime_component_indices,
             range=self.group_action_latent_range,
+            distribution=self.group_action_latent_distribution,
         )
 
         # 5: Compute g.g'.x
@@ -302,35 +305,35 @@ class Loss(BaseLoss):
             latent_dim = z.size(1)
 
             for comp_order in reversed(range(1, self.meaningful_component_order + 1)):
-                
                 selected_row_indices, selected_component_indices = select_latent_components(
                     component_order=comp_order,
                     kl_components=current_kl_components,
                     prob_threshold=self.comp_latent_select_threshold  # Changed parameter name
                 )
-
+                
                 if selected_row_indices is not None and selected_component_indices is not None:
                     break
-
-            if selected_row_indices is None and selected_component_indices is None:
-                raise ValueError(
-                    "No components selected based on the provided KL components and threshold. in group_action_meaningful_loss"
-                )
-
-            if len(selected_row_indices) != len(z):
-                z = z[selected_row_indices]
-
-            g = generate_latent_translations_selected_components(
-                data_num=len(selected_row_indices),
-                latent_dim=latent_dim,
-                selected_components_indices=selected_component_indices,
-                range=self.group_action_latent_range,
+        
+        if selected_row_indices is None and selected_component_indices is None:
+            raise ValueError(
+                "No components selected based on the provided KL components and threshold. in group_action_meaningful_loss"
             )
-            
-            # Apply group action in latent space using imported function
-            z_transformed = apply_group_action_latent_space(g, z)
-            # Decode => next "fake_images"
-            fake_images = model.reconstruct_latents(z_transformed)
+        
+        if len(selected_row_indices) != len(z):
+            z = z[selected_row_indices]
+
+        g = generate_latent_translations_selected_components(
+            data_num=len(selected_row_indices),
+            latent_dim=latent_dim,
+            selected_components_indices=selected_component_indices,
+            range=self.group_action_latent_range,
+            distribution=self.group_action_latent_distribution,
+        )
+        
+        # Apply group action in latent space using imported function
+        z_transformed = apply_group_action_latent_space(g, z)
+        # Decode => next "fake_images"
+        fake_images = model.reconstruct_latents(z_transformed)
 
         return fake_images
 
