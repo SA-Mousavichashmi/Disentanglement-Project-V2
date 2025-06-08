@@ -141,6 +141,11 @@ class BaseVisualizer(ABC):
             else:
                 ax.imshow(img)
             ax.axis('off')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_edgecolor('white')
+                spine.set_linewidth(0.2)
 
         fig.suptitle(f'Traversal of Latent Dimension {latent_factor_idx}', fontsize=12, y=0.95)  # Adjust title position
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
@@ -181,6 +186,11 @@ class BaseVisualizer(ABC):
                 else:
                     ax.imshow(img)
                 ax.axis('off')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('white')
+                    spine.set_linewidth(0.5)
                 if sample_idx == 0:
                     ax.text(-0.1, 0.5, f'Latent {latent_factor_idx}', 
                             horizontalalignment='right',
@@ -230,8 +240,11 @@ class BaseVisualizer(ABC):
             else:
                 ax.imshow(img)
             ax.axis('off')
-            if i == 0:
-                ax.set_title('Original', fontsize=10)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_edgecolor('white')
+                spine.set_linewidth(0.5)
 
             # Plot reconstructed image
             ax = axes[1, i]
@@ -241,6 +254,11 @@ class BaseVisualizer(ABC):
             else:
                 ax.imshow(recon)
             ax.axis('off')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_edgecolor('white')
+                spine.set_linewidth(0.5)
             if i == 0:
                 ax.set_title('Reconstruction', fontsize=10)
 
