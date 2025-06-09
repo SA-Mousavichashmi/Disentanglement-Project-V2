@@ -37,8 +37,10 @@ class Loss(BaseLoss):
                  meaningful_critic_lr,
                  meaningful_n_critic,
                  deterministic_rep,
-                 group_action_latent_range=1,
-                 group_action_latent_distribution='normal',
+                 g_action_r1_range=1,
+                 g_action_s1_range=2 * torch.pi,
+                 g_action_r1_dist='normal',
+                 g_action_s1_dist='uniform',
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
@@ -75,8 +77,10 @@ class Loss(BaseLoss):
         self.deterministic_rep = deterministic_rep        # Store the weights
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
-        self.group_action_latent_range = group_action_latent_range
-        self.group_action_latent_distribution = group_action_latent_distribution
+        self.g_action_r1_range = g_action_r1_range
+        self.g_action_s1_range = g_action_s1_range
+        self.g_action_r1_dist = g_action_r1_dist
+        self.g_action_s1_dist = g_action_s1_dist
 
         # if self.commutative_weight == 0 and self.meaningful_weight == 0:
         #     raise ValueError("At least one of commutative_weight or meaningful_weight must be greater than 0.")
@@ -133,8 +137,10 @@ class Loss(BaseLoss):
             'meaningful_critic_lr': self.meaningful_critic_lr,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
-            'group_action_latent_range': self.group_action_latent_range,
-            'group_action_latent_distribution': self.group_action_latent_distribution,
+            'g_action_r1_range': self.g_action_r1_range,
+            'g_action_s1_range': self.g_action_s1_range,
+            'g_action_r1_dist': self.g_action_r1_dist,
+            'g_action_s1_dist': self.g_action_s1_dist,
             'comp_latent_select_threshold': self.comp_latent_select_threshold,
             'warm_up_steps': self.warm_up_steps,
             'current_step': self.current_step
@@ -237,20 +243,24 @@ class Loss(BaseLoss):
         g_params = generate_group_action_parameters(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
-            selected_components_indices=g_component_index,
+            selected_component_indices=g_component_index,
             latent_factor_topologies=latent_factor_topologies,
-            range=self.group_action_latent_range,
-            distribution=self.group_action_latent_distribution,
+            r1_range=self.g_action_r1_range,
+            s1_range=self.g_action_s1_range,
+            r1_dist=self.g_action_r1_dist,
+            s1_dist=self.g_action_s1_dist,
         )
 
         # Generate g' parameters with topology awareness  
         gprime_params = generate_group_action_parameters(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
-            selected_components_indices=g_prime_component_indices,
+            selected_component_indices=g_prime_component_indices,
             latent_factor_topologies=latent_factor_topologies,
-            range=self.group_action_latent_range,
-            distribution=self.group_action_latent_distribution,
+            r1_range=self.g_action_r1_range,
+            s1_range=self.g_action_s1_range,
+            r1_dist=self.g_action_r1_dist,
+            s1_dist=self.g_action_s1_dist,
         )
 
         # 5: Compute g.g'.x using topology-aware group actions
@@ -338,10 +348,12 @@ class Loss(BaseLoss):
             group_params = generate_group_action_parameters(
                 data_num=len(selected_row_indices),
                 latent_dim=latent_dim,
-                selected_components_indices=selected_component_indices,
+                selected_component_indices=selected_component_indices,
                 latent_factor_topologies=latent_factor_topologies,
-                range=self.group_action_latent_range,
-                distribution=self.group_action_latent_distribution,
+                r1_range=self.g_action_r1_range,
+                s1_range=self.g_action_s1_range,
+                r1_dist=self.g_action_r1_dist,
+                s1_dist=self.g_action_s1_dist,
             )
         
             # Apply topology-aware group action in latent space
