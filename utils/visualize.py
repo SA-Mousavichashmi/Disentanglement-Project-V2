@@ -147,7 +147,7 @@ class BaseVisualizer(ABC):
                 spine.set_edgecolor('white')
                 spine.set_linewidth(0.2)
 
-        fig.suptitle(f'Traversal of Latent Dimension {latent_factor_idx}', fontsize=12, y=0.95)  # Adjust title position
+        fig.suptitle(f'Traversal of Latent Dimension {latent_factor_idx} ({self.vae_model.latent_factor_topologies[latent_factor_idx]})', fontsize=12, y=0.95)  # Adjust title position
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Reduce the top margin
         
         # Save plot if requested
@@ -192,7 +192,7 @@ class BaseVisualizer(ABC):
                     spine.set_edgecolor('white')
                     spine.set_linewidth(0.5)
                 if sample_idx == 0:
-                    ax.text(-0.1, 0.5, f'Latent {latent_factor_idx}', 
+                    ax.text(-0.1, 0.5, f'Latent {latent_factor_idx} ({self.vae_model.latent_factor_topologies[latent_factor_idx]})', 
                             horizontalalignment='right',
                             verticalalignment='center', 
                             transform=ax.transAxes, 

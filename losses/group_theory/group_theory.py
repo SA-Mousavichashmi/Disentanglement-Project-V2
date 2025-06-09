@@ -3,17 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
-from ...baseloss import BaseLoss
-from ...reconstruction import reconstruction_loss
-from ... import select
+from ..baseloss import BaseLoss
+from ..reconstruction import reconstruction_loss
+from .. import select
 
-from ..utils import Critic
-from ..utils import  generate_latent_translations,\
+from .utils import Critic
+from .utils import  generate_latent_translations,\
                     apply_group_action_latent_space, \
                     select_latent_components, \
                     generate_latent_translations_selected_components
 
-from ...n_vae.kl_div import kl_normal_loss
+from ..n_vae.kl_div import kl_normal_loss
 
 
 class Loss(BaseLoss):
@@ -112,9 +112,13 @@ class Loss(BaseLoss):
         self.warm_up_steps = warm_up_steps
         self.current_step = 0
 
+        self.latent_factors_topologies = None
+
     @property
     def name(self):
-        return 'group_theory'    @property
+        return 'group_theory'
+    
+    @property
     def kwargs(self):
         kwargs_dict = {
             'base_loss_name': self.base_loss_name,
@@ -338,6 +342,10 @@ class Loss(BaseLoss):
         return fake_images
 
     def __call__(self, data, model, vae_optimizer):
+
+        if self.latent_factors_topologies is None:
+            self.latent_factors_topologies = model.latent_factors_topologies
+
         log_data = OrderedDict()
         base_loss = 0
 

@@ -28,7 +28,7 @@ def select(name, **kwargs):
         from losses.s_vae.beta_toroidal_vae import BetaToroidalVAELoss
         return BetaToroidalVAELoss(**kwargs)
     if name == 'group_theory':
-        from losses.group_theory.n_vae.group_theory import Loss
+        from losses.group_theory.group_theory import Loss
         return Loss(**kwargs)
     if name == 'beta_s_n_vae':
         from losses.s_n_vae.beta_s_n_vae import BetaSNVAELoss

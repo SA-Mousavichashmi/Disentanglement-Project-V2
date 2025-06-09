@@ -38,6 +38,7 @@ class BaseVAE(abc.ABC, nn.Module):
         self.encoder = None
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
+        self.latent_factor_topologies = ['R1'] * latent_dim
     
     @property
     @abc.abstractmethod

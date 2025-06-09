@@ -40,6 +40,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         self.encoder = None
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
+        self.latent_factor_topologies = ['S^1'] * latent_factor_num  # Each factor is on S^1
     
     @property
     @abc.abstractmethod
