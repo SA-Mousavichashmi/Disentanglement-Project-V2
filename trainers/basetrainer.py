@@ -279,6 +279,10 @@ class BaseTrainer():
         if chkpt_save_path is not None and chkpt_every_n_steps is not None:
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
+        
+        if self.chkpt_viz and self.chkpt_save_dir is None and self.chkpt_save_master_dir is None:
+            raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir or chkpt_save_master_dir is set. " \
+                             "Please provide a directory to save visualizations.")
 
     def train(self, step_unit, max_steps: int, dataloader=None):
         """
@@ -554,7 +558,7 @@ class BaseTrainer():
                 chkpt_save_path
             ) 
 
-        if self.chkpt_viz:
+        if self.chkpt_viz and chkpt_save_dir is not None:
             self._save_visualization(chkpt_save_dir)
 
         if self.chkpt_save_dir is not None:

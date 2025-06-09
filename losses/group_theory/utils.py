@@ -6,7 +6,7 @@ def select_latent_components(component_order: int,
                              kl_components: torch.Tensor,
                              prob_threshold: float | None = None):
     device = kl_components.device
-    probs = F.softmax(kl_components, dim=1)          # 1️⃣
+    probs = kl_components / kl_components.sum(1, keepdim=True)  # 1️⃣ normalize to get probabilities
 
     if prob_threshold is not None:
         # keep probabilities ≥ threshold, zero-out the rest
