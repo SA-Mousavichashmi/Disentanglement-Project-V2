@@ -8,10 +8,10 @@ from ..reconstruction import reconstruction_loss
 from .. import select
 
 from .utils import Critic
-from .utils import  generate_latent_translations,\
-                    apply_group_action_latent_space, \
-                    select_latent_components, \
-                    generate_latent_translations_selected_components
+from .utils import (apply_group_action_latent_space,
+                    select_latent_components, 
+                    generate_group_action_parameters,
+)
 
 from ..n_vae.kl_div import kl_normal_loss
 
@@ -112,8 +112,6 @@ class Loss(BaseLoss):
         self.warm_up_steps = warm_up_steps
         self.current_step = 0
 
-        self.latent_factors_topologies = None
-
     @property
     def name(self):
         return 'group_theory'
@@ -177,8 +175,7 @@ class Loss(BaseLoss):
         
         self.base_loss_state_dict = state_dict['base_loss_state_dict']
         self.base_loss_f.load_state_dict(self.base_loss_state_dict)
-        
-        # Load scheduler states
+          # Load scheduler states
         if 'scheduler_states' in state_dict:
             for param_name, scheduler_state in state_dict['scheduler_states'].items():
                 self.schedulers[param_name].load_state_dict(scheduler_state)
@@ -200,7 +197,7 @@ class Loss(BaseLoss):
             Procedure steps:
             1. Get latent representation z from input data
             2. Select components for group actions using KL divergences
-            3. Generate transformations g (single component) and g' (group components)
+            3. Generate transformations g (single component) and g' (group components) with topology awareness
             4. Compute x_gg' through sequential g->g' transformations
             5. Compute x_g'g through sequential g'->g transformations
             6. Calculate MSE between the two transformed reconstructions
@@ -209,14 +206,16 @@ class Loss(BaseLoss):
         z = model.get_representations(data, is_deterministic=self.deterministic_rep)
         _ , latent_dim = z.shape
 
-        # 1: Select components randomly without replacement and its variances
+        # Get topology information from model
+        latent_factor_topologies = model.latent_factor_topologies
 
+        # 1: Select components randomly without replacement and its variances
         for comp_order in reversed(range(2, self.commutative_component_order + 1)):
             
             selected_row_indices, selected_component_indices = select_latent_components(
                 component_order=comp_order,
                 kl_components=kl_components,
-                prob_threshold=self.comp_latent_select_threshold  # Changed parameter name
+                prob_threshold=self.comp_latent_select_threshold
             )
 
             if selected_row_indices is not None and selected_component_indices is not None:
@@ -230,37 +229,43 @@ class Loss(BaseLoss):
         if len(selected_row_indices) != len(z):
             z = z[selected_row_indices]
 
-        # Generate random transformation parameters using the selected components and their variances
-        # Note: The function generate_latent_translations_selected_components is assumed to be defined elsewhere
-        # and should generate random translations for the selected components based on their variances.
-
+        # Generate random transformation parameters for both g and g' with topology awareness
         g_component_index = selected_component_indices[:,0].unsqueeze(1)  # First component for g
         g_prime_component_indices = selected_component_indices[:, 1:]  # Remaining components for g'
 
-        g = generate_latent_translations_selected_components(
+        # Generate g parameters with topology awareness
+        g_params = generate_group_action_parameters(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
             selected_components_indices=g_component_index,
+            latent_factor_topologies=latent_factor_topologies,
             range=self.group_action_latent_range,
             distribution=self.group_action_latent_distribution,
         )
-        gprime = generate_latent_translations_selected_components(
+
+        # Generate g' parameters with topology awareness  
+        gprime_params = generate_group_action_parameters(
             data_num=len(selected_row_indices),
             latent_dim=latent_dim,
             selected_components_indices=g_prime_component_indices,
+            latent_factor_topologies=latent_factor_topologies,
             range=self.group_action_latent_range,
             distribution=self.group_action_latent_distribution,
         )
 
-        # 5: Compute g.g'.x
-        x_g = model.reconstruct_latents(apply_group_action_latent_space(g, z))
-        z_g = model.get_representations(x_g, is_deterministic=self.deterministic_rep)
-        x_ggprime = model.reconstruct_latents(apply_group_action_latent_space(gprime, z_g))
+        # 5: Compute g.g'.x using topology-aware group actions
+        z_g = apply_group_action_latent_space(g_params, z, latent_factor_topologies)
+        x_g = model.reconstruct_latents(z_g)
+        z_g_encoded = model.get_representations(x_g, is_deterministic=self.deterministic_rep)
+        z_ggprime = apply_group_action_latent_space(gprime_params, z_g_encoded, latent_factor_topologies)
+        x_ggprime = model.reconstruct_latents(z_ggprime)
 
-        # 6: Compute g'.g.x
-        x_gprime = model.reconstruct_latents(apply_group_action_latent_space(gprime, z))
-        z_gprime = model.get_representations(x_gprime, is_deterministic=self.deterministic_rep)
-        x_gprimeg = model.reconstruct_latents(apply_group_action_latent_space(g, z_gprime))
+        # 6: Compute g'.g.x using topology-aware group actions
+        z_gprime = apply_group_action_latent_space(gprime_params, z, latent_factor_topologies)
+        x_gprime = model.reconstruct_latents(z_gprime)
+        z_gprime_encoded = model.get_representations(x_gprime, is_deterministic=self.deterministic_rep)
+        z_gprimeg = apply_group_action_latent_space(g_params, z_gprime_encoded, latent_factor_topologies)
+        x_gprimeg = model.reconstruct_latents(z_gprimeg)
 
         # 7: Compute comparison loss between x_gg' and x_g'g
         if self.commutative_comparison_dist == 'gaussian':
@@ -277,7 +282,7 @@ class Loss(BaseLoss):
         1. Encodes the current image into latent space.
         2. Calculates KL components for the current latent representation.
         3. Selects latent components for group action based on these current KL components.
-        4. Applies a random group action transformation in latent space using the selected components.
+        4. Applies a random group action transformation in latent space using the selected components with topology awareness.
         5. Decodes back to image space.
         The output of each iteration becomes the input for the next.
 
@@ -291,14 +296,16 @@ class Loss(BaseLoss):
         Note:
             The number of consecutive transformations is controlled by `self.meaningful_transformation_order`.
             The group action parameters are generated according to `self.meaningful_component_order`.
+            Supports both R^1 (translation) and S^1 (rotation) topologies.
         """
         fake_images = real_images.clone()
         batch_size = real_images.size(0)
-        # Get latent_dim from the second dimension of kl_components
+        
+        # Get topology information from model
+        latent_factor_topologies = model.latent_factor_topologies
 
         for _ in range(self.meaningful_transformation_order):
             # Encode
-            # Note: We get z again here, but kl_components and variance_components passed correspond to the *original* image encoding
             z = model.get_representations(fake_images, is_deterministic=self.deterministic_rep)
             
             # Calculate kl_components for the current fake_images
@@ -308,43 +315,44 @@ class Loss(BaseLoss):
 
             latent_dim = z.size(1)
 
+            # Select components for group action
             for comp_order in reversed(range(1, self.meaningful_component_order + 1)):
                 selected_row_indices, selected_component_indices = select_latent_components(
                     component_order=comp_order,
                     kl_components=current_kl_components,
-                    prob_threshold=self.comp_latent_select_threshold  # Changed parameter name
+                    prob_threshold=self.comp_latent_select_threshold
                 )
                 
                 if selected_row_indices is not None and selected_component_indices is not None:
                     break
         
-        if selected_row_indices is None and selected_component_indices is None:
-            raise ValueError(
-                "No components selected based on the provided KL components and threshold. in group_action_meaningful_loss"
+            if selected_row_indices is None and selected_component_indices is None:
+                raise ValueError(
+                    "No components selected based on the provided KL components and threshold. in group_action_meaningful_loss"
+                )
+        
+            if len(selected_row_indices) != len(z):
+                z = z[selected_row_indices]
+
+            # Generate group action parameters with topology awareness
+            group_params = generate_group_action_parameters(
+                data_num=len(selected_row_indices),
+                latent_dim=latent_dim,
+                selected_components_indices=selected_component_indices,
+                latent_factor_topologies=latent_factor_topologies,
+                range=self.group_action_latent_range,
+                distribution=self.group_action_latent_distribution,
             )
         
-        if len(selected_row_indices) != len(z):
-            z = z[selected_row_indices]
-
-        g = generate_latent_translations_selected_components(
-            data_num=len(selected_row_indices),
-            latent_dim=latent_dim,
-            selected_components_indices=selected_component_indices,
-            range=self.group_action_latent_range,
-            distribution=self.group_action_latent_distribution,
-        )
-        
-        # Apply group action in latent space using imported function
-        z_transformed = apply_group_action_latent_space(g, z)
-        # Decode => next "fake_images"
-        fake_images = model.reconstruct_latents(z_transformed)
+            # Apply topology-aware group action in latent space
+            z_transformed = apply_group_action_latent_space(group_params, z, latent_factor_topologies)
+            
+            # Decode => next "fake_images"
+            fake_images = model.reconstruct_latents(z_transformed)
 
         return fake_images
 
     def __call__(self, data, model, vae_optimizer):
-
-        if self.latent_factors_topologies is None:
-            self.latent_factors_topologies = model.latent_factors_topologies
 
         log_data = OrderedDict()
         base_loss = 0
