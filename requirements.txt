@@ -1,4 +1,5 @@
 git+https://github.com/nicola-decao/power_spherical.git#egg=power_spherical
+git+https://github.com/pafoster/pyitlib.git@master
 torch
 numpy
 scikit-learn
