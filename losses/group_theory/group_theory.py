@@ -53,11 +53,12 @@ class Loss(BaseLoss):
                                    schedulers_kwargs=schedulers_kwargs, 
                                    **kwargs)
         
-        # Set initial values from schedulers if they exist
-        if 'commutative_weight' in self.schedulers:
-            commutative_weight = self.schedulers['commutative_weight'].initial_value
-        if 'meaningful_weight' in self.schedulers:
-            meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+        if self.schedulers: 
+            # Set initial values from schedulers if they exist
+            if 'commutative_weight' in self.schedulers:
+                commutative_weight = self.schedulers['commutative_weight'].initial_value
+            if 'meaningful_weight' in self.schedulers:
+                meaningful_weight = self.schedulers['meaningful_weight'].initial_value
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
