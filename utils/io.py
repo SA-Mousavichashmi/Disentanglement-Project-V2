@@ -633,7 +633,7 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
     log_loss_interval_type = logging_settings['log_loss_interval_type']
     use_train_logging = logging_settings['use_train_logging']
     log_loss_iter_interval = logging_settings['log_loss_iter_interval']
-    return_log_loss = logging_settings['return_log_loss']
+    return_logs = logging_settings['return_logs']
     
     # Create trainer with exact settings from checkpoint
     from trainers.basetrainer import BaseTrainer  # Import here to avoid circular import
@@ -655,7 +655,7 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         log_loss_interval_type=log_loss_interval_type,
         use_train_logging=use_train_logging,
         log_loss_iter_interval=log_loss_iter_interval,
-        return_log_loss=return_log_loss,
+        return_logs=return_logs,
         # Set checkpointing parameters
         return_chkpt=return_chkpt,
         chkpt_every_n_steps=chkpt_every_n_steps,
@@ -727,7 +727,7 @@ def create_trainer_from_chkpt(ckpt,
     optimizer_chkpt = ckpt['optimizer']
     lr_scheduler_chkpt = ckpt['lr_scheduler']
 
-    resume_logging = True if dataloader is None else False
+    resume_logging = True if new_dataloader is None else False
 
     if new_model is not None or new_loss is not None or new_optimizer is not None or new_lr_scheduler is not None:
         train_id = uuid.uuid4()
@@ -767,8 +767,8 @@ def create_trainer_from_chkpt(ckpt,
     if resume_logging:
         # Load the training logs from the checkpoint
         train_iter_num = ckpt['train_iter_num']
-        train_losses_log = ckpt['train_logs']['loss_results']
-        train_metrics_log = ckpt['train_logs']['metrics']
+        train_losses_log = ckpt['logs']['train']['loss_results']
+        train_metrics_log = ckpt['logs']['train']['metrics']
     else:
         train_iter_num = None
         train_losses_log = None
