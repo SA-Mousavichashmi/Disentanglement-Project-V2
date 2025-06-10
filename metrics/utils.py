@@ -23,9 +23,7 @@ METRICS = [
     'aam',
     'sap_d',
     'dci_d',
-    'fos',
     'kld',
-    'rand_fos',
     'rand_kld',
     'modularity_d',
     'reconstruction_error'
@@ -42,12 +40,8 @@ def select_metric(name, **kwargs):
         return metrics.SAPd(**kwargs)
     if name == 'dci_d':
         return metrics.DCId(**kwargs)
-    if name == 'fos':
-        return metrics.FoS(**kwargs)
     if name == 'kld':
         return metrics.KLD(**kwargs)
-    if name == 'rand_fos':
-        return metrics.randFoS(**kwargs)
     if name == 'rand_kld':
         return metrics.randKLD(**kwargs)
     if name == 'modularity_d':
