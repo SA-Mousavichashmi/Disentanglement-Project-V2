@@ -417,7 +417,7 @@ class Loss(BaseLoss):
 
                 gp = self.critic._compute_gradient_penalty(data, fake_images)
                 # WGAN-GP critic loss
-                d_loss = -(critic_real.mean() - critic_fake.mean()) \
+                d_loss = -(critic_real.mean() - critic_fake.mean()) * self.meaningful_weight \
                          + self.meaningful_critic_gradient_penalty_weight * gp
 
                 self.critic_optimizer.zero_grad()

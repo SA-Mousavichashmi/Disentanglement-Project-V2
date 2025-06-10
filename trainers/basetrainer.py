@@ -339,7 +339,7 @@ class BaseTrainer():
         kwargs = dict(
             desc=f"Training for {total_iterations} iter, {approx_epochs:.2f} epochs",
             total=total_iterations,
-            leave=False,
+            leave=True,  # Changed from False to True
             disable=not self.is_progress_bar
         )
 
