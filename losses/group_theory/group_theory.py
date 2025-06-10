@@ -345,7 +345,7 @@ class Loss(BaseLoss):
     def __call__(self, data, model, vae_optimizer):
 
         if self.latent_factors_topologies is None:
-            self.latent_factors_topologies = model.latent_factors_topologies
+            self.latent_factors_topologies = model.latent_factor_topologies
 
         log_data = OrderedDict()
         base_loss = 0
