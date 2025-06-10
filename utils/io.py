@@ -412,6 +412,27 @@ def save_chkpt(
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
 
+
+def load_model_chkpt(chkpt):
+    """
+    Loads a model from a checkpoint dictionary.
+
+    Args:
+        chkpt (dict): The checkpoint dictionary containing model information.
+                      It must have a 'model' key with 'name', 'kwargs', and 'state_dict' sub-keys.
+
+    Returns:
+        torch.nn.Module: The reconstructed model with its state loaded.
+    """
+    # Load model with original settings
+    model = create_load_model(
+        chkpt['model']['name'],
+        chkpt['model']['kwargs'],
+        chkpt['model']['state_dict']
+    )
+    return model
+
+
 def load_chkpt(path: str, device: str = 'original'):
     """
     Loads a training checkpoint.
