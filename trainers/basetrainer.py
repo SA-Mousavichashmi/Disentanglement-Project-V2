@@ -131,7 +131,8 @@ class BaseTrainer():
             chkpt_save_path=chkpt_save_path,
             chkpt_save_dir=chkpt_save_dir,
             chkpt_save_master_dir=chkpt_save_master_dir,
-            chkpt_every_n_steps=chkpt_every_n_steps
+            chkpt_every_n_steps=chkpt_every_n_steps,
+            chkpt_viz=chkpt_viz # Pass chkpt_viz here
         )
 
         if train_id is None:
@@ -241,7 +242,8 @@ class BaseTrainer():
         chkpt_save_path,
         chkpt_save_dir,
         chkpt_save_master_dir,
-        chkpt_every_n_steps
+        chkpt_every_n_steps,
+        chkpt_viz # Add chkpt_viz here
     ):
         """
         Validates the parameters passed to the BaseTrainer constructor.
@@ -280,7 +282,7 @@ class BaseTrainer():
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
         
-        if self.chkpt_viz and self.chkpt_save_dir is None and self.chkpt_save_master_dir is None:
+        if chkpt_viz and chkpt_save_dir is None and chkpt_save_master_dir is None:
             raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir or chkpt_save_master_dir is set. " \
                              "Please provide a directory to save visualizations.")
 
@@ -530,9 +532,9 @@ class BaseTrainer():
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             dataset=dataloader.dataset,  # Use dataloader.dataset directly
-            dataloader=dataloader,
-            loss=self.loss,
+            dataloader=dataloader,            loss=self.loss,
             use_torch_compile=self.use_torch_compile,  # Renamed
+            torch_compile_kwargs=self.torch_compile_kwargs,  # Added
             train_losses_log=self.train_losses_log,
             train_metrics_log=self.train_metrics_log,
             chkpt_train_losses_log=chkpt_train_losses_log,
@@ -543,12 +545,16 @@ class BaseTrainer():
             chkpt_save_path=self.chkpt_save_path,
             chkpt_save_dir=self.chkpt_save_dir,
             chkpt_save_master_dir=self.chkpt_save_master_dir,
+            return_chkpt=self.return_chkpt, # Added
+            chkpt_viz=self.chkpt_viz, # Added
             # --- Pass logging args ---
             is_progress_bar=self.is_progress_bar,
             progress_bar_log_iter_interval=self.progress_bar_log_iter_interval,
             log_loss_interval_type=self.log_loss_interval_type,
             use_train_logging=self.use_train_logging,
             log_loss_iter_interval=self.log_loss_iter_interval,
+            log_metrics_interval_type=self.log_metrics_interval_type, # Added
+            log_metrics_iter_interval=self.log_metrics_iter_interval, # Added
             return_logs=self.return_logs,
         )
 
@@ -636,14 +642,21 @@ class BaseTrainer():
                 "every_n_steps": self.chkpt_every_n_steps,
                 "save_path": self.chkpt_save_path,
                 "save_dir": self.chkpt_save_dir,
-                "master_dir": self.chkpt_save_master_dir
+                "master_dir": self.chkpt_save_master_dir,
+                "return_chkpt": self.return_chkpt,
+                "chkpt_viz": self.chkpt_viz,
             },
             "logging": {
                 "loss_interval_type": self.log_loss_interval_type,
                 "loss_iter_interval": self.log_loss_iter_interval,
-                "progress_bar_interval": self.progress_bar_log_iter_interval
+                "progress_bar_interval": self.progress_bar_log_iter_interval,
+                "is_progress_bar": self.is_progress_bar, # Added
+                "use_train_logging": self.use_train_logging, # Added
+                "return_logs": self.return_logs, # Added
+                "metrics_interval_type": self.log_metrics_interval_type, # Added
+                "metrics_iter_interval": self.log_metrics_iter_interval, # Added
             },
-            "determinism": self.determinism_kwargs
+            "determinism": self.determinism_kwargs,
         }
     
     def _train_iteration(self, samples):

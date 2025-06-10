@@ -203,12 +203,15 @@ def create_chkpt(
                 chkpt_save_path=None,
                 chkpt_save_dir=None,
                 chkpt_save_master_dir=None,
+                chkpt_viz=None, # Added
                 # --- Add logging args ---
                 is_progress_bar=None,
                 progress_bar_log_iter_interval=None,
                 log_loss_interval_type=None,
                 use_train_logging=None,
                 log_loss_iter_interval=None,
+                log_metrics_interval_type=None, # Added
+                log_metrics_iter_interval=None, # Added
                 return_logs=None, # Renamed from return_log_loss
                       ):
     """
@@ -241,7 +244,10 @@ def create_chkpt(
         log_loss_interval_type:
         use_train_logging:
         log_loss_iter_interval:
+        log_metrics_interval_type: # Added
+        log_metrics_iter_interval: # Added
         return_logs: # Renamed from return_log_loss
+        chkpt_viz: # Added
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -299,7 +305,8 @@ def create_chkpt(
             'chkpt_step_type': chkpt_step_type,
             'chkpt_save_path': chkpt_save_path,
             'chkpt_save_dir': chkpt_save_dir,
-            'chkpt_save_master_dir': chkpt_save_master_dir
+            'chkpt_save_master_dir': chkpt_save_master_dir,
+            'chkpt_viz': chkpt_viz, # Added
         },
         'logging': {
             'is_progress_bar': is_progress_bar,
@@ -307,6 +314,8 @@ def create_chkpt(
             'log_loss_interval_type': log_loss_interval_type,
             'use_train_logging': use_train_logging,
             'log_loss_iter_interval': log_loss_iter_interval,
+            'log_metrics_interval_type': log_metrics_interval_type, # Added
+            'log_metrics_iter_interval': log_metrics_iter_interval, # Added
             'return_logs': return_logs, # Renamed from return_log_loss
         },
         
@@ -369,6 +378,22 @@ def save_chkpt(
         chkpt_train_losses_log=None,
         chkpt_metrics_log=None,
         use_torch_compile=False,
+        torch_compile_kwargs=None, # Added
+        is_progress_bar=None, # Added
+        progress_bar_log_iter_interval=None, # Added
+        log_loss_interval_type=None, # Added
+        use_train_logging=None, # Added
+        log_loss_iter_interval=None, # Added
+        log_metrics_interval_type=None, # Added
+        log_metrics_iter_interval=None, # Added
+        return_chkpt=None, # Added
+        chkpt_every_n_steps=None, # Added
+        chkpt_step_type=None, # Added
+        chkpt_save_path=None, # Added
+        chkpt_save_dir=None, # Added
+        chkpt_save_master_dir=None, # Added
+        chkpt_viz=None, # Added
+        return_logs=None, # Added
         ):
     """
     Saves a training checkpoint.
@@ -390,6 +415,22 @@ def save_chkpt(
         chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
         chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
         use_torch_compile: Boolean indicating whether torch.compile was used on the model.
+        torch_compile_kwargs: Arguments passed to `torch.compile`.
+        is_progress_bar: Enable progress bar.
+        progress_bar_log_iter_interval: Iterations between progress bar updates.
+        log_loss_interval_type: Granularity for loss logging.
+        use_train_logging: If True, enables logging of training losses and metrics.
+        log_loss_iter_interval: Iterations between logged loss records when using iteration-level logging.
+        log_metrics_interval_type: Granularity for metrics logging.
+        log_metrics_iter_interval: Iterations between logged metrics records when using iteration-level logging.
+        return_chkpt: If True, the `train()` method will return checkpoint dicts.
+        chkpt_every_n_steps: Interval for checkpoint creation (epochs or iterations).
+        chkpt_step_type: Granularity for checkpointing.
+        chkpt_save_path: File path to save final checkpoint.
+        chkpt_save_dir: Directory to save checkpoints.
+        chkpt_save_master_dir: Master directory for organized checkpoints.
+        chkpt_viz: If True, saves visualizations with checkpoints.
+        return_logs: If True, the `train()` method will return logged losses and metrics.
     """
     checkpoint_data = create_chkpt(
         train_id=train_id,
@@ -402,12 +443,26 @@ def save_chkpt(
         dataloader=dataloader,
         loss=loss,
         use_torch_compile=use_torch_compile,
+        torch_compile_kwargs=torch_compile_kwargs, # Added
         train_losses_log=train_losses_log,
         train_metrics_log=train_metrics_log,
         chkpt_train_losses_log=chkpt_train_losses_log,
         chkpt_metrics_log=chkpt_metrics_log,
-        # Add the new parameter to the call
-        return_logs=True # Assuming default to True when saving
+        return_chkpt=return_chkpt, # Added
+        chkpt_every_n_steps=chkpt_every_n_steps, # Added
+        chkpt_step_type=chkpt_step_type, # Added
+        chkpt_save_path=chkpt_save_path, # Added
+        chkpt_save_dir=chkpt_save_dir, # Added
+        chkpt_save_master_dir=chkpt_save_master_dir, # Added
+        is_progress_bar=is_progress_bar, # Added
+        progress_bar_log_iter_interval=progress_bar_log_iter_interval, # Added
+        log_loss_interval_type=log_loss_interval_type, # Added
+        use_train_logging=use_train_logging, # Added
+        log_loss_iter_interval=log_loss_iter_interval, # Added
+        log_metrics_interval_type=log_metrics_interval_type, # Added
+        log_metrics_iter_interval=log_metrics_iter_interval, # Added
+        return_logs=return_logs, # Added
+        chkpt_viz=chkpt_viz # Added
     )
     torch.save(checkpoint_data, save_path)
     print(f"Checkpoint saved to {save_path}")
@@ -631,9 +686,14 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
     is_progress_bar = logging_settings['is_progress_bar']
     progress_bar_log_iter_interval = logging_settings['progress_bar_log_iter_interval']
     log_loss_interval_type = logging_settings['log_loss_interval_type']
+    log_metrics_interval_type = logging_settings['log_metrics_interval_type'] # Added
+    log_metrics_iter_interval = logging_settings['log_metrics_iter_interval'] # Added
     use_train_logging = logging_settings['use_train_logging']
     log_loss_iter_interval = logging_settings['log_loss_iter_interval']
     return_logs = logging_settings['return_logs']
+    
+    # Extract chkpt_viz from checkpoint
+    chkpt_viz = chkpt_settings.get('chkpt_viz', False) # Added with default False
     
     # Create trainer with exact settings from checkpoint
     from trainers.basetrainer import BaseTrainer  # Import here to avoid circular import
@@ -653,6 +713,8 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         is_progress_bar=is_progress_bar,
         progress_bar_log_iter_interval=progress_bar_log_iter_interval,
         log_loss_interval_type=log_loss_interval_type,
+        log_metrics_interval_type=log_metrics_interval_type, # Added
+        log_metrics_iter_interval=log_metrics_iter_interval, # Added
         use_train_logging=use_train_logging,
         log_loss_iter_interval=log_loss_iter_interval,
         return_logs=return_logs,
@@ -663,6 +725,7 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         chkpt_save_path=chkpt_save_path,
         chkpt_save_dir=chkpt_save_dir,
         chkpt_save_master_dir=chkpt_save_master_dir,
+        chkpt_viz=chkpt_viz, # Added
     )
     
     return trainer
@@ -787,6 +850,21 @@ def create_trainer_from_chkpt(ckpt,
         prev_train_losses_log=train_losses_log,
         prev_train_metrics_log=train_metrics_log,
         chkpt_save_dir=additional_trainer_kwargs.get('chkpt_save_dir', None) if additional_trainer_kwargs else None,
+        # Pass logging and checkpointing parameters from checkpoint if not overridden by additional_trainer_kwargs
+        is_progress_bar=ckpt['logging']['is_progress_bar'], # Added
+        progress_bar_log_iter_interval=ckpt['logging']['progress_bar_log_iter_interval'], # Added
+        log_loss_interval_type=ckpt['logging']['log_loss_interval_type'], # Added
+        log_metrics_interval_type=ckpt['logging']['log_metrics_interval_type'], # Added
+        log_metrics_iter_interval=ckpt['logging']['log_metrics_iter_interval'], # Added
+        use_train_logging=ckpt['logging']['use_train_logging'], # Added
+        log_loss_iter_interval=ckpt['logging']['log_loss_iter_interval'], # Added
+        return_logs=ckpt['logging']['return_logs'], # Added
+        return_chkpt=ckpt['chkpt']['return_chkpt'], # Added
+        chkpt_every_n_steps=ckpt['chkpt']['chkpt_every_n_steps'], # Added
+        chkpt_step_type=ckpt['chkpt']['chkpt_step_type'], # Added
+        chkpt_save_path=ckpt['chkpt']['chkpt_save_path'], # Added
+        chkpt_save_master_dir=ckpt['chkpt']['chkpt_save_master_dir'], # Added
+        chkpt_viz=ckpt['chkpt'].get('chkpt_viz', False), # Added with default False
         **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
     )
 
