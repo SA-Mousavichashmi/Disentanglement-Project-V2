@@ -181,6 +181,7 @@ def check_dir_empty(dir):
 CHKPT_DIR = 'checkpoints' # Default directory for checkpoints
 
 def create_chkpt(
+                # --- Core training components ---
                 train_id,
                 train_iter_num, # Replaced train_step_unit and train_step_num
                 train_determinism_kwargs,
@@ -190,64 +191,75 @@ def create_chkpt(
                 dataset,
                 dataloader,
                 loss,
+                # --- Torch compile settings ---
                 use_torch_compile=False,
                 torch_compile_kwargs=None,
+                # --- Training logs ---
                 train_losses_log=None,
                 train_metrics_log=None,
                 chkpt_train_losses_log=None,
                 chkpt_metrics_log=None,
+                # --- Checkpointing settings ---
                 return_chkpt=None,
-                # --- Add checkpointing args ---
                 chkpt_every_n_steps=None,
                 chkpt_step_type=None,
                 chkpt_save_path=None,
                 chkpt_save_dir=None,
                 chkpt_save_master_dir=None,
-                chkpt_viz=None, # Added
-                # --- Add logging args ---
+                chkpt_viz=None,
+                # --- Logging settings ---
                 is_progress_bar=None,
                 progress_bar_log_iter_interval=None,
-                log_loss_interval_type=None,
                 use_train_logging=None,
-                log_loss_iter_interval=None,
-                log_metrics_interval_type=None, # Added
-                log_metrics_iter_interval=None, # Added
-                return_logs=None, # Renamed from return_log_loss
+                return_logs=None,
+                log_loss_interval_type=None,
+                log_loss_iter_interval=None,                log_metrics_interval_type=None,
+                log_metrics_iter_interval=None,
                       ):
     """
     Creates a checkpoint dictionary.
 
     Args:
-        train_id: Identifier for the training run.
-        train_iter_num: Current number of training iterations completed.
-        train_determinism_kwargs: Dictionary containing determinism settings used for training.
-        model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
-        optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
-        lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
-                     Optionally, 'name' and 'kwargs' attributes.
-        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
-        dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
-        loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
-        use_torch_compile: Boolean indicating whether torch.compile was used on the model.
-        train_losses_log: Dictionary containing loss results over training.
-        train_metrics_log: Dictionary containing metric results over training.
-        chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
-        chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
-        return_chkpt: 
-        chkpt_every_n_steps:
-        chkpt_step_type:
-        chkpt_save_path:
-        chkpt_save_dir:
-        chkpt_save_master_dir:
-        is_progress_bar:
-        progress_bar_log_iter_interval:
-        log_loss_interval_type:
-        use_train_logging:
-        log_loss_iter_interval:
-        log_metrics_interval_type: # Added
-        log_metrics_iter_interval: # Added
-        return_logs: # Renamed from return_log_loss
-        chkpt_viz: # Added
+        Core Training Components:
+            train_id: Identifier for the training run.
+            train_iter_num: Current number of training iterations completed.
+            train_determinism_kwargs: Dictionary containing determinism settings used for training.
+            model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
+            optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
+            lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
+                         Optionally, 'name' and 'kwargs' attributes.
+            dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
+            dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
+            loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
+        
+        Torch Compile Settings:
+            use_torch_compile: Boolean indicating whether torch.compile was used on the model.
+            torch_compile_kwargs: Arguments passed to `torch.compile`.
+        
+        Training Logs:
+            train_losses_log: Dictionary containing loss results over training.
+            train_metrics_log: Dictionary containing metric results over training.
+            chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
+            chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
+        
+        Checkpointing Settings:
+            return_chkpt: If True, the `train()` method will return checkpoint dicts.
+            chkpt_every_n_steps: Interval for checkpoint creation (epochs or iterations).
+            chkpt_step_type: Granularity for checkpointing.
+            chkpt_save_path: File path to save final checkpoint.
+            chkpt_save_dir: Directory to save checkpoints.
+            chkpt_save_master_dir: Master directory for organized checkpoints.
+            chkpt_viz: If True, saves visualizations with checkpoints.
+        
+        Logging Settings:
+            is_progress_bar: Enable progress bar.
+            progress_bar_log_iter_interval: Iterations between progress bar updates.
+            use_train_logging: If True, enables logging of training losses and metrics.
+            return_logs: If True, the `train()` method will return logged losses and metrics.
+            log_loss_interval_type: Granularity for loss logging.
+            log_loss_iter_interval: Iterations between logged loss records when using iteration-level logging.
+            log_metrics_interval_type: Granularity for metrics logging.
+            log_metrics_iter_interval: Iterations between logged metrics records when using iteration-level logging.
 
     Returns:
         A dictionary containing the checkpoint data.
@@ -363,6 +375,7 @@ def print_chkpt_info(checkpoint):
 
 
 def save_chkpt(
+        # --- Core training components ---
         save_path,
         train_id,
         train_iter_num, # Replaced train_step_unit and train_step_num
@@ -373,19 +386,15 @@ def save_chkpt(
         dataset,
         dataloader,
         loss,
+        # --- Torch compile settings ---
+        use_torch_compile=False,
+        torch_compile_kwargs=None, # Added
+        # --- Training logs ---
         train_losses_log=None,
         train_metrics_log=None,
         chkpt_train_losses_log=None,
         chkpt_metrics_log=None,
-        use_torch_compile=False,
-        torch_compile_kwargs=None, # Added
-        is_progress_bar=None, # Added
-        progress_bar_log_iter_interval=None, # Added
-        log_loss_interval_type=None, # Added
-        use_train_logging=None, # Added
-        log_loss_iter_interval=None, # Added
-        log_metrics_interval_type=None, # Added
-        log_metrics_iter_interval=None, # Added
+        # --- Checkpointing settings ---
         return_chkpt=None, # Added
         chkpt_every_n_steps=None, # Added
         chkpt_step_type=None, # Added
@@ -393,44 +402,61 @@ def save_chkpt(
         chkpt_save_dir=None, # Added
         chkpt_save_master_dir=None, # Added
         chkpt_viz=None, # Added
+        # --- Logging settings ---
+        is_progress_bar=None, # Added
+        progress_bar_log_iter_interval=None, # Added
+        use_train_logging=None, # Added
         return_logs=None, # Added
+        log_loss_interval_type=None, # Added
+        log_loss_iter_interval=None, # Added
+        log_metrics_interval_type=None, # Added        
+        log_metrics_iter_interval=None, # Added
         ):
     """
     Saves a training checkpoint.
 
     Args:
-        save_path: Path to save the checkpoint file.
-        train_id: Identifier for the training run.
-        train_iter_num: Current number of training iterations completed.
-        train_determinism_kwargs: Dictionary containing determinism settings used for training.
-        model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
-        optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
-        lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
-                      Optionally, 'name' and 'kwargs' attributes.
-        dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
-        dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
-        loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
-        train_losses_log: Dictionary containing loss results over training.
-        train_metrics_log: Dictionary containing metric results over training.
-        chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
-        chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
-        use_torch_compile: Boolean indicating whether torch.compile was used on the model.
-        torch_compile_kwargs: Arguments passed to `torch.compile`.
-        is_progress_bar: Enable progress bar.
-        progress_bar_log_iter_interval: Iterations between progress bar updates.
-        log_loss_interval_type: Granularity for loss logging.
-        use_train_logging: If True, enables logging of training losses and metrics.
-        log_loss_iter_interval: Iterations between logged loss records when using iteration-level logging.
-        log_metrics_interval_type: Granularity for metrics logging.
-        log_metrics_iter_interval: Iterations between logged metrics records when using iteration-level logging.
-        return_chkpt: If True, the `train()` method will return checkpoint dicts.
-        chkpt_every_n_steps: Interval for checkpoint creation (epochs or iterations).
-        chkpt_step_type: Granularity for checkpointing.
-        chkpt_save_path: File path to save final checkpoint.
-        chkpt_save_dir: Directory to save checkpoints.
-        chkpt_save_master_dir: Master directory for organized checkpoints.
-        chkpt_viz: If True, saves visualizations with checkpoints.
-        return_logs: If True, the `train()` method will return logged losses and metrics.
+        Core Training Components:
+            save_path: Path to save the checkpoint file.
+            train_id: Identifier for the training run.
+            train_iter_num: Current number of training iterations completed.
+            train_determinism_kwargs: Dictionary containing determinism settings used for training.
+            model: The model to save. Must have 'name', 'kwargs', and 'state_dict' attributes/methods.
+            optimizer: The optimizer to save. Must have '__class__.__name__', 'defaults', and 'state_dict' attributes/methods.
+            lr_scheduler: The learning rate scheduler to save. Must have 'state_dict' method.
+                          Optionally, 'name' and 'kwargs' attributes.
+            dataset: The dataset configuration/object to save. Must have 'name' and 'kwargs' attributes.
+            dataloader: The dataloader configuration/object to save. Must be a StatefulDataLoader and have relevant attributes and 'state_dict'.
+            loss: The loss function (or its configuration) to save. Must have 'name' and 'kwargs' attributes.
+        
+        Torch Compile Settings:
+            use_torch_compile: Boolean indicating whether torch.compile was used on the model.
+            torch_compile_kwargs: Arguments passed to `torch.compile`.
+        
+        Training Logs:
+            train_losses_log: Dictionary containing loss results over training.
+            train_metrics_log: Dictionary containing metric results over training.
+            chkpt_train_losses_log: Dictionary containing loss results at checkpoint time.
+            chkpt_metrics_log: Dictionary containing metric results at checkpoint time.
+        
+        Checkpointing Settings:
+            return_chkpt: If True, the `train()` method will return checkpoint dicts.
+            chkpt_every_n_steps: Interval for checkpoint creation (epochs or iterations).
+            chkpt_step_type: Granularity for checkpointing.
+            chkpt_save_path: File path to save final checkpoint.
+            chkpt_save_dir: Directory to save checkpoints.
+            chkpt_save_master_dir: Master directory for organized checkpoints.
+            chkpt_viz: If True, saves visualizations with checkpoints.
+        
+        Logging Settings:
+            is_progress_bar: Enable progress bar.
+            progress_bar_log_iter_interval: Iterations between progress bar updates.
+            use_train_logging: If True, enables logging of training losses and metrics.
+            return_logs: If True, the `train()` method will return logged losses and metrics.
+            log_loss_interval_type: Granularity for loss logging.
+            log_loss_iter_interval: Iterations between logged loss records when using iteration-level logging.
+            log_metrics_interval_type: Granularity for metrics logging.
+            log_metrics_iter_interval: Iterations between logged metrics records when using iteration-level logging.
     """
     checkpoint_data = create_chkpt(
         train_id=train_id,
