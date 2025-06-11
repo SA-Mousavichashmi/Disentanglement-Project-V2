@@ -14,7 +14,7 @@ from .base import BaseDecoder
 
 class Decoder(BaseDecoder):
 
-    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli", use_batchnorm=False):
         r"""MLP Decoder of the model proposed in [1].
 
         Parameters
@@ -27,21 +27,38 @@ class Decoder(BaseDecoder):
             
         output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
+            
+        use_batchnorm : bool
+            Whether to use batch normalization layers.
 
         References:
             [1] Chen et al. "Isolating Sources of Disentanglement in Variational Autoencoders"
         """
-        super(Decoder, self).__init__(img_size, latent_dim, output_dist)
+        super(Decoder, self).__init__(img_size, latent_dim, output_dist, use_batchnorm)
 
-        self.net = nn.Sequential(
-            nn.Linear(self.latent_dim, 1200),
-            nn.Tanh(),
-            nn.Linear(1200, 1200),
-            nn.Tanh(),
-            nn.Linear(1200, 1200),
-            nn.Tanh(),
-            nn.Linear(1200, np.prod(self.img_size))
-        )
+        if self.use_batchnorm:
+            self.net = nn.Sequential(
+                nn.Linear(self.latent_dim, 1200, bias=False),
+                nn.BatchNorm1d(1200),
+                nn.Tanh(),
+                nn.Linear(1200, 1200, bias=False),
+                nn.BatchNorm1d(1200),
+                nn.Tanh(),
+                nn.Linear(1200, 1200, bias=False),
+                nn.BatchNorm1d(1200),
+                nn.Tanh(),
+                nn.Linear(1200, np.prod(self.img_size))
+            )
+        else:
+            self.net = nn.Sequential(
+                nn.Linear(self.latent_dim, 1200),
+                nn.Tanh(),
+                nn.Linear(1200, 1200),
+                nn.Tanh(),
+                nn.Linear(1200, 1200),
+                nn.Tanh(),
+                nn.Linear(1200, np.prod(self.img_size))
+            )
 
     def decode(self, z):
         h = z.view(z.size(0), -1)

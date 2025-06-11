@@ -12,13 +12,12 @@ from torch import nn
 
 class BaseEncoder(nn.Module):
     """Base class for all encoder models.
-    
-    This class contains common code and functionality shared across all encoder
+      This class contains common code and functionality shared across all encoder
     implementations. Specific encoder architectures should inherit from this class
     and implement the _build_network and _encode_features methods.
     """
 
-    def __init__(self, img_size, latent_dim=10, dist_nparams=2):
+    def __init__(self, img_size, latent_dim=10, dist_nparams=2, use_batchnorm=False):
         """Initialize the base encoder.
         
         Parameters
@@ -31,13 +30,16 @@ class BaseEncoder(nn.Module):
             
         dist_nparams : int
             number of distribution statistics to return
+            
+        use_batchnorm : bool
+            Whether to use batch normalization layers.
         """
         super(BaseEncoder, self).__init__()
-        
-        # Store parameters
+          # Store parameters
         self.latent_dim = latent_dim
         self.img_size = img_size
         self.dist_nparams = dist_nparams
+        self.use_batchnorm = use_batchnorm
         
         # Build the network (to be implemented by subclasses)
         self._build_network()

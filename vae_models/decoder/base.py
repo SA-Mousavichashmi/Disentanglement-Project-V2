@@ -11,13 +11,11 @@ from abc import ABC, abstractmethod
 
 
 class BaseDecoder(nn.Module, ABC):
-    """Base class for all decoders.
-
-    This class defines the common interface and functionality that all decoder
+    """Base class for all decoders.    This class defines the common interface and functionality that all decoder
     implementations should follow.
     """
 
-    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli", use_batchnorm=False):
         """Initialize the base decoder.
 
         Parameters
@@ -30,11 +28,15 @@ class BaseDecoder(nn.Module, ABC):
             
         output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
+            
+        use_batchnorm : bool
+            Whether to use batch normalization layers.
         """
         super(BaseDecoder, self).__init__()
         self.img_size = img_size
         self.latent_dim = latent_dim
         self.output_dist = output_dist
+        self.use_batchnorm = use_batchnorm
         
         if output_dist not in ["bernoulli", "gaussian"]:
             raise ValueError(f"Output distribution {output_dist} not supported. Use 'bernoulli' or 'gaussian'.")

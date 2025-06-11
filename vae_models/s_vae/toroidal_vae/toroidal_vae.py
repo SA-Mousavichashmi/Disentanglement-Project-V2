@@ -15,7 +15,7 @@ from .torodial_vae_base import Toroidal_VAE_Base
 
 
 class Model(Toroidal_VAE_Base):
-    def __init__(self, img_size, latent_factor_num=10, encoder_name='chen_mlp', decoder_name='chen_mlp', decoder_output_dist='bernoulli', **kwargs):
+    def __init__(self, img_size, latent_factor_num=10, encoder_name='chen_mlp', decoder_name='chen_mlp', decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -31,18 +31,22 @@ class Model(Toroidal_VAE_Base):
             Name of decoder architecture to use.
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
+        use_batchnorm : bool
+            Whether to use batch normalization. Default is False.
         """
-        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, decoder_output_dist=decoder_output_dist, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_factor_num=latent_factor_num, decoder_output_dist=decoder_output_dist, use_batchnorm=use_batchnorm, **kwargs)
         
         # self.validate_img_size([[32, 32], [64, 64]]) # Validation might depend on the specific encoder/decoder
 
+        self.encoder_name = encoder_name
+        self.decoder_name = decoder_name
         self.encoder = select_encoder(encoder_name)(
-            img_size, self.latent_factor_num, dist_nparams=self.dist_nparams)
+            img_size, self.latent_factor_num, dist_nparams=self.dist_nparams, use_batchnorm=use_batchnorm)
         self.decoder = select_decoder(decoder_name)(
-            img_size, self.latent_factor_num * 2, output_dist=decoder_output_dist) # Corrected parameter name
+            img_size, self.latent_factor_num * 2, output_dist=decoder_output_dist, use_batchnorm=use_batchnorm) # Corrected parameter name
         self.model_name = f'toroidal_vae_encoder-{encoder_name}_decoder-{decoder_name}'
         self.reset_parameters()
-
+         
     @property
     def name(self):
         return f'toroidal_vae_encoder-{self.encoder_name}_decoder-{self.decoder_name}'
@@ -54,5 +58,6 @@ class Model(Toroidal_VAE_Base):
             'latent_factor_num': self.latent_factor_num,
             'encoder_name': getattr(self, 'encoder_name', 'chen_mlp'),
             'decoder_name': getattr(self, 'decoder_name', 'chen_mlp'),
-            'decoder_output_dist': self.decoder_output_dist
+            'decoder_output_dist': self.decoder_output_dist,
+            'use_batchnorm': self.use_batchnorm
         }

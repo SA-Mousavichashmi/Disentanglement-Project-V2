@@ -15,7 +15,7 @@ from .base import BaseDecoder
 
 class Decoder(BaseDecoder):
 
-    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli"):
+    def __init__(self, img_size, latent_dim=10, output_dist="bernoulli", use_batchnorm=False):
         r"""Decoder of the model proposed utilized in [1].
 
         Parameters
@@ -28,31 +28,41 @@ class Decoder(BaseDecoder):
             
         output_dist : str
             Type of output distribution. Either "bernoulli" or "gaussian".
+            
+        use_batchnorm : bool
+            Whether to use batch normalization layers.
 
         Model Architecture (transposed for decoder)
         ------------
-        - 4 convolutional layers (each with 32 channels), (4 x 4 kernel), (stride of 2)
-        - 2 fully connected layers (each of 256 units)
-        - Latent distribution:
-            - 1 fully connected layer of 20 units (log variance and mean for 10 Gaussians)
+        - 5 convolutional layers with spatial broadcasting
+        - Uses spatial coordinate grids as input
 
         References:
             [1] Locatello et al. "Weakly-Supervised Disentanglement without Compromises" 
             arXiv preprint https://arxiv.org/abs/2002.02886.
         """
-        super(Decoder, self).__init__(img_size, latent_dim, output_dist)
+        super(Decoder, self).__init__(img_size, latent_dim, output_dist, use_batchnorm)
 
         # Layer parameters
         kernel_size = 5
         self.img_size = img_size
 
         # Convolutional layers
-        cnn_kwargs = dict(stride=1, padding=2)
+        cnn_kwargs = dict(stride=1, padding=2, bias=not self.use_batchnorm)
         self.conv1 = nn.Conv2d(latent_dim + 2, 64, kernel_size, **cnn_kwargs)
+        self.bn1 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
         self.conv2 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)        
-        self.conv4 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)        
-        self.conv5 = nn.Conv2d(64, self.img_size[0], kernel_size, **cnn_kwargs)        
+        self.bn2 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
+        self.conv3 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)
+        self.bn3 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
+        self.conv4 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)
+        self.bn4 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
+        # Last layer keeps bias so pixels can shift freely; no BN here        
+        self.conv5 = nn.Conv2d(64, self.img_size[0], kernel_size, stride=1, padding=2)
         
         # XY Mesh.
         x, y = np.meshgrid(
@@ -74,9 +84,9 @@ class Decoder(BaseDecoder):
         x = self.spatial_broadcast(z)
 
         # Convolutional layers with ReLu activations
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.relu(self.conv4(x))
+        x = torch.relu(self.bn1(self.conv1(x)))
+        x = torch.relu(self.bn2(self.conv2(x)))
+        x = torch.relu(self.bn3(self.conv3(x)))
+        x = torch.relu(self.bn4(self.conv4(x)))
         # Return raw outputs (no activation)
         return self.conv5(x)

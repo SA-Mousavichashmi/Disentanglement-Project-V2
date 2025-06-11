@@ -16,7 +16,8 @@ class BaseVAE(abc.ABC, nn.Module):
     """
     Base VAE model that contains common functionality for all VAE models.
     """
-    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', **kwargs):
+    
+    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Base class which defines model and forward pass.
 
@@ -28,6 +29,8 @@ class BaseVAE(abc.ABC, nn.Module):
             Dimensionality of latent space.
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
+        use_batchnorm : bool
+            Whether to use batch normalization in encoder and decoder.
         """
         super(BaseVAE, self).__init__()
 
@@ -38,6 +41,7 @@ class BaseVAE(abc.ABC, nn.Module):
         self.encoder = None
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
+        self.use_batchnorm = use_batchnorm
         self.latent_factor_topologies = ['R1'] * latent_dim
     
     @property

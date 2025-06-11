@@ -14,7 +14,7 @@ from .base import BaseEncoder
 
 class Encoder(BaseEncoder):
 
-    def __init__(self, img_size, latent_dim=10, dist_nparams=2):
+    def __init__(self, img_size, latent_dim=10, dist_nparams=2, use_batchnorm=False):
         r"""Large Encoder as utilised in [1].
 
         Parameters
@@ -28,11 +28,14 @@ class Encoder(BaseEncoder):
         dist_nparams : int
             number of distribution statistics to return
 
+        use_batchnorm : bool
+            Whether to use batch normalization layers.
+
         References:
             [1] Montero et al. "Lost in Latent Space: Disentangled Models and 
             the Challenge of Combinatorial Generalisation."
         """
-        super(Encoder, self).__init__(img_size, latent_dim, dist_nparams)
+        super(Encoder, self).__init__(img_size, latent_dim, dist_nparams, use_batchnorm)
 
     def _build_network(self):
         # Layer parameters
@@ -43,12 +46,21 @@ class Encoder(BaseEncoder):
         assert self.img_size[-2] == self.img_size[-1] == 64, assert_str
 
         # Convolutional layers
-        cnn_kwargs = dict(stride=2, padding=1)
+        cnn_kwargs = dict(stride=2, padding=1, bias=not self.use_batchnorm)
         self.conv1 = nn.Conv2d(n_chan, 64, kernel_size, **cnn_kwargs)
+        self.bn1 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
         self.conv2 = nn.Conv2d(64, 64, kernel_size, **cnn_kwargs)
+        self.bn2 = nn.BatchNorm2d(64) if self.use_batchnorm else nn.Identity()
+        
         self.conv3 = nn.Conv2d(64, 128, kernel_size, **cnn_kwargs)
+        self.bn3 = nn.BatchNorm2d(128) if self.use_batchnorm else nn.Identity()
+        
         self.conv4 = nn.Conv2d(128, 128, kernel_size, **cnn_kwargs)
+        self.bn4 = nn.BatchNorm2d(128) if self.use_batchnorm else nn.Identity()
+        
         self.conv5 = nn.Conv2d(128, 256, kernel_size, **cnn_kwargs)
+        self.bn5 = nn.BatchNorm2d(256) if self.use_batchnorm else nn.Identity()
 
         # Fully connected layers
         inp_width = int(64/(2**5))
@@ -61,11 +73,11 @@ class Encoder(BaseEncoder):
         batch_size = x.size(0)
 
         # Convolutional layers with ReLu activations
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.relu(self.conv4(x))
-        x = torch.relu(self.conv5(x))
+        x = torch.relu(self.bn1(self.conv1(x)))
+        x = torch.relu(self.bn2(self.conv2(x)))
+        x = torch.relu(self.bn3(self.conv3(x)))
+        x = torch.relu(self.bn4(self.conv4(x)))
+        x = torch.relu(self.bn5(self.conv5(x)))
 
         # Fully connected layers with ReLu activations
         x = x.view((batch_size, -1))
