@@ -124,4 +124,4 @@ class Loss(baseloss.BaseLoss):
         if self.schedulers:
             self.step_schedulers()
 
-        return {'loss': loss, 'to_log': log_data}
+        return {'loss': loss, 'to_log': log_data} # TODO add separate loss related logs and other logs
