@@ -120,8 +120,5 @@ class Loss(baseloss.BaseLoss):
             for i, value in enumerate(kl_components):
                  log_data[f'kl_loss_{i}'] = value.item()
             # log_data['kl_components'] = kl_components.detach().cpu()
-        
-        if self.schedulers:
-            self.step_schedulers()
 
         return {'loss': loss, 'to_log': log_data} # TODO add separate loss related logs and other logs
