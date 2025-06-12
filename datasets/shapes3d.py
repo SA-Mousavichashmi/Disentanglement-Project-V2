@@ -127,11 +127,12 @@ class Shapes3D(datasets.base.DisentangledDataset):
 
     def download(self):
         """Download the dataset."""
-        os.makedirs(self.root)
-        subprocess.check_call([
-            "curl", "-L",
-            type(self).urls["train"], "--output", self.train_data
-        ])
+        if not os.path.exists(os.path.join(self.train_data, '3dshapes.h5')):     
+            os.makedirs(self.root)
+            subprocess.check_call([
+                "curl", "-L",
+                type(self).urls["train"], "--output", self.train_data
+            ]) 
         # For faster loading, a numpy copy will be created (reduces loading times by 300% at the cost of more storage).
         with h5py.File(self.train_data, 'r') as dataset:
             imgs = dataset['images'][()]
