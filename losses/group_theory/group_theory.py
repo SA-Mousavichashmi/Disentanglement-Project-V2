@@ -68,6 +68,7 @@ class Loss(BaseLoss):
                              name=self.base_loss_name, 
                              **self.base_loss_kwargs,
                              state_dict=self.base_loss_state_dict,
+                             is_train=True,
                              device=device
                              )  # base loss function
 
