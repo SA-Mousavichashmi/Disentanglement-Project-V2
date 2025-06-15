@@ -68,7 +68,6 @@ class Loss(BaseLoss):
                              name=self.base_loss_name, 
                              **self.base_loss_kwargs,
                              state_dict=self.base_loss_state_dict,
-                             is_train=True,
                              device=device
                              )  # base loss function
 
@@ -356,6 +355,7 @@ class Loss(BaseLoss):
             inputs = {
                 'data': data,
                 **model_out,
+                'is_train': True,
             }
 
             loss_out = self.base_loss_f(**inputs)
@@ -366,6 +366,7 @@ class Loss(BaseLoss):
             inputs = {
                 'model': model,
                 'data': data,
+                'is_train': True,
             }
             loss_out = self.base_loss_f(**inputs)
             base_loss = loss_out['loss']
