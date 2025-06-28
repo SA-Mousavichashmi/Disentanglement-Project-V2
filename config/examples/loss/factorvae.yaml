@@ -1,0 +1,7 @@
+# Factor-VAE loss configuration  
+# Encourages independence between latent factors
+
+name: "factorvae"
+gamma: 35.0
+rec_dist: "bernoulli"
+log_kl_components: false

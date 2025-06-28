@@ -1,0 +1,11 @@
+# VAE model configuration (Burgess et al.)
+# A standard Beta-VAE architecture with CNN encoder/decoder
+
+name: "vae_burgess"
+encoder_name: "burgess"
+decoder_name: "burgess"
+latent_dim: 10
+decoder_output_dist: "bernoulli"
+use_batchnorm: false
+device: "auto"  # Will be set automatically
+img_size: null  # Will be set from dataset

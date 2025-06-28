@@ -1,0 +1,74 @@
+# Main configuration file for disentanglement learning training
+# This file demonstrates training a Beta-VAE on the DSprites dataset
+
+defaults:
+  - base_config
+  - dataset: dsprites
+  - model: vae_burgess
+  - loss: betavae
+  - _self_
+
+# Override default values
+step_unit: "epoch"
+max_steps: 50
+
+# Training settings
+determinism:
+  seed: 42
+  use_cuda_det: true
+  enforce_det: false
+
+# Model settings  
+model:
+  device: "auto"
+  latent_dim: 10
+
+# Loss settings
+loss:
+  beta: 4.0
+  rec_dist: "bernoulli"
+
+# Optimizer settings
+optimizer:
+  name: "Adam"
+  lr: 1e-4
+  weight_decay: 0.0
+
+# Learning rate scheduler (optional)
+lr_scheduler: null
+
+# Data loading
+dataloader:
+  batch_size: 64
+  num_workers: -1  # Auto-detect
+  shuffle: true
+  pin_memory: true
+
+# Progress tracking
+progress_bar:
+  enabled: true
+  log_iter_interval: 50
+
+# Logging
+logging:
+  enabled: true
+  return_logs: true
+  loss_interval_type: "iter"
+  loss_iter_interval: 200
+  metrics_interval_type: "iter" 
+  metrics_iter_interval: 200
+
+# Checkpointing
+checkpoint:
+  enabled: true
+  return_chkpt: false
+  every_n_steps: 10
+  step_type: "epoch"
+  save_dir: "checkpoints/betavae_dsprites"
+  save_viz: true
+
+# Performance optimization
+torch_compile:
+  enabled: false
+  mode: "max-autotune"
+  backend: "inductor"

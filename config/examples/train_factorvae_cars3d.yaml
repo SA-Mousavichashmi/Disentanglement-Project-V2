@@ -1,0 +1,59 @@
+# Training Factor-VAE on Cars3D dataset
+# Example configuration for disentanglement learning
+
+defaults:
+  - base_config
+  - dataset: cars3d
+  - model: vae_locatello  
+  - loss: factorvae
+  - _self_
+
+step_unit: "epoch"
+max_steps: 100
+
+# Reproducibility
+determinism:
+  seed: 123
+  use_cuda_det: true
+  enforce_det: false
+
+# Model configuration
+model:
+  device: "auto"
+  latent_dim: 10
+
+# Loss configuration  
+loss:
+  gamma: 35.0
+  rec_dist: "bernoulli"
+
+# Optimizer
+optimizer:
+  name: "Adam"
+  lr: 1e-4
+  weight_decay: 1e-5
+
+# Learning rate scheduling
+lr_scheduler:
+  name: "StepLR"
+  step_size: 30
+  gamma: 0.5
+  verbose: true
+
+# Data loading
+dataloader:
+  batch_size: 128
+  num_workers: -1
+  shuffle: true
+
+# Checkpointing
+checkpoint:
+  enabled: true
+  every_n_steps: 20
+  step_type: "epoch"
+  save_dir: "checkpoints/factorvae_cars3d"
+  save_viz: true
+
+# Performance
+torch_compile:
+  enabled: false

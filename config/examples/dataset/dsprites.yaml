@@ -1,0 +1,9 @@
+# Dataset configuration for DSprites
+# Uses the default DSprites configuration from the schema
+
+name: "dsprites" 
+root: "data/dsprites/"
+img_size: [1, 64, 64]
+selected_factors: "all"
+drop_color_factor: true
+subset: 1.0

@@ -1,0 +1,11 @@
+# VAE model configuration (Locatello et al.) 
+# Architecture used in the disentanglement_lib benchmark
+
+name: "vae_locatello"
+encoder_name: "locatello"
+decoder_name: "locatello"
+latent_dim: 10
+decoder_output_dist: "bernoulli"
+use_batchnorm: false
+device: "auto"
+img_size: null

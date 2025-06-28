@@ -1,0 +1,8 @@
+# Dataset configuration for Shapes3D
+# Configured for training on the 3D Shapes dataset
+
+name: "shapes3d"
+root: "data/shapes3d/" 
+img_size: [3, 64, 64]
+selected_factors: "all"
+subset: 1.0

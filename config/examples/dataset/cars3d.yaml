@@ -1,0 +1,8 @@
+# Dataset configuration for Cars3D
+# Configured for training on the Cars3D dataset
+
+name: "cars3d"
+root: "data/cars3d/"
+img_size: [3, 64, 64]
+selected_factors: "all"
+subset: 1.0

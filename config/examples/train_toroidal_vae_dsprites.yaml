@@ -1,0 +1,68 @@
+# Training Toroidal VAE on DSprites dataset
+# Example for periodic/angular latent factors
+
+defaults:
+  - base_config
+  - dataset: dsprites
+  - model: toroidal_vae
+  - loss: beta_toroidal_vae
+  - _self_
+
+step_unit: "epoch"
+max_steps: 60
+
+# Reproducibility
+determinism:
+  seed: 789
+  use_cuda_det: true
+  enforce_det: false
+
+# Model configuration
+model:
+  device: "auto"
+  latent_dim: 8
+  n_angle_dim: 2
+
+# Loss configuration
+loss:
+  name: "beta_toroidal_vae"
+  beta: 2.0
+  rec_dist: "bernoulli"
+
+# Optimizer
+optimizer:
+  name: "AdamW"
+  lr: 2e-4
+  weight_decay: 1e-4
+  betas: [0.9, 0.999]
+
+# Learning rate scheduling
+lr_scheduler:
+  name: "ReduceLROnPlateau"
+  patience: 5
+  factor: 0.5
+  verbose: true
+
+# Data loading
+dataloader:
+  batch_size: 32
+  num_workers: 2
+  shuffle: true
+  drop_last: true
+
+# Progress bar
+progress_bar:
+  enabled: true
+  log_iter_interval: 25
+
+# Checkpointing
+checkpoint:
+  enabled: true
+  every_n_steps: 10
+  step_type: "epoch"
+  save_dir: "checkpoints/toroidal_vae_dsprites"
+  save_viz: true
+
+# Performance
+torch_compile:
+  enabled: false
