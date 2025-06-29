@@ -1,12 +1,11 @@
 # @package _global_
 
 defaults:
+  - base_config
   - override dataset: shapes3d
   - override model: vae_locatello
   - override loss: betavae
-  - override optimizer: adam
-  - override lr_scheduler: null
-  - override metrics: default_metrics
+  - _self_
 
 experiment:
   experiment_id: train_betavae_shapes3d_example
