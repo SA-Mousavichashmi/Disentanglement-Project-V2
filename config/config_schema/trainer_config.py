@@ -40,7 +40,6 @@ class LRSchedulerConfig:
 @dataclass
 class DeterminismConfig:
     """Configuration for reproducibility and determinism."""
-    seed: Optional[int] = 42
     use_cuda_det: bool = True
     enforce_det: bool = False
 
@@ -110,23 +109,19 @@ class CheckpointConfig:
 
 
 @dataclass
-class BaseTrainerConfig:
+class TrainerConfig:
     """
-    Master configuration for model training that orchestrates all components.
+    Configuration for model training that orchestrates all core training components.
     This directly maps to the BaseTrainer constructor parameters.
-    """
-    # ================ Core Required Components ================
-    model: ModelConfigUnion = MISSING
-    dataset: DatasetConfigUnion = MISSING
-    loss: LossConfigUnion = MISSING
-    
+    """        
     # ================ Training Progression ================
     step_unit: str = "epoch"  # "epoch" or "iter"
     max_steps: int = 100  # Number of epochs or iterations
     
-    # ================ Resume Training ================
-    prev_train_iter: int = 0
-    train_id: Optional[str] = None  # UUID for training session
+    # ================ Core Required Components ================
+    model: ModelConfigUnion = MISSING
+    dataset: DatasetConfigUnion = MISSING
+    loss: LossConfigUnion = MISSING
     
     # ================ Data Loading ================
     dataloader: DataLoaderConfig = field(default_factory=DataLoaderConfig)
@@ -152,3 +147,19 @@ class BaseTrainerConfig:
     
     # ================ Optional Metrics ================
     metrics: Optional[MetricAggregatorConfig] = None
+
+
+@dataclass
+class ExperimentConfig:
+    """
+    Master configuration for experiments that orchestrates training across multiple seeds.
+    This is the top-level configuration that includes all training parameters.
+    """
+    # ================ Experiment Management ================
+    experiment_id: Optional[str] = None  # Auto-generated if None
+    seeds: List[int] = field(default_factory=lambda: [42])  # Default to single seed
+    results_dir: str = "experiments"  # Base directory for experiment results (auto-created if doesn't exist)
+    resume: bool = True  # Whether to resume interrupted experiments
+    
+    # ================ Core Training Configuration ================
+    trainer: TrainerConfig = field(default_factory=TrainerConfig)

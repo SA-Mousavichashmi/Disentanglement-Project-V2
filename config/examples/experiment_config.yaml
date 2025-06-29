@@ -1,6 +1,5 @@
-# Main configuration file for disentanglement learning training
-# This file demonstrates training a Beta-VAE on the DSprites dataset
-# Single training is treated as an experiment with one seed
+# Experiment configuration for running multiple seeds
+# This file demonstrates experiment-based training with multiple random seeds
 
 defaults:
   - base_config
@@ -9,22 +8,17 @@ defaults:
   - loss: betavae
   - _self_
 
-# Experiment settings (single seed for single training)
-experiment_id: null  # Auto-generated
-seeds: [42]  # Single seed for single training
-results_dir: "experiments"
-resume: true
+# Experiment settings
+experiment_id: null  # Auto-generated if not specified
+seeds: [42, 123, 456, 789, 999]  # List of random seeds to run
+results_dir: "experiments"  # Base directory for experiment results
+resume: true  # Resume interrupted experiments
 
 # Trainer configuration
 trainer:
-  # Override default values
+  # Training settings
   step_unit: "epoch"
   max_steps: 50
-
-  # Training settings
-  determinism:
-    use_cuda_det: true
-    enforce_det: false
 
   # Model settings  
   model:
@@ -57,26 +51,32 @@ trainer:
     enabled: true
     log_iter_interval: 50
 
-  # Logging
+  # Logging settings
   logging:
     enabled: true
     return_logs: true
     loss_interval_type: "iter"
-    loss_iter_interval: 200
-    metrics_interval_type: "iter" 
-    metrics_iter_interval: 200
+    loss_iter_interval: 100
+    metrics_interval_type: "iter"
+    metrics_iter_interval: 100
 
-  # Checkpointing
+  # Checkpointing (will be automatically configured for each seed)
   checkpoint:
-    enabled: true
+    enabled: true  # Will be overridden by experiment manager
     return_chkpt: false
-    every_n_steps: 10
+    every_n_steps: null  # Only save final checkpoint
     step_type: "epoch"
-    save_dir: "checkpoints/betavae_dsprites"
-    save_viz: true
+    save_viz: false
+
+  # Determinism (seed will be overridden for each run)
+  determinism:
+    use_cuda_det: true
+    enforce_det: false
 
   # Performance optimization
   torch_compile:
     enabled: false
     mode: "max-autotune"
     backend: "inductor"
+    fullgraph: false
+    dynamic: false

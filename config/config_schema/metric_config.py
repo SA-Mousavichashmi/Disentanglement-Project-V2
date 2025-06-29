@@ -79,3 +79,4 @@ class MetricAggregatorConfig(BaseMetricConfig):
     """Configuration for the Metric Aggregator."""
     name: str = "metric_aggregator"
     metrics: List[MetricConfigType] = field(default_factory=list)
+    sample_num: int = 10000  # Number of samples to use for metric computation

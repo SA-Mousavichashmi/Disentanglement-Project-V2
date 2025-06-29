@@ -1,6 +1,5 @@
-# Main configuration file for disentanglement learning training
-# This file demonstrates training a Beta-VAE on the DSprites dataset
-# Single training is treated as an experiment with one seed
+# Main configuration file for disentanglement learning training with metrics evaluation
+# This file demonstrates training a Beta-VAE on the DSprites dataset with post-training metric evaluation
 
 defaults:
   - base_config
@@ -28,24 +27,22 @@ trainer:
 
   # Model settings  
   model:
-    device: "auto"
+    name: "vae_burgess"
     latent_dim: 10
 
   # Loss settings
   loss:
+    name: "betavae"
     beta: 4.0
-    rec_dist: "bernoulli"
 
-  # Optimizer settings
-  optimizer:
-    name: "Adam"
-    lr: 1e-4
-    weight_decay: 0.0
+  # Dataset settings
+  dataset:
+    name: "dsprites"
+    root: "data/dsprites"
+    train: true
+    download: true
 
-  # Learning rate scheduler (optional)
-  lr_scheduler: null
-
-  # Data loading
+  # Dataloader settings
   dataloader:
     batch_size: 64
     num_workers: -1  # Auto-detect
@@ -80,3 +77,41 @@ trainer:
     enabled: false
     mode: "max-autotune"
     backend: "inductor"
+
+  # Metrics configuration for post-training evaluation
+  metrics:
+    name: "metric_aggregator"
+    sample_num: 10000  # Number of samples to use for metric computation
+    metrics:
+      - name: "mig"
+        num_bins: 20
+        num_workers: 8
+        mi_method: 'pyitlib'
+        entropy_method: 'pyitlib'
+      
+      - name: "sap_d"
+        num_train: 5000
+        num_test: 2500
+        num_bins: 20
+      
+      - name: "dci_d"
+        num_train: 5000
+        num_test: 2500
+        split_ratio: 0.8
+        backend: 'sklearn'
+        num_workers: 8
+      
+      - name: "modularity_d"
+        num_bins: 20
+        num_workers: 8
+        mi_method: 'sklearn'
+
+  # Optimizer configuration
+  optimizer:
+    name: "adam"
+    lr: 0.001
+    weight_decay: 0.0
+
+  # Learning rate scheduler
+  lr_scheduler:
+    name: null  # No scheduler

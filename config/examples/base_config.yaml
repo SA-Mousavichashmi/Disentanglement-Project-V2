@@ -1,72 +1,77 @@
 # Base configuration schema for all training runs
 # This file defines the default structure and values
 
-# Core training parameters
-step_unit: "epoch"
-max_steps: 50
-prev_train_iter: 0
-train_id: null  # Auto-generated if not specified
+# Experiment management
+experiment_id: null  # Auto-generated if null
+seeds: [42]  # Default to single seed
+results_dir: "experiments"
+resume: true
 
-# Reproducibility settings
-determinism:
-  seed: 42
-  use_cuda_det: true
-  enforce_det: false
+# Core trainer configuration
+trainer:
+  # Core training parameters
+  step_unit: "epoch"
+  max_steps: 50
 
-# Optimizer configuration
-optimizer:
-  name: "Adam"
-  lr: 1e-4
-  weight_decay: 0.0
-  betas: [0.9, 0.999]
-  eps: 1e-8
+  # Reproducibility settings
+  determinism:
+    use_cuda_det: true
+    enforce_det: false
 
-# Learning rate scheduler (null = constant LR)
-lr_scheduler: null
+  # Optimizer configuration
+  optimizer:
+    name: "Adam"
+    lr: 1e-4
+    weight_decay: 0.0
+    betas: [0.9, 0.999]
+    eps: 1e-8
 
-# Data loading configuration
-dataloader:
-  batch_size: 64
-  num_workers: -1  # Auto-detect optimal number
-  pin_memory: true
-  persistent_workers: true
-  shuffle: true
-  drop_last: false
+  # Learning rate scheduler (null = constant LR)
+  lr_scheduler: null
 
-# Progress bar settings
-progress_bar:
-  enabled: true
-  log_iter_interval: 50
+  # Data loading configuration
+  dataloader:
+    batch_size: 64
+    num_workers: -1  # Auto-detect optimal number
+    pin_memory: true
+    persistent_workers: true
+    shuffle: true
+    drop_last: false
 
-# Logging configuration
-logging:
-  enabled: true
-  return_logs: true
-  loss_interval_type: "iter"
-  loss_iter_interval: 200
-  prev_train_losses_log: null
-  metrics_interval_type: "iter"
-  metrics_iter_interval: 200
-  prev_train_metrics_log: null
+  # Progress bar settings
+  progress_bar:
+    enabled: true
+    log_iter_interval: 50
 
-# Checkpointing configuration
-checkpoint:
-  enabled: false
-  return_chkpt: false
-  every_n_steps: null
-  step_type: "iter"
-  save_path: null
-  save_dir: null
-  save_master_dir: null
-  save_viz: false
+  # Logging configuration
+  logging:
+    enabled: true
+    return_logs: true
+    loss_interval_type: "iter"
+    loss_iter_interval: 200
+    prev_train_losses_log: null
+    metrics_interval_type: "iter"
+    metrics_iter_interval: 200
+    prev_train_metrics_log: null
 
-# Performance optimization
-torch_compile:
-  enabled: false
-  mode: "max-autotune"
-  backend: "inductor"
-  fullgraph: false
-  dynamic: false
+  # Checkpointing configuration
+  checkpoint:
+    enabled: false
+    return_chkpt: false
+    every_n_steps: null
+    step_type: "iter"
+    save_path: null
+    save_dir: null
+    save_master_dir: null
+    save_viz: false
 
-# Optional metrics (not implemented yet)
-metrics: null
+  # Performance optimization
+  torch_compile:
+    enabled: false
+    mode: "max-autotune"
+    backend: "inductor"
+    fullgraph: false
+    dynamic: false
+
+  # Optional metrics (not implemented yet)
+  metrics: null
