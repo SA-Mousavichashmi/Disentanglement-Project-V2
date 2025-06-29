@@ -21,7 +21,6 @@ determinism:
 model:
   device: "auto"
   latent_factor_num: 8  # Number of latent factors for S-VAE models
-  n_angle_dim: 2
 
 # Loss configuration
 loss:
