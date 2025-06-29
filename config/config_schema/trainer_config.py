@@ -6,13 +6,7 @@ This serves as the master configuration that orchestrates all other configs.
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Union, Tuple
 from omegaconf import MISSING # type: ignore
-
-# Import all other config schemas
-from .dataset_config import DatasetConfigUnion
-from .model_config import ModelConfigUnion
-from .loss_config import LossConfigUnion
 from .metric_config import MetricAggregatorConfig
-
 
 @dataclass
 class OptimizerConfig:
@@ -119,9 +113,9 @@ class TrainerConfig:
     max_steps: int = 100  # Number of epochs or iterations
     
     # ================ Core Required Components ================
-    model: ModelConfigUnion = MISSING
-    dataset: DatasetConfigUnion = MISSING
-    loss: LossConfigUnion = MISSING
+    model: Any = MISSING
+    loss: Any = MISSING
+    dataset: Any = MISSING
     
     # ================ Data Loading ================
     dataloader: DataLoaderConfig = field(default_factory=DataLoaderConfig)

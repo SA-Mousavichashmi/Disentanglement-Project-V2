@@ -102,15 +102,3 @@ class GroupTheoryConfig(LossConfig):
     comp_latent_select_threshold: float = 0.0
     base_loss_state_dict: Optional[Dict[str, Any]] = None
     warm_up_steps: int = 0
-
-####### union of loss types ##########
-LossConfigUnion = Union[
-    BetaVAEConfig,
-    AnnealedVAEConfig,
-    FactorVAEConfig,
-    BetaTCVAEConfig,
-    BetaToroidalVAEConfig,
-    BetaSNVAEConfig,
-    AnnealSNVAEConfig,
-    GroupTheoryConfig
-]

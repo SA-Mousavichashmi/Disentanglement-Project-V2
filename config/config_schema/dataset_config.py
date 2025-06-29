@@ -45,11 +45,3 @@ class Shapes3DConfig(DatasetConfig):
     not_selected_factors_index_value: Dict[str, Any] = field(default_factory=dict)
     root: str = "data/shapes3d/"
 
-
-####### union of dataset types ##########
-DatasetConfigUnion = Union[
-    Cars3DConfig,
-    DSpritesConfig,
-    Shapes3DConfig
-]
-

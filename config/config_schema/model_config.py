@@ -3,7 +3,7 @@ Configuration schema for all model architectures used in the codebase.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Any
 from omegaconf import MISSING # type: ignore
 
 @dataclass
@@ -115,18 +115,3 @@ class SNVAELocatelloConfig(SNVAEConfig):
     decoder_name: str = "locatello"
     encoder_decay: float = 0.0
     decoder_decay: float = 0.0
-
-ModelConfigUnion = Union[
-    VAEConfig,
-    VAEBurgessConfig,
-    VAEChenMLPConfig,
-    VAELocatelloConfig,
-    VAELocatelloSBDConfig,
-    VAEMonteroSmallConfig,
-    VAEMonteroLargeConfig,
-    ToroidalVAEConfig,
-    ToroidalVAEBurgessConfig,
-    ToroidalVAELocatelloConfig,
-    SNVAEBurgessConfig,
-    SNVAELocatelloConfig
-]

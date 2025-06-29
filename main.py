@@ -18,9 +18,19 @@ import numpy as np
 
 # Import configuration schemas
 from config.config_schema.trainer_config import ExperimentConfig
-from config.config_schema.dataset_config import DatasetConfigUnion
-from config.config_schema.model_config import ModelConfigUnion  
-from config.config_schema.loss_config import LossConfigUnion
+from config.config_schema.dataset_config import (
+    DatasetConfig, Cars3DConfig, DSpritesConfig, Shapes3DConfig
+)
+from config.config_schema.model_config import (
+    ModelConfig, VAEConfig, VAEBurgessConfig, VAEChenMLPConfig, VAELocatelloConfig,
+    VAELocatelloSBDConfig, VAEMonteroSmallConfig, VAEMonteroLargeConfig,
+    ToroidalVAEConfig, ToroidalVAEBurgessConfig, ToroidalVAELocatelloConfig,
+    SNVAEBurgessConfig, SNVAELocatelloConfig
+)
+from config.config_schema.loss_config import (
+    LossConfig, BetaVAEConfig, AnnealedVAEConfig, FactorVAEConfig, BetaTCVAEConfig,
+    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig
+)
 from config.config_schema.metric_config import MetricAggregatorConfig
 
 # Import core modules
@@ -534,7 +544,7 @@ def run_training_session(cfg: ExperimentConfig, train_id: str, seed: int) -> Dic
         raise
 
 
-def create_dataset(cfg: DatasetConfigUnion) -> torch.utils.data.Dataset:
+def create_dataset(cfg: DatasetConfig) -> torch.utils.data.Dataset:
     """Create dataset from configuration."""
     logger.info(f"Creating {cfg.name} dataset from {cfg.root}")
     
@@ -546,7 +556,7 @@ def create_dataset(cfg: DatasetConfigUnion) -> torch.utils.data.Dataset:
     return dataset_class(**dataset_kwargs)
 
 
-def create_model(cfg: ModelConfigUnion, img_size: tuple) -> torch.nn.Module:
+def create_model(cfg: ModelConfig, img_size: tuple) -> torch.nn.Module:
     """Create model from configuration."""
     logger.info(f"Creating {cfg.name} model")
     
@@ -557,7 +567,7 @@ def create_model(cfg: ModelConfigUnion, img_size: tuple) -> torch.nn.Module:
     return vae_models.select(**model_kwargs)
 
 
-def create_loss(cfg: LossConfigUnion) -> torch.nn.Module:
+def create_loss(cfg: LossConfig) -> torch.nn.Module:
     """Create loss function from configuration."""
     logger.info(f"Creating {cfg.name} loss")
     
@@ -658,7 +668,7 @@ def setup_reproducibility(determinism_cfg, seed: int) -> None:
     )
 
 
-def setup_device(cfg: ModelConfigUnion) -> str:
+def setup_device(cfg: ModelConfig) -> str:
     """Setup device for training."""
     if cfg.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -746,9 +756,34 @@ def register_configs():
     # Register main config
     cs.store(name="base_config", node=ExperimentConfig)
     
-    # We could register specific configs here if needed
-    # cs.store(group="dataset", name="cars3d", node=Cars3DConfig)
-    # etc.
+    # Register model configs
+    cs.store(group="model", name="vae", node=VAEConfig)
+    cs.store(group="model", name="vae_burgess", node=VAEBurgessConfig)
+    cs.store(group="model", name="vae_chen_mlp", node=VAEChenMLPConfig)
+    cs.store(group="model", name="vae_locatello", node=VAELocatelloConfig)
+    cs.store(group="model", name="vae_locatello_sbd", node=VAELocatelloSBDConfig)
+    cs.store(group="model", name="vae_montero_small", node=VAEMonteroSmallConfig)
+    cs.store(group="model", name="vae_montero_large", node=VAEMonteroLargeConfig)
+    cs.store(group="model", name="toroidal_vae", node=ToroidalVAEConfig)
+    cs.store(group="model", name="toroidal_vae_burgess", node=ToroidalVAEBurgessConfig)
+    cs.store(group="model", name="toroidal_vae_locatello", node=ToroidalVAELocatelloConfig)
+    cs.store(group="model", name="s_n_vae_burgess", node=SNVAEBurgessConfig)
+    cs.store(group="model", name="s_n_vae_locatello", node=SNVAELocatelloConfig)
+
+    # Register loss configs
+    cs.store(group="loss", name="betavae", node=BetaVAEConfig)
+    cs.store(group="loss", name="annealedvae", node=AnnealedVAEConfig)
+    cs.store(group="loss", name="factorvae", node=FactorVAEConfig)
+    cs.store(group="loss", name="betatcvae", node=BetaTCVAEConfig)
+    cs.store(group="loss", name="beta_toroidal_vae", node=BetaToroidalVAEConfig)
+    cs.store(group="loss", name="beta_s_n_vae", node=BetaSNVAEConfig)
+    cs.store(group="loss", name="anneal_s_n_vae", node=AnnealSNVAEConfig)
+    cs.store(group="loss", name="group_theory", node=GroupTheoryConfig)
+
+    # Register dataset configs
+    cs.store(group="dataset", name="cars3d", node=Cars3DConfig)
+    cs.store(group="dataset", name="dsprites", node=DSpritesConfig)
+    cs.store(group="dataset", name="shapes3d", node=Shapes3DConfig)
 
 
 if __name__ == "__main__":
