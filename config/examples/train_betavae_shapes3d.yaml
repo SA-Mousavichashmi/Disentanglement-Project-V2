@@ -1,0 +1,39 @@
+# @package _global_
+
+defaults:
+  - override /trainer/dataset: shapes3d
+  - override /trainer/model: vae_locatello
+  - override /trainer/loss: betavae
+  - override /trainer/optimizer: adam
+  - override /trainer/lr_scheduler: null
+  - override /trainer/metrics: default_metrics
+
+experiment:
+  experiment_id: train_betavae_shapes3d_example
+  results_dir: "results/"
+  seeds: [1, 2, 3]
+  resume: False
+
+trainer:
+  max_steps: 10000
+  step_unit: "iter"
+  
+  dataset:
+    subset: 0.1 # Use a subset for faster training in this example
+
+  model:
+    latent_dim: 10
+    
+  loss:
+    beta: 4.0
+    
+  dataloader:
+    batch_size: 64
+    num_workers: 4
+
+  checkpoint:
+    enabled: True
+    return_chkpt: True
+    every_n_steps: 5000
+    step_type: "iter"
+    save_master_dir: null # Will be set by experiment manager
