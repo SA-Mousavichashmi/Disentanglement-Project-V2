@@ -7,11 +7,11 @@ defaults:
   - override loss: betavae
   - _self_
 
-experiment:
-  experiment_id: train_betavae_shapes3d_example
-  results_dir: "results/"
-  seeds: [1, 2, 3]
-  resume: False
+# Experiment configuration at root level
+experiment_id: train_betavae_shapes3d_example
+results_dir: "results/"
+seeds: [1, 2, 3]
+resume: False
 
 trainer:
   max_steps: 10000
