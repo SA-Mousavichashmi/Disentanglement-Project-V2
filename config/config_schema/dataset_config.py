@@ -11,7 +11,7 @@ from omegaconf import MISSING # type: ignore
 class DatasetConfig:
     """Base class for dataset configuration."""
     name: str = MISSING
-    selected_factors: Optional[Union[str, List[str]]] = 'all'  # Default is 'all', can also be list of factor names
+    selected_factors: Any = 'all'  # Default is 'all', can also be list of factor names
     not_selected_factors_index_value: Optional[Dict[str, Any]] = None
     root: str = MISSING
     subset: float = 1.0
