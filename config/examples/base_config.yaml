@@ -1,6 +1,12 @@
 # Base configuration schema for all training runs
 # This file defines the default structure and values
 
+defaults:
+  - dataset: shapes3d  # Default dataset
+  - model: vae_locatello  # Default model
+  - loss: betavae      # Default loss
+  - _self_
+
 # Experiment management
 experiment_id: null  # Auto-generated if null
 seeds: [42]  # Default to single seed
