@@ -729,12 +729,12 @@ def main(cfg: ExperimentConfig) -> Dict[str, Any]:
         Dictionary containing training results or experiment summary
     """
     logger.info("="*50)
-    if len(cfg.experiment.seeds) == 1:
+    if len(cfg.seeds) == 1:
         logger.info("Starting Single Training Session (Experiment Mode)")
-        logger.info(f"Seed: {cfg.experiment.seeds[0]}")
+        logger.info(f"Seed: {cfg.seeds[0]}")
     else:
         logger.info("Starting Multi-Seed Experiment")
-        logger.info(f"Seeds: {cfg.experiment.seeds}")
+        logger.info(f"Seeds: {cfg.seeds}")
     logger.info("="*50)
     
     # Print configuration
