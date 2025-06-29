@@ -3,14 +3,14 @@ Configuration schema for all model architectures used in the codebase.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Tuple, Union, Any
+from typing import List, Tuple, Union, Any, Optional
 from omegaconf import MISSING # type: ignore
 
 @dataclass
 class ModelConfig:
     """Base class for model configuration."""
     name: str = MISSING
-    img_size: Tuple[int, int, int] = MISSING
+    img_size: Optional[Tuple[int, int, int]] = None
     device: str = MISSING
 
 @dataclass

@@ -8,4 +8,3 @@ latent_dim: 10
 decoder_output_dist: "bernoulli"
 use_batchnorm: false
 device: "auto"
-img_size: null
