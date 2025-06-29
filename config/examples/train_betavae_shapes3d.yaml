@@ -1,12 +1,12 @@
 # @package _global_
 
 defaults:
-  - override /trainer/dataset: shapes3d
-  - override /trainer/model: vae_locatello
-  - override /trainer/loss: betavae
-  - override /trainer/optimizer: adam
-  - override /trainer/lr_scheduler: null
-  - override /trainer/metrics: default_metrics
+  - override dataset: shapes3d
+  - override model: vae_locatello
+  - override loss: betavae
+  - override optimizer: adam
+  - override lr_scheduler: null
+  - override metrics: default_metrics
 
 experiment:
   experiment_id: train_betavae_shapes3d_example
@@ -19,13 +19,13 @@ trainer:
   step_unit: "iter"
   
   dataset:
-    subset: 0.1 # Use a subset for faster training in this example
+    subset: 1 # Use a subset for faster training in this example
 
   model:
     latent_dim: 10
     
   loss:
-    beta: 4.0
+    beta: 10
     
   dataloader:
     batch_size: 64
