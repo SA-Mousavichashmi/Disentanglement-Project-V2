@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 
 # Import configuration schemas
-from config.config_schema.trainer_config import ExperimentConfig
+from config.config_schema.trainer_config import ExperimentConfig, TrainerConfig
 from config.config_schema.dataset_config import (
     DatasetConfig, Cars3DConfig, DSpritesConfig, Shapes3DConfig
 )
@@ -352,8 +352,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
     
     experiment_results = {
         'experiment_id': exp_manager.experiment_id,
-        'seed_results': {},
-        'failed_seeds': []
+        'seed_results': {}
     }
     
     # Run training for each pending seed
@@ -374,7 +373,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             seed_cfg.trainer.checkpoint.save_master_dir = seed_checkpoint_dir
             
             # Run training for this seed
-            training_output = run_training_session(seed_cfg, train_id, seed)
+            training_output = run_training_session(seed_cfg.trainer, train_id, seed)
             
             # Extract components from training output
             model = training_output['model']
@@ -402,9 +401,10 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             
         except Exception as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
-            logger.error(f"Seed {seed} marked as failed")
-            experiment_results['failed_seeds'].append({'seed': seed, 'error': str(e)})
-            continue
+            logger.error("Experiment terminated due to training failure")
+            # Clean up experiment logging before exiting
+            exp_manager.cleanup_logging()
+            raise
     
     # Generate final experiment summary
     logger.info("="*70)
@@ -414,10 +414,6 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
     summary = exp_manager.generate_experiment_summary()
     experiment_results['experiment_summary'] = summary
     
-    # Report failed seeds
-    if experiment_results['failed_seeds']:
-        logger.warning(f"Failed seeds: {[item['seed'] for item in experiment_results['failed_seeds']]}")
-    
     logger.info(f"Experiment {exp_manager.experiment_id} completed!")
     
     # Clean up experiment logging
@@ -426,21 +422,18 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
     return experiment_results
 
 
-def run_training_session(cfg: ExperimentConfig, train_id: str, seed: int) -> Dict[str, Any]:
+def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -> Dict[str, Any]:
     """
     Run a single training session.
     
     Args:
-        cfg: Configuration object
+        trainer_cfg: Trainer configuration object
         train_id: Unique identifier for the training run
         seed: Seed for reproducibility
         
     Returns:
         Dictionary containing training results
     """
-    # Extract trainer config for convenience
-    trainer_cfg = cfg.trainer
-    
     # Setup reproducibility first
     setup_reproducibility(trainer_cfg.determinism, seed)
     
