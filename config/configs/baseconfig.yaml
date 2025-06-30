@@ -1,0 +1,135 @@
+# Main configuration file for training VAE models
+# This is the master configuration that orchestrates all training components
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+# ================ Experiment Management ================
+experiment_id: null  # Auto-generated if null
+seeds: [1]  # Multiple seeds for robust evaluation
+results_dir: "experiments"  # Base directory for experiment results
+resume: true  # Resume interrupted experiments
+
+# ================ Core Training Configuration ================
+trainer:
+  # ================ Training Progression ================
+  step_unit: "epoch"  # "epoch" or "iter"
+  max_steps: 5  # Number of epochs
+
+  # ================ Core Required Components ================
+  model:
+    _target_: vae_locatello  # Use the Locatello VAE model
+    name: "vae_locatello"
+    encoder_name: "locatello"
+    decoder_name: "locatello"
+    latent_dim: 10
+    decoder_output_dist: "bernoulli"
+    use_batchnorm: false
+    device: "auto"
+
+  loss:
+    _target_: betavae  # Use Beta-VAE loss
+    name: "betavae"
+    beta: 4.0
+    rec_dist: "bernoulli"
+    log_kl_components: false
+
+  dataset:
+    _target_: shapes3d  # Use Shapes3D dataset
+    name: "shapes3d"
+    root: "data/shapes3d/"
+    img_size: [3, 64, 64]
+    selected_factors: "all"
+    subset: 1.0
+
+  # ================ Data Loading ================
+  dataloader:
+    batch_size: 64
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    shuffle: true
+    drop_last: false
+
+  # ================ Progress Tracking ================
+  progress_bar:
+    enabled: true
+    log_iter_interval: 50
+
+  # ================ Logging ================
+  logging:
+    enabled: true
+    return_logs: true
+    # Loss logging
+    loss_interval_type: "iter"
+    loss_iter_interval: 100
+    prev_train_losses_log: null
+    # Metrics logging
+    metrics_interval_type: "iter"
+    metrics_iter_interval: 200
+    prev_train_metrics_log: null
+
+  # ================ Checkpointing ================
+  checkpoint:
+    enabled: true
+    return_chkpt: false
+    every_n_steps: 10  # Save checkpoint every 10 epochs
+    step_type: "epoch"
+    save_path: null
+    save_dir: null
+    save_master_dir: null  # Will be set automatically by experiment manager
+    save_viz: true  # Save visualizations with checkpoints
+
+  # ================ Reproducibility ================
+  determinism:
+    use_cuda_det: true
+    enforce_det: false
+
+  # ================ Performance Optimization ================
+  torch_compile:
+    enabled: false  # Disabled by default for compatibility
+    mode: "max-autotune"
+    backend: "inductor"
+    fullgraph: false
+    dynamic: false
+
+  # ================ Optimizer and Scheduler ================
+  optimizer:
+    name: "Adam"
+    lr: 1e-4
+    weight_decay: 0.0
+    betas: [0.9, 0.999]
+    eps: 1e-8
+
+  lr_scheduler:
+    name: "StepLR"
+    step_size: 30
+    gamma: 0.1
+    verbose: false
+
+  # ================ Metrics ================
+  metrics:
+    name: "metric_aggregator"
+    sample_num: 10000
+    metrics:
+      - name: "mig"
+        num_bins: 20
+        num_workers: 8
+        mi_method: "pyitlib"
+        entropy_method: "pyitlib"
+      
+      - name: "sap_d"
+        num_train: 10000
+        num_test: 5000
+        num_bins: 20
+      
+      - name: "dci_d"
+        num_train: 10000
+        num_test: 5000
+        split_ratio: 0.8
+        backend: "sklearn"
+        num_workers: 8
+      
+      - name: "reconstruction_error"

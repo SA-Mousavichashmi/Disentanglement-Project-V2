@@ -64,19 +64,9 @@ class ReconstructionErrorConfig(BaseMetricConfig):
     """Configuration for Reconstruction Error metric."""
     name: str = "reconstruction_error"
 
-MetricConfigType = Union[
-    MIGConfig,
-    SAPdConfig,
-    DCIdConfig,
-    KLDConfig,
-    RandKLDConfig,
-    ModularitydConfig,
-    ReconstructionErrorConfig,
-]
-
 @dataclass
 class MetricAggregatorConfig(BaseMetricConfig):
     """Configuration for the Metric Aggregator."""
     name: str = "metric_aggregator"
-    metrics: List[MetricConfigType] = field(default_factory=list)
+    metrics: List[BaseMetricConfig] = field(default_factory=list)
     sample_num: int = 10000  # Number of samples to use for metric computation

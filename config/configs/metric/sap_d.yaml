@@ -1,0 +1,6 @@
+# SAP-d (Separated Attribute Predictability - disentanglement) Metric Configuration
+# Measures how well individual latent dimensions predict ground truth factors
+name: "sap_d"
+num_train: 10000  # Number of training samples for predictability test
+num_test: 5000    # Number of test samples for predictability test
+num_bins: 20      # Number of bins for discretization

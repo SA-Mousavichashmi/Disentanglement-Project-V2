@@ -1,0 +1,27 @@
+# Metric Aggregator Configuration
+# Combines multiple metrics for comprehensive evaluation
+name: "metric_aggregator"
+sample_num: 10000  # Number of samples to use for metric computation
+metrics:
+  # Core disentanglement metrics
+  - name: "mig"
+    num_bins: 20
+    num_workers: 8
+    mi_method: "pyitlib"
+    entropy_method: "pyitlib"
+  
+  - name: "dci_d"
+    num_train: 10000
+    num_test: 5000
+    split_ratio: 0.8
+    backend: "sklearn"
+    num_workers: 8
+  
+  - name: "reconstruction_error"
+  
+  # KL divergence metrics (uncomment if needed)
+  # - name: "kld"
+  #   batch_size: 64
+  # 
+  # - name: "rand_kld"
+  #   batch_size: 64
