@@ -609,23 +609,30 @@ def create_lr_scheduler(cfg, optimizer: torch.optim.Optimizer) -> Optional[torch
         
     logger.info(f"Creating {cfg.name} learning rate scheduler")
     
-    if cfg.name == "StepLR":
+    if cfg.name == "stepLR":
         return optim.lr_scheduler.StepLR(
             optimizer,
             step_size=cfg.step_size,
             gamma=cfg.gamma
         )
-    elif cfg.name == "ReduceLROnPlateau":
+    elif cfg.name == "reduceLROnPlateau":
         return optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             patience=cfg.patience,
             factor=cfg.factor
         )
-    elif cfg.name == "CosineAnnealingLR":
+    elif cfg.name == "cosineAnnealingLR":
         return optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=cfg.T_max,
             eta_min=cfg.eta_min
+        )
+    elif cfg.name == "constantLR":
+        # ConstantLR requires 'factor' and 'total_iters' attributes in cfg
+        return optim.lr_scheduler.ConstantLR(
+            optimizer,
+            factor=cfg.factor,
+            total_iters=cfg.total_iters
         )
     else:
         raise ValueError(f"Unsupported scheduler: {cfg.name}")
