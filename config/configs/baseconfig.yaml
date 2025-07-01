@@ -48,6 +48,8 @@ trainer:
     persistent_workers: true
     shuffle: true
     drop_last: false
+    in_order: true         # For stateful dataloader strict batch ordering
+    snapshot_every_n_steps: 1  # For stateful dataloader checkpointing
 
   # ================ Progress Tracking ================
   progress_bar:

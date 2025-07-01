@@ -468,7 +468,7 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
     lr_scheduler = create_lr_scheduler(trainer_cfg.lr_scheduler, optimizer)
     
     # Create dataloader
-    dataloader = create_dataloader(dataset, trainer_cfg.dataloader)
+    dataloader = create_dataloader(dataset, trainer_cfg.dataloader, seed)
     logger.info(f"DataLoader: {len(dataloader)} batches, batch_size={trainer_cfg.dataloader.batch_size}")
     
     # Setup checkpointing
@@ -638,22 +638,27 @@ def create_lr_scheduler(cfg, optimizer: torch.optim.Optimizer) -> Optional[torch
         raise ValueError(f"Unsupported scheduler: {cfg.name}")
 
 
-def create_dataloader(dataset: torch.utils.data.Dataset, cfg) -> DataLoader:
-    """Create DataLoader from dataset and configuration."""
-    num_workers = cfg.num_workers
+def create_dataloader(dataset: torch.utils.data.Dataset, dataloader_cfg, seed: int) -> DataLoader:
+    """Create a (stateful) DataLoader from dataset and configuration."""
+    from utils.reproducibility import get_deterministic_dataloader
+    num_workers = dataloader_cfg.num_workers
     if num_workers == -1:
-        num_workers = find_optimal_num_workers(dataset=dataset, batch_size=cfg.batch_size, pin_memory=cfg.pin_memory)
+        num_workers = find_optimal_num_workers(dataset=dataset, batch_size=dataloader_cfg.batch_size, pin_memory=dataloader_cfg.pin_memory)
         logger.info(f"Auto-detected optimal num_workers: {num_workers}")
-    
-    return DataLoader(
-        dataset,
-        batch_size=cfg.batch_size,
-        shuffle=cfg.shuffle,
+
+    # Use stateful dataloader for reproducibility
+    dataloader = get_deterministic_dataloader(
+        dataset=dataset,
+        batch_size=dataloader_cfg.batch_size,
+        shuffle=dataloader_cfg.shuffle,
         num_workers=num_workers,
-        pin_memory=cfg.pin_memory,
-        persistent_workers=cfg.persistent_workers and num_workers > 0,
-        drop_last=cfg.drop_last
+        seed=seed,
+        pin_memory=dataloader_cfg.pin_memory,
+        persistent_workers=dataloader_cfg.persistent_workers and num_workers > 0,
+        in_order=dataloader_cfg.in_order,
+        snapshot_every_n_steps=dataloader_cfg.snapshot_every_n_steps
     )
+    return dataloader
 
 
 def setup_reproducibility(determinism_cfg, seed: int) -> None:
