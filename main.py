@@ -448,8 +448,7 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
     logger.info(f"Image size: {img_size}")
     
     # Setup device
-    device = setup_device(trainer_cfg.model)
-    trainer_cfg.model.device = device  # Update config with actual device
+    device = setup_device(trainer_cfg)
     trainer_cfg.model.img_size = img_size  # Update config with actual image size
     
     # Create model
@@ -671,7 +670,7 @@ def setup_reproducibility(determinism_cfg, seed: int) -> None:
     )
 
 
-def setup_device(cfg: ModelConfig) -> str:
+def setup_device(cfg: TrainerConfig) -> str:
     """Setup device for training."""
     if cfg.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -719,7 +718,7 @@ def setup_checkpointing(cfg) -> Dict[str, Any]:
     return checkpoint_kwargs
 
 
-@hydra.main(version_base=None, config_path="config/examples", config_name="config")
+@hydra.main(version_base=None, config_path="config/configs", config_name="baseconfig")
 def main(cfg: ExperimentConfig) -> Dict[str, Any]:
     """
     Main entry point - handles experiment-based training.
