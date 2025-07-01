@@ -20,7 +20,7 @@ resume: true  # Resume interrupted experiments
 trainer:
   # ================ Training Progression ================
   step_unit: "epoch"  # "epoch" or "iter"
-  max_steps: 5  # Number of epochs
+  max_steps: 1  # Number of epochs
 
   # ================ Core Required Components ================
   model:
