@@ -54,7 +54,9 @@ class Model(BaseVAE):
 
     @property
     def name(self):
-        return 'vae_locatello'    @property
+        return 'vae_locatello'
+
+    @property
     def kwargs(self):
         return {
             'img_size': self.img_size,

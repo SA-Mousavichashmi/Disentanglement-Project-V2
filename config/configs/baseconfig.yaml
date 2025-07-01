@@ -29,7 +29,7 @@ trainer:
   loss:
     name: "betavae"
     beta: 16
-    rec_dist: "bernoulli"
+    rec_dist: "gaussian"
     log_kl_components: false
 
   dataset:
