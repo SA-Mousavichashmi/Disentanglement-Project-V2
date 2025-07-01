@@ -141,7 +141,7 @@ class TrainerConfig:
     lr_scheduler: Optional[LRSchedulerConfig] = None
     
     # ================ Optional Metrics ================
-    metrics: Optional[MetricAggregatorConfig] = None
+    metricAggregator: Optional[MetricAggregatorConfig] = None
 
 
 @dataclass

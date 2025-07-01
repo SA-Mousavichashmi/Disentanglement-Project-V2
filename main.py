@@ -189,22 +189,22 @@ class ExperimentManager:
         return [seed for seed in self.experiment_config.seeds if seed not in completed_seeds]
     
     def save_seed_results(self, seed: int, model: torch.nn.Module, dataset: torch.utils.data.Dataset, 
-                         metric_config: Optional[MetricAggregatorConfig] = None, device: str = 'cpu'):
+                         metric_aggregator_cfg: Optional[MetricAggregatorConfig] = None, device: str = 'cpu'):
         """Save results for a specific seed by computing metrics using MetricAggregator."""
         
-        # Initialize row data with basic info
+        # Initialize row_data with basic info
         row_data = {
             'experiment_id': self.experiment_id,
             'seed': seed,
         }
         
         # Compute metrics if configuration is provided
-        if metric_config is not None and metric_config.metrics:
+        if metric_aggregator_cfg is not None and metric_aggregator_cfg.metrics:
             logger.info(f"Computing metrics for seed {seed}...")
             
             # Convert metric config to the format expected by MetricAggregator
             metrics_list = []
-            for metric_cfg in metric_config.metrics:
+            for metric_cfg in metric_aggregator_cfg.metrics:
                 metric_dict = {
                     'name': metric_cfg.name,
                     'args': {k: v for k, v in metric_cfg.__dict__.items() if k != 'name'}
@@ -219,7 +219,7 @@ class ExperimentManager:
                 computed_metrics = metric_aggregator.compute(
                     model=model, 
                     dataset=dataset, 
-                    sample_num=metric_config.sample_num, 
+                    sample_num=metric_aggregator_cfg.sample_num, 
                     seed=seed,  # Use the experiment seed for consistent sampling
                     device=device
                 )
@@ -381,14 +381,14 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             device = training_output['device']
             
             # Get metric configuration if available
-            metric_config = getattr(seed_cfg.trainer, 'metrics', None)
+            metric_aggregator_cfg = getattr(seed_cfg.trainer, 'metricAggregator', None)
             
             # Save results with metric computation
             row_data = exp_manager.save_seed_results(
                 seed=seed, 
                 model=model, 
                 dataset=dataset, 
-                metric_config=metric_config,
+                metric_aggregator_cfg=metric_aggregator_cfg,
                 device=device
             )
             experiment_results['seed_results'][seed] = row_data
