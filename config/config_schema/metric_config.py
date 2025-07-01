@@ -40,18 +40,6 @@ class DCIdConfig(BaseMetricConfig):
     num_workers: int = 8
 
 @dataclass
-class KLDConfig(BaseMetricConfig):
-    """Configuration for KL-Divergence metric."""
-    name: str = "kld"
-    batch_size: int = MISSING
-
-@dataclass
-class RandKLDConfig(BaseMetricConfig):
-    """Configuration for random KL-Divergence metric."""
-    name: str = "rand_kld"
-    batch_size: int = MISSING
-
-@dataclass
 class ModularitydConfig(BaseMetricConfig):
     """Configuration for Modularity metric."""
     name: str = "modularity_d"
@@ -63,10 +51,10 @@ class ModularitydConfig(BaseMetricConfig):
 class ReconstructionErrorConfig(BaseMetricConfig):
     """Configuration for Reconstruction Error metric."""
     name: str = "reconstruction_error"
+    error_type: str = "mse"  # Options: "mse" or "ce"
 
 @dataclass
-class MetricAggregatorConfig(BaseMetricConfig):
+class MetricAggregatorConfig:
     """Configuration for the Metric Aggregator."""
-    name: str = "metric_aggregator"
     metrics: List[BaseMetricConfig] = field(default_factory=list)
-    sample_num: int = 10000  # Number of samples to use for metric computation
+    sample_num: Optional[int] = None  # Number of samples to use for metric computation

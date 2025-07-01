@@ -18,10 +18,3 @@ metrics:
     num_workers: 8
   
   - name: "reconstruction_error"
-  
-  # KL divergence metrics (uncomment if needed)
-  # - name: "kld"
-  #   batch_size: 64
-  # 
-  # - name: "rand_kld"
-  #   batch_size: 64

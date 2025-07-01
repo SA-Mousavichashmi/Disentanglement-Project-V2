@@ -20,11 +20,8 @@ from utils.helpers import get_cpu_core_num
 
 METRICS = [
     'mig',
-    'aam',
     'sap_d',
     'dci_d',
-    'kld',
-    'rand_kld',
     'modularity_d',
     'reconstruction_error'
 ]
@@ -40,10 +37,6 @@ def select_metric(name, **kwargs):
         return metrics.SAPd(**kwargs)
     if name == 'dci_d':
         return metrics.DCId(**kwargs)
-    if name == 'kld':
-        return metrics.KLD(**kwargs)
-    if name == 'rand_kld':
-        return metrics.randKLD(**kwargs)
     if name == 'modularity_d':
         return metrics.Modularityd(**kwargs)
     if name == 'reconstruction_error':
@@ -95,7 +88,7 @@ class MetricAggregator:
 
         return torch.cat(latent_reps), torch.cat(gt_factors)
 
-    def _get_representation_dataset(self, model, dataset, sample_num, seed, device='cpu'):
+    def _get_representation_dataset(self, model, dataset, seed, sample_num=None, device='cpu'):
         """Get the latent representation and ground truth factors from the model and dataset.
 
         Args:
@@ -107,18 +100,22 @@ class MetricAggregator:
             tuple: A tuple containing the latent representations and ground truth factors in cpu
         """
 
-        if sample_num > len(dataset):
-            raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
+        if sample_num is not None:
+            if sample_num > len(dataset):
+                raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
 
-        # Create a torch generator for reproducible sampling of dataset indices
-        g = torch.Generator()
-        g.manual_seed(seed)
+            # Create a torch generator for reproducible sampling of dataset indices
+            g = torch.Generator()
+            g.manual_seed(seed)
+            
+            # Generate random indices using torch.randperm and the seeded generator
+            # Then take the first 'sample_num' indices
+            indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
+            
+            sample_dataset = torch.utils.data.Subset(dataset, indices)
+        else:
+            sample_dataset = dataset
         
-        # Generate random indices using torch.randperm and the seeded generator
-        # Then take the first 'sample_num' indices
-        indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
-        
-        sample_dataset = torch.utils.data.Subset(dataset, indices)
         data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
 
         return self._get_representation_dataloader(model, data_loader, device)

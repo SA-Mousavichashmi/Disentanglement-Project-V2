@@ -1,4 +1,0 @@
-# Random KLD (Random KL-Divergence) Metric Configuration
-# Measures KL divergence against random representations as baseline
-name: "rand_kld"
-batch_size: 64  # Batch size for random KL divergence computation

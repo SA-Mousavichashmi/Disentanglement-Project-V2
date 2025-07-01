@@ -1,4 +1,0 @@
-# KLD (KL-Divergence) Metric Configuration
-# Measures the KL divergence of the latent representation
-name: "kld"
-batch_size: 64  # Batch size for KL divergence computation

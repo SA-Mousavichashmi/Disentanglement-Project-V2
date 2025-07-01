@@ -110,21 +110,16 @@ trainer:
     verbose: false
 
   # ================ Metrics ================
-  metrics:
-    name: "metric_aggregator"
-    sample_num: 10000
+  metricAggregator:
+    sample_num: None
     metrics:
+      # Core disentanglement metrics
       - name: "mig"
         num_bins: 20
         num_workers: 8
         mi_method: "pyitlib"
         entropy_method: "pyitlib"
-      
-      - name: "sap_d"
-        num_train: 10000
-        num_test: 5000
-        num_bins: 20
-      
+              
       - name: "dci_d"
         num_train: 10000
         num_test: 5000
@@ -133,3 +128,4 @@ trainer:
         num_workers: 8
       
       - name: "reconstruction_error"
+        error_type: "mse"  # Options: "mse" or "ce"
