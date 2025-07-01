@@ -20,7 +20,6 @@ trainer:
 
   # ================ Core Required Components ================
   model:
-    _target_: vae_locatello  # Use the Locatello VAE model
     name: "vae_locatello"
     encoder_name: "locatello"
     decoder_name: "locatello"
@@ -32,7 +31,7 @@ trainer:
   loss:
     _target_: betavae  # Use Beta-VAE loss
     name: "betavae"
-    beta: 4.0
+    beta: 16
     rec_dist: "bernoulli"
     log_kl_components: false
 
