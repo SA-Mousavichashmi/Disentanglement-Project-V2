@@ -29,18 +29,17 @@ trainer:
     device: "auto"
 
   loss:
-    _target_: betavae  # Use Beta-VAE loss
     name: "betavae"
     beta: 16
     rec_dist: "bernoulli"
     log_kl_components: false
 
   dataset:
-    _target_: shapes3d  # Use Shapes3D dataset
     name: "shapes3d"
     root: "data/shapes3d/"
     img_size: [3, 64, 64]
     selected_factors: "all"
+    not_selected_factors_index_values: None
     subset: 1.0
 
   # ================ Data Loading ================
