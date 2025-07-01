@@ -22,7 +22,6 @@ class DatasetConfig:
 class Cars3DConfig(DatasetConfig):
     """Configuration for Cars3D dataset."""
     name: str = "cars3d"
-    img_size: Tuple[int, int, int] = (3, 64, 64)
     not_selected_factors_index_value: Dict[str, Any] = field(default_factory=dict)
     root: str = "data/cars3d/"
 
@@ -31,7 +30,6 @@ class Cars3DConfig(DatasetConfig):
 class DSpritesConfig(DatasetConfig):
     """Configuration for DSprites dataset."""
     name: str = "dsprites"
-    img_size: Tuple[int, int, int] = (1, 64, 64)
     not_selected_factors_index_value: Dict[str, Any] = field(default_factory=dict)
     root: str = "data/dsprites/"
     drop_color_factor: bool = True
@@ -41,7 +39,6 @@ class DSpritesConfig(DatasetConfig):
 class Shapes3DConfig(DatasetConfig):
     """Configuration for Shapes3D dataset."""
     name: str = "shapes3d"
-    img_size: Tuple[int, int, int] = (3, 64, 64)
     not_selected_factors_index_value: Dict[str, Any] = field(default_factory=dict)
     root: str = "data/shapes3d/"
 
