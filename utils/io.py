@@ -307,7 +307,7 @@ def create_chkpt(
                 'seed': dataloader.generator.initial_seed() if dataloader.generator else None, # Assuming generator is set and has initial_seed
                 'persistent_workers': dataloader.persistent_workers,
                 'in_order': dataloader.in_order,
-                'snapshot_every_n_steps': dataloader.snapshot_every_n_steps,
+                'snapshot_every_n_steps': getattr(dataloader, 'snapshot_every_n_steps', 1),
            },
            'state_dict': dataloader.state_dict() # Assuming using StatefulDataLoader
         },
