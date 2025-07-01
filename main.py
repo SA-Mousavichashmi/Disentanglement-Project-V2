@@ -613,22 +613,19 @@ def create_lr_scheduler(cfg, optimizer: torch.optim.Optimizer) -> Optional[torch
         return optim.lr_scheduler.StepLR(
             optimizer,
             step_size=cfg.step_size,
-            gamma=cfg.gamma,
-            verbose=cfg.verbose
+            gamma=cfg.gamma
         )
     elif cfg.name == "ReduceLROnPlateau":
         return optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             patience=cfg.patience,
-            factor=cfg.factor,
-            verbose=cfg.verbose
+            factor=cfg.factor
         )
     elif cfg.name == "CosineAnnealingLR":
         return optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=cfg.T_max,
-            eta_min=cfg.eta_min,
-            verbose=cfg.verbose
+            eta_min=cfg.eta_min
         )
     else:
         raise ValueError(f"Unsupported scheduler: {cfg.name}")
