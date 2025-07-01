@@ -21,6 +21,7 @@ trainer:
   # ================ Training Progression ================
   step_unit: "epoch"  # "epoch" or "iter"
   max_steps: 1  # Number of epochs
+  device: "auto"
 
   # ================ Core Required Components ================
   model:

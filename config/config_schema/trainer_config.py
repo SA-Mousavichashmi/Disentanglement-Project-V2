@@ -111,6 +111,7 @@ class TrainerConfig:
     # ================ Training Progression ================
     step_unit: str = "epoch"  # "epoch" or "iter"
     max_steps: int = 100  # Number of epochs or iterations
+    device: str = "auto" # "auto", "cpu", "cuda"
     
     # ================ Core Required Components ================
     model: Any = MISSING

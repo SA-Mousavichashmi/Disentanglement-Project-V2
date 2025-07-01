@@ -11,7 +11,6 @@ class ModelConfig:
     """Base class for model configuration."""
     name: str = MISSING
     img_size: Optional[Tuple[int, int, int]] = None
-    device: str = MISSING
 
 @dataclass
 class VAEBaseConfig(ModelConfig):
