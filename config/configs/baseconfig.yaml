@@ -7,7 +7,7 @@ hydra:
   output_subdir: null
 
 defaults:
-  - model: vae_locatello
+  - trainer/model: vae_locatello
 
 # ================ Experiment Management ================
 experiment_id: null  # Auto-generated if null
@@ -24,8 +24,7 @@ trainer:
 
   # ================ Core Required Components ================
   model:
-    # Override only the parameters you want to change from vae_locatello.yaml
-    latent_dim: 10  # Example override
+    latent_dim: 10
 
   loss:
     name: "betavae"
@@ -102,7 +101,7 @@ trainer:
   lr_scheduler:
     name: "constantLR"
 
-  # ================ Metrics ================
+  # ================ Optional Metrics ================
   metricAggregator:
     sample_num: null
     metrics:
