@@ -545,6 +545,7 @@ def create_dataset(cfg: DatasetConfig) -> torch.utils.data.Dataset:
     
     # Convert config to dict
     dataset_kwargs = OmegaConf.to_container(cfg, resolve=True)
+    dataset_kwargs.pop('name', None)  # Remove name as it's not needed for instantiation
     
     return dataset_class(**dataset_kwargs)
 
