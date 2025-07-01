@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from .basemetric import BaseMetric
 
 class ReconstructionError(BaseMetric):
-    def __init__(self, error_type="mse", **kwargs):
+    def __init__(self, error_type="mse", reduction="mean", **kwargs):
         """
         Initialize ReconstructionError metric.
         
@@ -25,6 +25,10 @@ class ReconstructionError(BaseMetric):
         if error_type not in ["mse", "ce"]:
             raise ValueError(f"error_type must be 'mse' or 'ce', got {error_type}")
         self.error_type = error_type
+        # Validate and store reduction mode for reconstruction error
+        if reduction not in ["mean", "sum"]:
+            raise ValueError(f"reduction must be 'mean' or 'sum', got {reduction}")
+        self.reduction = reduction
 
     @property
     def _requires(self):
@@ -32,7 +36,7 @@ class ReconstructionError(BaseMetric):
 
     @property
     def _mode(self):
-        return 'instance'
+        return "batch"
 
     def __call__(self, reconstructions, data_samples, **kwargs):
         """Compute reconstruction error.
@@ -46,25 +50,14 @@ class ReconstructionError(BaseMetric):
             
         Returns
         -------
-        tuple of torch.Tensor
-            Per-sample reconstruction errors.
+        torch.Tensor
+            Batch reconstruction error.
         """
         if self.error_type == "mse":
-            # Mean-squared reconstruction error
-            return torch.mean(
-                (reconstructions - data_samples).view(len(data_samples), -1)**2, 
-                dim=-1).unbind(-1)
+            # Squared reconstruction error for the batch
+            return F.mse_loss(reconstructions, data_samples, reduction=self.reduction)
         elif self.error_type == "ce":
-            # Binary cross-entropy reconstruction error
-            # Flatten the tensors for per-sample computation
-            batch_size = data_samples.size(0)
-            reconstructions_flat = reconstructions.view(batch_size, -1)
-            data_samples_flat = data_samples.view(batch_size, -1)
-            
-            # Compute binary cross entropy per sample
-            # Use reduction='none' to get per-sample losses, then sum over features
-            bce_per_sample = F.binary_cross_entropy(
-                reconstructions_flat, data_samples_flat, reduction='none'
-            ).sum(dim=-1)
-            
-            return bce_per_sample.unbind(-1)
+            # Binary cross-entropy reconstruction error for the batch
+            return F.binary_cross_entropy(
+                reconstructions, data_samples, reduction=self.reduction
+            )

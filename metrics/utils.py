@@ -42,7 +42,7 @@ def select_metric(name, **kwargs):
     if name == 'reconstruction_error':
         return metrics.ReconstructionError(**kwargs)
 
-class MetricAggregator:
+class MetricAggregator: # TODO Add capability to compute metrics like reconstruction error that do not require latent representations
     """
     This class aggregates multiple disentanglement metrics
     """

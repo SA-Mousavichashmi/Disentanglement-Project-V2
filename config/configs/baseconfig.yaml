@@ -126,6 +126,3 @@ trainer:
         split_ratio: 0.8
         backend: "sklearn"
         num_workers: 8
-      
-      - name: "reconstruction_error"
-        error_type: "mse"  # Options: "mse" or "ce"
