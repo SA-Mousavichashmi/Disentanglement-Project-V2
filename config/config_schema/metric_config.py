@@ -33,9 +33,9 @@ class SAPdConfig(BaseMetricConfig):
 class DCIdConfig(BaseMetricConfig):
     """Configuration for Disentanglement, Completeness, and Informativeness metric."""
     name: str = "dci_d"
-    num_train: Optional[int] = None
-    num_test: Optional[int] = None
-    split_ratio: Optional[float] = 0.8
+    num_train: Optional[int] = 10000
+    num_test: Optional[int] = 5000
+    split_ratio: Optional[float] = None
     backend: str = 'sklearn'
     num_workers: int = 8
 
