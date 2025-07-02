@@ -205,9 +205,10 @@ class ExperimentManager:
             # Convert metric config to the format expected by MetricAggregator
             metrics_list = []
             for metric_cfg in metric_aggregator_cfg.metrics:
+                # metric_cfg is already a dictionary after OmegaConf.to_container
                 metric_dict = {
-                    'name': metric_cfg.name,
-                    'args': {k: v for k, v in metric_cfg.__dict__.items() if k != 'name'}
+                    'name': metric_cfg.get('name'),
+                    'args': {k: v for k, v in metric_cfg.items() if k != 'name'}
                 }
                 metrics_list.append(metric_dict)
             
@@ -223,7 +224,6 @@ class ExperimentManager:
                     seed=seed,  # Use the experiment seed for consistent sampling
                     device=device
                 )
-                
                 # Add computed metrics to row data
                 for metric_name, metric_value in computed_metrics.items():
                     if isinstance(metric_value, dict):
@@ -232,13 +232,10 @@ class ExperimentManager:
                             row_data[f'{metric_name}_{sub_key}'] = sub_value
                     else:
                         row_data[metric_name] = metric_value
-                
                 logger.info(f"Successfully computed {len(computed_metrics)} metrics for seed {seed}")
-                
             except Exception as e:
                 logger.error(f"Failed to compute metrics for seed {seed}: {str(e)}")
-                # Add error information
-                row_data['metric_computation_error'] = str(e)
+                raise
         else:
             logger.warning(f"No metric configuration provided for seed {seed}, skipping metric computation")
         
