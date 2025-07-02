@@ -13,7 +13,6 @@ metrics:
   - name: "dci_d"
     num_train: 10000
     num_test: 5000
-    split_ratio: 0.8
     backend: "sklearn"
     num_workers: 8
   
