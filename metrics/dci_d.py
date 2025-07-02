@@ -196,11 +196,18 @@ class DCId(BaseMetric):
         disentanglement = np.sum(per_latent_disentanglement * total_latent_disentanglement)
         completeness = np.sum(per_factor_completeness * total_factor_completeness)
 
+        # return {
+        #     'disentanglement': disentanglement,
+        #     'completeness': completeness,
+        #     'informativeness_train_scores': informativeness_train_scores,
+        #     'informativeness_test_scores': informativeness_test_scores,
+        #     'informativeness_train_errors': informativeness_train_errors,
+        #     'informativeness_test_errors': informativeness_test_errors,
+        # }
+
         return {
+            'dci_d': (disentanglement + completeness + informativeness_test_scores) / 3,
             'disentanglement': disentanglement,
             'completeness': completeness,
-            'informativeness_train_scores': informativeness_train_scores,
-            'informativeness_test_scores': informativeness_test_scores,
-            'informativeness_train_errors': informativeness_train_errors,
-            'informativeness_test_errors': informativeness_test_errors,
+            'informativeness': informativeness_test_scores,
         }

@@ -194,7 +194,6 @@ class ExperimentManager:
         
         # Initialize row_data with basic info
         row_data = {
-            'experiment_id': self.experiment_id,
             'seed': seed,
         }
         
@@ -251,42 +250,44 @@ class ExperimentManager:
         return row_data
     
     def generate_experiment_summary(self):
-        """Generate final experiment summary with statistics across all seeds."""
+        """Generate final experiment summary with statistics across all seeds and save as YAML."""
+        import yaml
         if not self.results_csv_path.exists():
             logger.warning("No results CSV file found for summary.")
             return
 
         # Load all results from the single CSV file
         df = pd.read_csv(self.results_csv_path)
-        
+
         if df.empty:
             logger.warning("No completed seed results found for summary")
             return
-        
+
         # Calculate statistics for numeric columns
         numeric_columns = df.select_dtypes(include=[np.number]).columns
         summary_data = {
             'experiment_id': self.experiment_id,
             'total_seeds': len(self.experiment_config.seeds),
             'completed_seeds': len(df),
-            'summary_timestamp': datetime.now().isoformat()
+            'metrics': {}
         }
-        
-        # Add mean and std for each numeric metric
+
+        # Add mean, std, min, max for each numeric metric
         for col in numeric_columns:
             if col not in ['seed', 'experiment_id', 'training_completed']:
-                summary_data[f'{col}_mean'] = df[col].mean()
-                summary_data[f'{col}_std'] = df[col].std()
-                summary_data[f'{col}_min'] = df[col].min()
-                summary_data[f'{col}_max'] = df[col].max()
-        
-        # Save summary
-        summary_df = pd.DataFrame([summary_data])
-        summary_df.to_csv(self.summary_csv_path, index=False)
-        
-        logger.info(f"Generated experiment summary: {self.summary_csv_path}")
+                summary_data['metrics'][col] = {
+                    'mean': float(df[col].mean()),
+                    'std': float(df[col].std()),
+                }
+
+        # Save summary as YAML
+        summary_yaml_path = self.results_dir / "experiment_summary.yaml"
+        with open(summary_yaml_path, 'w') as f:
+            yaml.dump(summary_data, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
+
+        logger.info(f"Generated experiment summary (YAML): {summary_yaml_path}")
         logger.info(f"Completed {len(df)}/{len(self.experiment_config.seeds)} seeds")
-        
+
         return summary_data
     
     def get_checkpoint_path(self, seed: int) -> str:
