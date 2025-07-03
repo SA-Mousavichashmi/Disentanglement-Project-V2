@@ -188,10 +188,10 @@ class ExperimentManager:
         
         # Write trainer sections with spacing
         sections = [
-            ('model', trainer_config.get('model')),
             ('step_unit', trainer_config.get('step_unit')),
             ('max_steps', trainer_config.get('max_steps')),
             ('device', trainer_config.get('device')),
+            ('model', trainer_config.get('model')),
             ('loss', trainer_config.get('loss')),
             ('dataset', trainer_config.get('dataset')),
             ('dataloader', trainer_config.get('dataloader')),

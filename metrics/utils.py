@@ -140,8 +140,10 @@ class MetricAggregator: # TODO Add capability to compute metrics like reconstruc
         latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
 
         results = {}
-        for metric in self.metrics:
+        progress_bar = tqdm(self.metrics, desc="Computing metrics")
+        for metric in progress_bar:
             metric_name = metric['name']
+            progress_bar.set_description(f"Computing {metric_name}")
             metric_args = metric.get('args', {})
             metric_obj = select_metric(metric_name, **metric_args)
             result = metric_obj(latent_reps, gt_factors)
