@@ -31,7 +31,7 @@ trainer:
     name: "betavae"
     beta: 16
     rec_dist: "gaussian"
-    log_kl_components: false
+    log_kl_components: true
 
   dataset:
     name: "shapes3d"

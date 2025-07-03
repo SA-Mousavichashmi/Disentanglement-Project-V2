@@ -163,9 +163,73 @@ class ExperimentManager:
         return f"exp_{timestamp}_{str(uuid.uuid4())[:8]}"
     
     def _save_experiment_config(self):
-        """Save the experiment configuration."""
+        """Save the experiment configuration with improved formatting and spacing."""
+        import yaml
+        from io import StringIO
+        
+        # Convert config to dictionary for custom formatting
+        config_dict = OmegaConf.to_container(self.experiment_config, resolve=True)
+        
+        # Create formatted YAML with proper spacing between sections
+        output = StringIO()
+        
+        # Write experiment section first
+        output.write("# Experiment Configuration\n")
+        yaml.dump({
+            'experiment_id': config_dict.get('experiment_id'),
+            'seeds': config_dict.get('seeds'),
+            'results_dir': config_dict.get('results_dir'),
+            'resume': config_dict.get('resume')
+        }, output, default_flow_style=False, sort_keys=False, allow_unicode=True, indent=2)
+        
+        # Add spacing and trainer section
+        output.write("\n# Trainer Configuration\n")
+        trainer_config = config_dict.get('trainer', {})
+        
+        # Write trainer sections with spacing
+        sections = [
+            ('model', trainer_config.get('model')),
+            ('step_unit', trainer_config.get('step_unit')),
+            ('max_steps', trainer_config.get('max_steps')),
+            ('device', trainer_config.get('device')),
+            ('loss', trainer_config.get('loss')),
+            ('dataset', trainer_config.get('dataset')),
+            ('dataloader', trainer_config.get('dataloader')),
+            ('progress_bar', trainer_config.get('progress_bar')),
+            ('logging', trainer_config.get('logging')),
+            ('checkpoint', trainer_config.get('checkpoint')),
+            ('determinism', trainer_config.get('determinism')),
+            ('torch_compile', trainer_config.get('torch_compile')),
+            ('optimizer', trainer_config.get('optimizer')),
+            ('lr_scheduler', trainer_config.get('lr_scheduler')),
+            ('metricAggregator', trainer_config.get('metricAggregator'))
+        ]
+        
+        output.write("trainer:\n")
+        for i, (section_name, section_value) in enumerate(sections):
+            if section_value is not None:
+                # Add spacing between sections (except for scalar values)
+                if i > 0 and isinstance(section_value, dict):
+                    output.write("\n")
+                
+                # Write section
+                section_yaml = yaml.dump({section_name: section_value}, 
+                                       default_flow_style=False, 
+                                       sort_keys=False, 
+                                       allow_unicode=True, 
+                                       indent=2)
+                # Remove the first line (section_name:) and indent properly
+                lines = section_yaml.strip().split('\n')
+                if len(lines) > 1:
+                    output.write(f"  {section_name}:\n")
+                    for line in lines[1:]:
+                        output.write(f"  {line}\n")
+                else:
+                    output.write(f"  {section_name}: {section_value}\n")
+        
+        # Write to file
         with open(self.config_path, 'w') as f:
-            OmegaConf.save(config=self.experiment_config, f=f)
+            f.write(output.getvalue())
     
     def get_completed_seeds(self) -> List[int]:
         """Get list of seeds that have already been completed."""
