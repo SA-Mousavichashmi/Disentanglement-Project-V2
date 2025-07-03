@@ -162,7 +162,7 @@ class ExperimentManager:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"exp_{timestamp}_{str(uuid.uuid4())[:8]}"
 
-    def _save_experiment_config(self): # TODO keep in mind the refactoring by added parameters is necessary.
+    def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
         """Save the experiment configuration with improved formatting and spacing."""
         import yaml
         from io import StringIO
@@ -424,6 +424,14 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         'seed_results': {}
     }
     
+    # Create dataset and setup device once (independent of seeding)
+    logger.info("Creating dataset and setting up device...")
+    dataset = create_dataset(cfg.trainer.dataset)
+    logger.info(f"Dataset size: {len(dataset)}")
+    img_size = dataset.img_size
+    logger.info(f"Image size: {img_size}")
+    device = setup_device(cfg.trainer)
+    
     # Run training for each pending seed
     for seed in pending_seeds:
         logger.info("="*70)
@@ -442,7 +450,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             seed_cfg.trainer.checkpoint.save_master_dir = seed_checkpoint_dir
             
             # Run training for this seed
-            training_output = run_training_session(seed_cfg.trainer, train_id, seed)
+            training_output = run_training_session(seed_cfg.trainer, train_id, seed, dataset, device, img_size)
             
             # Extract components from training output
             model = training_output['model']
@@ -491,7 +499,8 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
     return experiment_results
 
 
-def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -> Dict[str, Any]:
+def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int, 
+                         dataset: torch.utils.data.Dataset, device: str, img_size: tuple) -> Dict[str, Any]:
     """
     Run a single training session.
     
@@ -499,6 +508,9 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
         trainer_cfg: Trainer configuration object
         train_id: Unique identifier for the training run
         seed: Seed for reproducibility
+        dataset: Pre-created dataset
+        device: Device to use for training
+        img_size: Image size from dataset
         
     Returns:
         Dictionary containing training results
@@ -507,17 +519,9 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
     setup_reproducibility(trainer_cfg.determinism, seed)
     
     logger.info(f"Training ID: {train_id}")
-    
-    # Create dataset
-    dataset = create_dataset(trainer_cfg.dataset)
-    logger.info(f"Dataset size: {len(dataset)}")
-    
-    # Get image size from dataset
-    img_size = dataset.img_size
+    logger.info(f"Using pre-created dataset - size: {len(dataset)}")
+    logger.info(f"Using device: {device}")
     logger.info(f"Image size: {img_size}")
-
-    # Setup device
-    device = setup_device(trainer_cfg)
         
     # Create model
     model = create_model(trainer_cfg.model, img_size)
