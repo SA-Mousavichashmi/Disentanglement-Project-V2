@@ -176,7 +176,7 @@ class ExperimentManager:
         # Write experiment section first
         output.write("# Experiment Configuration\n")
         yaml.dump({
-            'experiment_id': config_dict.get('experiment_id'),
+            'experiment_id': self.experiment_id,
             'seeds': config_dict.get('seeds'),
             'results_dir': config_dict.get('results_dir'),
             'resume': config_dict.get('resume')
