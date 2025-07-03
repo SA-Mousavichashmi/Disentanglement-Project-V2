@@ -423,20 +423,6 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         'experiment_id': exp_manager.experiment_id,
         'seed_results': {}
     }
-
-    # Create base configuration (will be copied for each seed)
-    base_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
-    
-    # Create dataset
-    dataset = create_dataset(base_cfg.trainer.dataset)
-    logger.info(f"Dataset size: {len(dataset)}")
-    
-    # Get image size from dataset
-    img_size = dataset.img_size
-    logger.info(f"Image size: {img_size}")
-    
-    # Setup device
-    device = setup_device(base_cfg.trainer)
     
     # Run training for each pending seed
     for seed in pending_seeds:
@@ -447,8 +433,16 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         logger.info("="*70)
         
         try:
-            # Run training for this seed (pass seed-independent components)
-            training_output = run_training_session(base_cfg.trainer, train_id, seed, dataset, device, img_size)
+            # Create seed-specific configuration
+            seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+            
+            # Set up seed-specific checkpoint directory
+            seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
+            seed_cfg.trainer.checkpoint.enabled = True
+            seed_cfg.trainer.checkpoint.save_master_dir = seed_checkpoint_dir
+            
+            # Run training for this seed
+            training_output = run_training_session(seed_cfg.trainer, train_id, seed)
             
             # Extract components from training output
             model = training_output['model']
@@ -456,7 +450,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             device = training_output['device']
             
             # Get metric configuration if available
-            metric_aggregator_cfg = getattr(base_cfg.trainer, 'metricAggregator', None)
+            metric_aggregator_cfg = getattr(seed_cfg.trainer, 'metricAggregator', None)
             
             # Save results with metric computation
             row_data = exp_manager.save_seed_results(
@@ -497,8 +491,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
     return experiment_results
 
 
-def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int, 
-                        dataset: torch.utils.data.Dataset, device: str, img_size: tuple) -> Dict[str, Any]:
+def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -> Dict[str, Any]:
     """
     Run a single training session.
     
@@ -506,9 +499,6 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int,
         trainer_cfg: Trainer configuration object
         train_id: Unique identifier for the training run
         seed: Seed for reproducibility
-        dataset: Pre-created dataset (seed-independent)
-        device: Pre-configured device (seed-independent)
-        img_size: Pre-calculated image size (seed-independent)
         
     Returns:
         Dictionary containing training results
@@ -517,15 +507,24 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int,
     setup_reproducibility(trainer_cfg.determinism, seed)
     
     logger.info(f"Training ID: {train_id}")
-    logger.info(f"Using pre-created dataset with size: {len(dataset)}")
-    logger.info(f"Using pre-configured device: {device}")
-    logger.info(f"Using pre-calculated image size: {img_size}")
+    
+    # Create dataset
+    dataset = create_dataset(trainer_cfg.dataset)
+    logger.info(f"Dataset size: {len(dataset)}")
+    
+    # Get image size from dataset
+    img_size = dataset_utils.get_img_size(trainer_cfg.dataset.name, getattr(trainer_cfg.dataset, 'img_size', None))
+    logger.info(f"Image size: {img_size}")
+    
+    # Setup device
+    device = setup_device(trainer_cfg)
+    trainer_cfg.model.img_size = img_size  # Update config with actual image size
     
     # Create model
     model = create_model(trainer_cfg.model, img_size)
     model = model.to(device)
     logger.info(f"Model device: {get_model_device(model)}")
-    # logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+    logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
     # Create loss
     loss = create_loss(trainer_cfg.loss)
