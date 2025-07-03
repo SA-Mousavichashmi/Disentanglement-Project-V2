@@ -447,7 +447,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
             # Set up seed-specific checkpoint directory
             seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
             seed_cfg.trainer.checkpoint.enabled = True
-            seed_cfg.trainer.checkpoint.save_master_dir = seed_checkpoint_dir
+            seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
             
             # Run training for this seed
             training_output = run_training_session(seed_cfg.trainer, train_id, seed, dataset, device, img_size)
@@ -760,13 +760,7 @@ def setup_checkpointing(cfg) -> Dict[str, Any]:
     checkpoint_kwargs = {}
     
     if cfg.enabled:
-        if cfg.save_master_dir is not None:
-            # Create organized checkpoint structure
-            master_dir = Path(cfg.save_master_dir)
-            master_dir.mkdir(parents=True, exist_ok=True)
-            checkpoint_kwargs['chkpt_save_master_dir'] = str(master_dir)
-            
-        elif cfg.save_dir is not None:
+        if cfg.save_dir is not None:
             # Create checkpoint directory
             save_dir = Path(cfg.save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)

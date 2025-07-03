@@ -205,7 +205,6 @@ def create_chkpt(
                 chkpt_step_type=None,
                 chkpt_save_path=None,
                 chkpt_save_dir=None,
-                chkpt_save_master_dir=None,
                 chkpt_viz=None,
                 # --- Logging settings ---
                 is_progress_bar=None,
@@ -248,7 +247,6 @@ def create_chkpt(
             chkpt_step_type: Granularity for checkpointing.
             chkpt_save_path: File path to save final checkpoint.
             chkpt_save_dir: Directory to save checkpoints.
-            chkpt_save_master_dir: Master directory for organized checkpoints.
             chkpt_viz: If True, saves visualizations with checkpoints.
         
         Logging Settings:
@@ -317,7 +315,6 @@ def create_chkpt(
             'chkpt_step_type': chkpt_step_type,
             'chkpt_save_path': chkpt_save_path,
             'chkpt_save_dir': chkpt_save_dir,
-            'chkpt_save_master_dir': chkpt_save_master_dir,
             'chkpt_viz': chkpt_viz, # Added
         },
         'logging': {
@@ -400,7 +397,6 @@ def save_chkpt(
         chkpt_step_type=None, # Added
         chkpt_save_path=None, # Added
         chkpt_save_dir=None, # Added
-        chkpt_save_master_dir=None, # Added
         chkpt_viz=None, # Added
         # --- Logging settings ---
         is_progress_bar=None, # Added
@@ -445,7 +441,6 @@ def save_chkpt(
             chkpt_step_type: Granularity for checkpointing.
             chkpt_save_path: File path to save final checkpoint.
             chkpt_save_dir: Directory to save checkpoints.
-            chkpt_save_master_dir: Master directory for organized checkpoints.
             chkpt_viz: If True, saves visualizations with checkpoints.
         
         Logging Settings:
@@ -479,7 +474,6 @@ def save_chkpt(
         chkpt_step_type=chkpt_step_type, # Added
         chkpt_save_path=chkpt_save_path, # Added
         chkpt_save_dir=chkpt_save_dir, # Added
-        chkpt_save_master_dir=chkpt_save_master_dir, # Added
         is_progress_bar=is_progress_bar, # Added
         progress_bar_log_iter_interval=progress_bar_log_iter_interval, # Added
         log_loss_interval_type=log_loss_interval_type, # Added
@@ -705,7 +699,6 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
     chkpt_step_type = chkpt_settings['chkpt_step_type']
     chkpt_save_path = chkpt_settings['chkpt_save_path']
     chkpt_save_dir = chkpt_settings['chkpt_save_dir']
-    chkpt_save_master_dir = chkpt_settings['chkpt_save_master_dir']
     
     # Extract logging settings
     logging_settings = chkpt['logging']
@@ -750,7 +743,6 @@ def create_trainer_from_chkpt_exact(chkpt, device='cuda' if torch.cuda.is_availa
         chkpt_step_type=chkpt_step_type,
         chkpt_save_path=chkpt_save_path,
         chkpt_save_dir=chkpt_save_dir,
-        chkpt_save_master_dir=chkpt_save_master_dir,
         chkpt_viz=chkpt_viz, # Added
     )
     
@@ -889,7 +881,6 @@ def create_trainer_from_chkpt(ckpt,
         chkpt_every_n_steps=ckpt['chkpt']['chkpt_every_n_steps'], # Added
         chkpt_step_type=ckpt['chkpt']['chkpt_step_type'], # Added
         chkpt_save_path=ckpt['chkpt']['chkpt_save_path'], # Added
-        chkpt_save_master_dir=ckpt['chkpt']['chkpt_save_master_dir'], # Added
         chkpt_viz=ckpt['chkpt'].get('chkpt_viz', False), # Added with default False
         **(additional_trainer_kwargs or {}) # Spread remaining kwargs, allows overriding any previous args
     )

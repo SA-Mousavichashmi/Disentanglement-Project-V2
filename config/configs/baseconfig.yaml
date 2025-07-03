@@ -77,7 +77,6 @@ trainer:
     step_type: "epoch"
     save_path: null
     save_dir: null
-    save_master_dir: null  # Will be set automatically by experiment manager
     save_viz: true  # Save visualizations with checkpoints
 
   # ================ Reproducibility ================

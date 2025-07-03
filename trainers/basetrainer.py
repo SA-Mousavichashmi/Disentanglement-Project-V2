@@ -53,7 +53,6 @@ class BaseTrainer():
                  chkpt_step_type='iter',
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
-                 chkpt_save_master_dir=None,
                  chkpt_viz=False, 
                  ):
         """
@@ -117,8 +116,6 @@ class BaseTrainer():
             File path to save final checkpoint. Exclusive with other save options. Defaults to None.
         chkpt_save_dir : str, optional
             Directory to save checkpoints. Exclusive with other save options. Defaults to None.
-        chkpt_save_master_dir : str, optional
-            Master directory for organized checkpoints. Exclusive with other save options. Defaults to None.
         chkpt_viz : bool, optional
             If True, saves visualizations (e.g., latent traversals, reconstructions) with checkpoints. Defaults to False.
         """
@@ -130,7 +127,6 @@ class BaseTrainer():
             chkpt_step_type=chkpt_step_type,
             chkpt_save_path=chkpt_save_path,
             chkpt_save_dir=chkpt_save_dir,
-            chkpt_save_master_dir=chkpt_save_master_dir,
             chkpt_every_n_steps=chkpt_every_n_steps,
             chkpt_viz=chkpt_viz # Pass chkpt_viz here
         )
@@ -184,12 +180,11 @@ class BaseTrainer():
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
         self.chkpt_save_dir = chkpt_save_dir
-        self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
         self.chkpt_step_type = chkpt_step_type 
         self.chkpt_viz = chkpt_viz
 
-        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
+        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_path is not None)
         self.chkpt_list = []
         self.chkpt_train_losses_log = []
         self.chkpt_train_metrics_log = []
@@ -241,7 +236,6 @@ class BaseTrainer():
         chkpt_step_type,
         chkpt_save_path,
         chkpt_save_dir,
-        chkpt_save_master_dir,
         chkpt_every_n_steps,
         chkpt_viz # Add chkpt_viz here
     ):
@@ -269,21 +263,20 @@ class BaseTrainer():
             raise ValueError("chkpt_step_type must be either 'epoch' or 'iter'")
 
         #### Checkpointing assertions ####
-        # Ensure at most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir is set
+        # Ensure at most one of chkpt_save_path or chkpt_save_dir is set
         save_path_set = chkpt_save_path is not None
         save_dir_set = chkpt_save_dir is not None
-        save_master_dir_set = chkpt_save_master_dir is not None
 
-        if sum([save_path_set, save_dir_set, save_master_dir_set]) > 1:
-             raise ValueError("At most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir can be set.")
+        if sum([save_path_set, save_dir_set]) > 1:
+             raise ValueError("At most one of chkpt_save_path or chkpt_save_dir can be set.")
 
         # If chkpt_save_path is set, chkpt_every_n_steps must be None
         if chkpt_save_path is not None and chkpt_every_n_steps is not None:
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
         
-        if chkpt_viz and chkpt_save_dir is None and chkpt_save_master_dir is None:
-            raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir or chkpt_save_master_dir is set. " \
+        if chkpt_viz and chkpt_save_dir is None:
+            raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir is set. " \
                              "Please provide a directory to save visualizations.")
 
     def train(self, step_unit, max_steps: int, dataloader=None):
@@ -544,7 +537,6 @@ class BaseTrainer():
             chkpt_step_type=self.chkpt_step_type,
             chkpt_save_path=self.chkpt_save_path,
             chkpt_save_dir=self.chkpt_save_dir,
-            chkpt_save_master_dir=self.chkpt_save_master_dir,
             return_chkpt=self.return_chkpt, # Added
             chkpt_viz=self.chkpt_viz, # Added
             # --- Pass logging args ---
@@ -642,7 +634,6 @@ class BaseTrainer():
                 "every_n_steps": self.chkpt_every_n_steps,
                 "save_path": self.chkpt_save_path,
                 "save_dir": self.chkpt_save_dir,
-                "master_dir": self.chkpt_save_master_dir,
                 "return_chkpt": self.return_chkpt,
                 "chkpt_viz": self.chkpt_viz,
             },

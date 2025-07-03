@@ -96,7 +96,6 @@ class CheckpointConfig:
     # Save locations (mutually exclusive)
     save_path: Optional[str] = None  # Single file path
     save_dir: Optional[str] = None  # Directory for multiple checkpoints
-    save_master_dir: Optional[str] = None  # Master directory for organized checkpoints
     
     # Visualization
     save_viz: bool = False  # Save visualizations with checkpoints
