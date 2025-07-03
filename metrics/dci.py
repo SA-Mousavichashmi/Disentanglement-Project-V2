@@ -32,7 +32,7 @@ import math
 
 from .basemetric import BaseMetric
 
-class DCId(BaseMetric):
+class DCI(BaseMetric):
     def __init__(self, num_train=None, num_test=None, split_ratio=None, backend='sklearn', num_workers=8, **kwargs):
         super().__init__(**kwargs)
 

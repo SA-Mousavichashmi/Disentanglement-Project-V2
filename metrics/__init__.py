@@ -7,6 +7,6 @@ LICENSE file in the root directory of this source tree.
 """
 from .mig import MIG
 from .sap_d import SAPd
-from .dci_d import DCId
+from .dci import DCI
 from .modularity_d import Modularityd
 from .reconstruction import ReconstructionError

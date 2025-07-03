@@ -21,7 +21,7 @@ from utils.helpers import get_cpu_core_num
 METRICS = [
     'mig',
     'sap_d',
-    'dci_d',
+    'dci',
     'modularity_d',
     'reconstruction_error'
 ]
@@ -35,8 +35,8 @@ def select_metric(name, **kwargs):
         return metrics.MIG(**kwargs)
     if name == 'sap_d':
         return metrics.SAPd(**kwargs)
-    if name == 'dci_d':
-        return metrics.DCId(**kwargs)
+    if name == 'dci':
+        return metrics.DCI(**kwargs)
     if name == 'modularity_d':
         return metrics.Modularityd(**kwargs)
     if name == 'reconstruction_error':

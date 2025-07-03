@@ -30,9 +30,9 @@ class SAPdConfig(BaseMetricConfig):
     num_bins: int = 20
 
 @dataclass
-class DCIdConfig(BaseMetricConfig):
+class DCIConfig(BaseMetricConfig):
     """Configuration for Disentanglement, Completeness, and Informativeness metric."""
-    name: str = "dci_d"
+    name: str = "dci"
     num_train: Optional[int] = 10000
     num_test: Optional[int] = 5000
     split_ratio: Optional[float] = None

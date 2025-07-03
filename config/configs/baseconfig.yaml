@@ -117,7 +117,7 @@ trainer:
         mi_method: "pyitlib"
         entropy_method: "pyitlib"
               
-      - name: "dci_d"
+      - name: "dci"
         num_train: 10000
         num_test: 5000
         backend: "sklearn"
