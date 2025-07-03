@@ -11,7 +11,7 @@ defaults:
 
 # ================ Experiment Management ================
 experiment_id: null  # Auto-generated if null
-seeds: [1]  # Multiple seeds for robust evaluation
+seeds: [1, 2]  # Multiple seeds for robust evaluation
 results_dir: "experiments"  # Base directory for experiment results
 resume: true  # Resume interrupted experiments
 
