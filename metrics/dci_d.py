@@ -206,8 +206,7 @@ class DCId(BaseMetric):
         # }
 
         return {
-            'dci_d': (disentanglement + completeness + informativeness_test_scores) / 3,
             'disentanglement': disentanglement,
             'completeness': completeness,
-            'informativeness': informativeness_test_scores,
+            'informativeness': informativeness_test_scores
         }

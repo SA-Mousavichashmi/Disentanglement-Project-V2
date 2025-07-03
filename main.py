@@ -275,9 +275,16 @@ class ExperimentManager:
         # Add mean, std, min, max for each numeric metric
         for col in numeric_columns:
             if col not in ['seed', 'experiment_id', 'training_completed']:
+                mean_val = float(df[col].mean())
+                std_val = float(df[col].std())
+                
+                # If only one seed, std will be NaN; set to 0.0
+                if len(df) == 1:
+                    std_val = 0.0
+            
                 summary_data['metrics'][col] = {
-                    'mean': float(df[col].mean()),
-                    'std': float(df[col].std()),
+                    'mean': mean_val,
+                    'std': std_val,
                 }
 
         # Save summary as YAML
@@ -515,8 +522,6 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
         )
         
         logger.info("Training completed successfully!")
-        logger.info(f"Final results: {len(results['logs']['train_losses_log'])} loss entries, "
-                   f"{len(results['logs']['train_metrics_log'])} metric entries")
         
         if trainer_cfg.checkpoint.return_chkpt:
             logger.info(f"Generated {len(results['chkpts'])} checkpoints")
