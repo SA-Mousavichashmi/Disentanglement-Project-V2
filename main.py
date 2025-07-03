@@ -513,13 +513,12 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int) -
     logger.info(f"Dataset size: {len(dataset)}")
     
     # Get image size from dataset
-    img_size = dataset_utils.get_img_size(trainer_cfg.dataset.name, getattr(trainer_cfg.dataset, 'img_size', None))
+    img_size = dataset.img_size
     logger.info(f"Image size: {img_size}")
-    
+
     # Setup device
     device = setup_device(trainer_cfg)
-    trainer_cfg.model.img_size = img_size  # Update config with actual image size
-    
+        
     # Create model
     model = create_model(trainer_cfg.model, img_size)
     model = model.to(device)
