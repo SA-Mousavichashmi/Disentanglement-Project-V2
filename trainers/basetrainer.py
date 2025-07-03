@@ -306,12 +306,12 @@ class BaseTrainer():
         elif self.dataloader is None:
             self.dataloader = dataloader
 
-        if self.chkpt_save_dir:
-            train_metadata = self.create_train_metadata()
-            # Save train_metadata as a JSON file
-            metadata_path = os.path.join(self.chkpt_save_dir, 'train_metadata.json')
-            with open(metadata_path, 'w') as f:
-                json.dump(train_metadata, f, indent=4)
+        # if self.chkpt_save_dir:
+        #     train_metadata = self.create_train_metadata()
+        #     # Save train_metadata as a JSON file
+        #     metadata_path = os.path.join(self.chkpt_save_dir, 'train_metadata.json')
+        #     with open(metadata_path, 'w') as f:
+        #         json.dump(train_metadata, f, indent=4)
                   
 
         self.model.train()
