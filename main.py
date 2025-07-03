@@ -161,8 +161,8 @@ class ExperimentManager:
         """Generate a unique experiment ID."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"exp_{timestamp}_{str(uuid.uuid4())[:8]}"
-    
-    def _save_experiment_config(self):
+
+    def _save_experiment_config(self): # TODO keep in mind the refactoring by added parameters is necessary.
         """Save the experiment configuration with improved formatting and spacing."""
         import yaml
         from io import StringIO
