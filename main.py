@@ -159,9 +159,12 @@ class ExperimentManager:
             console_logger.info(f"Dual logging completed. Console continues, file saved to: {self.log_file_path}")
 
     def _generate_experiment_id(self) -> str:
-        """Generate a unique experiment ID."""
+        """Generate a unique experiment ID using model, loss, dataset, and timestamp."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"exp_{timestamp}_{str(uuid.uuid4())[:8]}"
+        model_name = self.experiment_config.trainer.model.name
+        loss_name = self.experiment_config.trainer.loss.name
+        dataset_name = self.experiment_config.trainer.dataset.name
+        return f"{model_name}_{loss_name}_{dataset_name}_{timestamp}"
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
         """Save the experiment configuration with improved formatting and spacing."""
