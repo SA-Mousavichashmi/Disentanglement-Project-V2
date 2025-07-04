@@ -28,7 +28,8 @@ class BaseVisualizer(ABC):
         """
 
         self.vae_model = vae_model # The vae model for generating images
-        self.dataset = dataset # the dataset to be used for visualization        self.save_dir = save_dir  # Store save_dir
+        self.dataset = dataset # the dataset to be used for visualization
+        self.save_dir = save_dir  # Store save_dir
         self.is_plot = is_plot
         self.is_save = save_dir is not None  # Determine if saving is enabled based on save_dir
 
