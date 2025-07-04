@@ -3,6 +3,7 @@ import uuid
 import logging
 import csv
 import json
+import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -447,48 +448,58 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         logger.info(f"Seed {seed} - Training session: {train_id}")
         logger.info("="*70)
         
+        # Create seed-specific configuration
+        seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+        
+        # Set up seed-specific checkpoint directory
+        seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
+        seed_cfg.trainer.checkpoint.enabled = True
+        seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
+        
         try:
-            # Create seed-specific configuration
-            seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
-            
-            # Set up seed-specific checkpoint directory
-            seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
-            seed_cfg.trainer.checkpoint.enabled = True
-            seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
-            
             # Run training for this seed
             training_output = run_training_session(seed_cfg.trainer, train_id, seed, dataset, device, img_size)
             
-            # Extract components from training output
-            model = training_output['model']
-            dataset = training_output['dataset']
-            device = training_output['device']
-            
-            # Get metric configuration if available
-            metric_aggregator_cfg = getattr(seed_cfg.trainer, 'metricAggregator', None)
-            
-            # Save results with metric computation
-            row_data = exp_manager.save_seed_results(
-                seed=seed, 
-                model=model, 
-                dataset=dataset, 
-                metric_aggregator_cfg=metric_aggregator_cfg,
-                device=device
-            )
-            experiment_results['seed_results'][seed] = row_data
-            
-            # Mark seed as completed
-            exp_manager.mark_seed_completed(seed)
-            
-            logger.info(f"Successfully completed training for seed {seed}")
-            logger.info(f"Seed {seed} results saved to: {exp_manager.results_csv_path}")
-            
         except Exception as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
+            
+            # Clean up seed checkpoint directory if it exists
+            seed_checkpoint_path = Path(seed_checkpoint_dir)
+            if seed_checkpoint_path.exists():
+                try:
+                    shutil.rmtree(seed_checkpoint_path)
+                    logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
+                except Exception as cleanup_e:
+                    logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
+            
             logger.error("Experiment terminated due to training failure")
             # Clean up experiment logging before exiting
             exp_manager.cleanup_logging()
             raise
+        
+        # Extract components from training output
+        model = training_output['model']
+        dataset = training_output['dataset']
+        device = training_output['device']
+        
+        # Get metric configuration if available
+        metric_aggregator_cfg = getattr(seed_cfg.trainer, 'metricAggregator', None)
+        
+        # Save results with metric computation
+        row_data = exp_manager.save_seed_results(
+            seed=seed, 
+            model=model, 
+            dataset=dataset, 
+            metric_aggregator_cfg=metric_aggregator_cfg,
+            device=device
+        )
+        experiment_results['seed_results'][seed] = row_data
+        
+        # Mark seed as completed
+        exp_manager.mark_seed_completed(seed)
+        
+        logger.info(f"Successfully completed training for seed {seed}")
+        logger.info(f"Seed {seed} results saved to: {exp_manager.results_csv_path}")
     
     # Generate final experiment summary
     logger.info("="*70)
