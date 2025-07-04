@@ -169,11 +169,18 @@ class ExperimentManager:
         
         # Convert config to dictionary for custom formatting
         config_dict = OmegaConf.to_container(self.experiment_config, resolve=True)
-        
+
         # Create formatted YAML with proper spacing between sections
         output = StringIO()
-        
-        # Write experiment section first
+
+        # Write hardcoded hydra section at the very beginning
+        output.write("# Hydra Configuration\n")
+        output.write("hydra:\n")
+        output.write("  run:\n")
+        output.write("    dir: .\n")
+        output.write("  output_subdir: null\n\n")
+
+        # Write experiment section
         output.write("# Experiment Configuration\n")
         yaml.dump({
             'experiment_id': self.experiment_id,
@@ -181,11 +188,11 @@ class ExperimentManager:
             'results_dir': config_dict.get('results_dir'),
             'resume': config_dict.get('resume')
         }, output, default_flow_style=False, sort_keys=False, allow_unicode=True, indent=2)
-        
+
         # Add spacing and trainer section
         output.write("\n# Trainer Configuration\n")
         trainer_config = config_dict.get('trainer', {})
-        
+
         # Write trainer sections with spacing
         sections = [
             ('step_unit', trainer_config.get('step_unit')),
@@ -204,14 +211,14 @@ class ExperimentManager:
             ('lr_scheduler', trainer_config.get('lr_scheduler')),
             ('metricAggregator', trainer_config.get('metricAggregator'))
         ]
-        
+
         output.write("trainer:\n")
         for i, (section_name, section_value) in enumerate(sections):
             if section_value is not None:
                 # Add spacing between sections (except for scalar values)
                 if i > 0 and isinstance(section_value, dict):
                     output.write("\n")
-                
+
                 # Write section
                 section_yaml = yaml.dump({section_name: section_value}, 
                                        default_flow_style=False, 
@@ -226,7 +233,7 @@ class ExperimentManager:
                         output.write(f"  {line}\n")
                 else:
                     output.write(f"  {section_name}: {section_value}\n")
-        
+
         # Write to file
         with open(self.config_path, 'w') as f:
             f.write(output.getvalue())
