@@ -1,35 +1,33 @@
-# Main configuration file for training VAE models
-# This is the master configuration that orchestrates all training components
+# BetaVAE config based on baseconfig.yaml, using vae_locatello, beta=16, 40 epochs
 
 hydra:
   run:
     dir: .
   output_subdir: null
 
-defaults:
-  - trainer/model: vae_locatello
-
 # ================ Experiment Management ================
-experiment_id: null  # Auto-generated if null
-seeds: [1, 2]  # Multiple seeds for robust evaluation
-results_dir: "experiments"  # Base directory for experiment results
-resume: true  # Resume interrupted experiments
-
+experiment_id: null
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # Multiple seeds for robust evaluation
+results_dir: "experiments"
+resume: true
 
 # ================ Core Training Configuration ================
 trainer:
-  # ================ Training Progression ================
-  step_unit: "epoch"  # "epoch" or "iter"
-  max_steps: 1  # Number of epochs
+  step_unit: "epoch"
+  max_steps: 40  # 40 epochs
   device: "cuda"
 
-  # ================ Core Required Components ================
   model:
+    name: "vae_locatello"
+    encoder_name: "locatello"
+    decoder_name: "locatello"
     latent_dim: 10
+    decoder_output_dist: "bernoulli"
+    use_batchnorm: false
 
   loss:
     name: "betavae"
-    beta: 16
+    beta: 16  # Beta value set to 16
     rec_dist: "gaussian"
     log_kl_components: true
 
@@ -40,7 +38,6 @@ trainer:
     not_selected_factors_index_value: null
     subset: 1.0
 
-  # ================ Data Loading ================
   dataloader:
     batch_size: 64
     num_workers: 7
@@ -48,51 +45,43 @@ trainer:
     persistent_workers: true
     shuffle: true
     drop_last: false
-    in_order: true         # For stateful dataloader strict batch ordering
-    snapshot_every_n_steps: 1  # For stateful dataloader checkpointing
+    in_order: true
+    snapshot_every_n_steps: 1
 
-  # ================ Progress Tracking ================
   progress_bar:
     enabled: true
     log_iter_interval: 50
 
-  # ================ Logging ================
   logging:
     enabled: true
     return_logs: true
-    # Loss logging
     loss_interval_type: "iter"
     loss_iter_interval: 100
     prev_train_losses_log: null
-    # Metrics logging
     metrics_interval_type: "iter"
     metrics_iter_interval: 200
     prev_train_metrics_log: null
 
-  # ================ Checkpointing ================
   checkpoint:
     enabled: true
     return_chkpt: false
-    every_n_steps: null 
+    every_n_steps: null
     step_type: "epoch"
     save_path: null
     save_dir: null
-    save_viz: true  # Save visualizations with checkpoints
+    save_viz: true
 
-  # ================ Reproducibility ================
   determinism:
     use_cuda_det: true
     enforce_det: false
 
-  # ================ Performance Optimization ================
   torch_compile:
-    enabled: false  # Disabled by default for compatibility
+    enabled: false
     mode: "max-autotune"
     backend: "inductor"
     fullgraph: false
     dynamic: false
 
-  # ================ Optimizer and Scheduler ================
   optimizer:
     name: "Adam"
     lr: 1e-4
@@ -102,20 +91,17 @@ trainer:
 
   lr_scheduler:
     name: "constantLR"
-    factor: 1.0   # Multiplier for learning rate (default 1.0 for constant)
-    total_iters: 1  # Number of iterations to keep the learning rate constant
+    factor: 1.0
+    total_iters: 1
 
-  # ================ Optional Metrics ================
   metricAggregator:
     sample_num: null
     metrics:
-      # Core disentanglement metrics
       - name: "mig"
         num_bins: 20
         num_workers: 8
         mi_method: "pyitlib"
         entropy_method: "pyitlib"
-              
       - name: "dci"
         num_train: 10000
         num_test: 5000
