@@ -459,10 +459,10 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         try:
             # Run training for this seed
             training_output = run_training_session(seed_cfg.trainer, train_id, seed, dataset, device, img_size)
-            
-        except Exception as e:
+
+        except (Exception, KeyboardInterrupt) as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
-            
+
             # Clean up seed checkpoint directory if it exists
             seed_checkpoint_path = Path(seed_checkpoint_dir)
             if seed_checkpoint_path.exists():
@@ -471,7 +471,7 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
                     logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
                 except Exception as cleanup_e:
                     logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
-            
+
             logger.error("Experiment terminated due to training failure")
             # Clean up experiment logging before exiting
             exp_manager.cleanup_logging()
