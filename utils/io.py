@@ -886,36 +886,3 @@ def create_trainer_from_chkpt(ckpt,
     )
 
     return trainer
-
-def is_chkpt_dir_compatible(chkpt_dir: str, train_id):
-    """
-    Checks if the checkpoint directory is compatible with the given train_id
-    by checking the 'train_id' in the 'train_metadata.json' file.
-
-    Args:
-        chkpt_dir (str): The path to the checkpoint directory.
-        train_id (str): The train_id to check against.
-
-    Returns:
-        bool: True if the checkpoint directory is compatible, False otherwise.
-    """
-    if not os.path.exists(chkpt_dir):
-        return False
-
-    # Check if the train_metadata.json file exists in the checkpoint directory
-    metadata_file = os.path.join(chkpt_dir, 'train_metadata.json')
-
-    metadata = None
-    with open(metadata_file, 'r') as f:
-        metadata = json.load(f)
-
-    stored_train_id = metadata.get('train_id')
-
-    # Convert UUID to string for consistent comparison if train_id is a UUID object
-    if isinstance(train_id, uuid.UUID):
-        train_id = str(train_id)
-    
-    if stored_train_id != train_id:
-        return False
-
-    return True

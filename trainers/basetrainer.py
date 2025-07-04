@@ -209,23 +209,18 @@ class BaseTrainer():
                 self.chkpt_result_file_name = 'chkpt_result.json'
                 Path(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name)).write_text("{}")
             else:
-                with open(os.path.join(self.chkpt_save_dir, 'train_metadata.json'), 'r') as f:
-                    chkpt_train_metadata = json.load(f)                
-                
-                chkpt_train_id = chkpt_train_metadata.get('train_id', None)
-
-                if chkpt_train_id != self.train_id:
-                    raise ValueError(f"Checkpointing directory {self.chkpt_save_dir} already contains a \
-                                      different training run with ID {chkpt_train_id}.")
-
                 # Find the maximum existing checkpoint number
                 existing_chkpt_nums = []
                 for item in os.listdir(self.chkpt_save_dir):
                     if item.startswith("chkpt_") and os.path.isdir(os.path.join(self.chkpt_save_dir, item)):
-                        num = int(item.split('_')[1])
-                        existing_chkpt_nums.append(num)
+                        try:
+                            num = int(item.split('_')[1])
+                            existing_chkpt_nums.append(num)
+                        except (ValueError, IndexError):
+                            # Skip items that don't follow the expected naming pattern
+                            continue
                 
-                self.chkpt_num = max(existing_chkpt_nums)
+                self.chkpt_num = max(existing_chkpt_nums) if existing_chkpt_nums else 0
 
     def _validate_init_params(
         self,
@@ -305,14 +300,6 @@ class BaseTrainer():
             raise ValueError("No dataloader provided for training. Please provide a dataloader.")
         elif self.dataloader is None:
             self.dataloader = dataloader
-
-        # if self.chkpt_save_dir:
-        #     train_metadata = self.create_train_metadata()
-        #     # Save train_metadata as a JSON file
-        #     metadata_path = os.path.join(self.chkpt_save_dir, 'train_metadata.json')
-        #     with open(metadata_path, 'w') as f:
-        #         json.dump(train_metadata, f, indent=4)
-                  
 
         self.model.train()
 
@@ -588,67 +575,6 @@ class BaseTrainer():
 
         visualizer.plot_all_latent_traversals()
         visualizer.plot_random_reconstructions()
-    
-    def create_train_metadata(self):
-        """
-        Creates and returns a dictionary containing comprehensive metadata 
-        about the training configuration.
-        
-        Returns:
-            dict: Training metadata dictionary
-        """
-        return {
-            "train_id": str(self.train_id),
-            "model": {
-                "name": self.model.name,
-                "device": str(self.device),
-                "compiled": self.use_torch_compile,
-                "compile_kwargs": self.torch_compile_kwargs
-            },
-            "optimizer": {
-                "name": type(self.optimizer).__name__,
-                "params": self.optimizer.defaults
-            },
-            "lr_scheduler": {
-                "name": type(self.lr_scheduler).__name__ if self.lr_scheduler else None,
-                "state": self.lr_scheduler.state_dict() if self.lr_scheduler else None
-            },
-            "loss": {
-                "name": self.loss.name,
-                "kwargs": self.loss.kwargs,
-                "mode": self.loss.mode
-            },
-            "dataloader": {
-                "batch_size": self.dataloader.batch_size,
-                "num_workers": self.dataloader.num_workers,
-                "dataset_size": len(self.dataloader.dataset),
-                "pin_memory": self.dataloader.pin_memory,
-                "persistent_workers": self.dataloader.persistent_workers,
-                "shuffle": True
-            },
-            "training_state": {
-                "prev_iter": self.prev_train_iter
-            },
-            "checkpointing": {
-                "step_type": self.chkpt_step_type,
-                "every_n_steps": self.chkpt_every_n_steps,
-                "save_path": self.chkpt_save_path,
-                "save_dir": self.chkpt_save_dir,
-                "return_chkpt": self.return_chkpt,
-                "chkpt_viz": self.chkpt_viz,
-            },
-            "logging": {
-                "loss_interval_type": self.log_loss_interval_type,
-                "loss_iter_interval": self.log_loss_iter_interval,
-                "progress_bar_interval": self.progress_bar_log_iter_interval,
-                "is_progress_bar": self.is_progress_bar, # Added
-                "use_train_logging": self.use_train_logging, # Added
-                "return_logs": self.return_logs, # Added
-                "metrics_interval_type": self.log_metrics_interval_type, # Added
-                "metrics_iter_interval": self.log_metrics_iter_interval, # Added
-            },
-            "determinism": self.determinism_kwargs,
-        }
     
     def _train_iteration(self, samples):
         """

@@ -73,7 +73,7 @@ trainer:
   checkpoint:
     enabled: true
     return_chkpt: false
-    every_n_steps: 10  # Save checkpoint every 10 epochs
+    every_n_steps: null 
     step_type: "epoch"
     save_path: null
     save_dir: null
