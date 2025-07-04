@@ -13,8 +13,8 @@ resume: true
 
 # ================ Core Training Configuration ================
 trainer:
-  step_unit: "epoch"
-  max_steps: 40  # 40 epochs
+  step_unit: "iter"
+  max_steps: 300000 
   device: "cuda"
 
   model:
