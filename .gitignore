@@ -172,6 +172,7 @@ cython_debug/
 
 # VS Code
 .vscode/
+.github/
 
 # Ruff stuff:
 .ruff_cache/

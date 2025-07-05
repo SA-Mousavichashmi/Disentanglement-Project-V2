@@ -1,0 +1,7 @@
+# Beta Toroidal VAE loss configuration
+# Specialized loss for periodic/angular latent factors
+
+name: "beta_toroidal_vae"
+beta: 2.0
+rec_dist: "bernoulli"
+log_kl_components: false

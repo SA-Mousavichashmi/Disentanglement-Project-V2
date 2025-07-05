@@ -1,0 +1,10 @@
+# Annealed VAE loss configuration
+# Uses annealing schedule for the KL term
+
+name: "annealedvae"
+gamma: 100.0
+C_init: 0.0
+C_fin: 5.0
+anneal_steps: 100000
+rec_dist: "bernoulli"
+log_kl_components: false

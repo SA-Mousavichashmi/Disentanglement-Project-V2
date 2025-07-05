@@ -1,8 +1,8 @@
-git+https://github.com/nicola-decao/power_spherical.git#egg=power_spherical
-torch
+torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 numpy
 scikit-learn
-torchvision
 h5py
 tqdm
 scipy
@@ -10,3 +10,9 @@ matplotlib
 joblib
 pyyaml
 torchdata
+pandas
+git+https://github.com/nicola-decao/power_spherical.git#egg=power_spherical
+git+https://github.com/pafoster/pyitlib.git@master
+hydra-core==1.3.2
+omegaconf==2.3.0
+# lightning==2.3.0

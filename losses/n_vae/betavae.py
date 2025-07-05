@@ -24,6 +24,9 @@ class Loss(baseloss.BaseLoss):
     log_kl_components : bool, optional
         Whether to log individual KL components.
 
+    schedulers_kwargs : list of dict, optional
+        List of dictionaries containing scheduler configurations for parameters like 'beta'.
+
     kwargs:
         Additional arguments for `BaseLoss`, e.g. rec_dist`.
 
@@ -33,8 +36,17 @@ class Loss(baseloss.BaseLoss):
         a constrained variational framework." (2016).
     """
 
-    def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
-        super().__init__(mode="post_forward", **kwargs)
+    def __init__(self, beta=1.0, log_kl_components=False, schedulers_kwargs=None, **kwargs):
+        super().__init__(mode="post_forward", schedulers_kwargs=schedulers_kwargs, **kwargs)
+        
+        # Initialize schedulers using base class method
+        if self.schedulers:
+            if len(self.schedulers) > 1:
+                raise ValueError("Beta-VAE supports only one scheduler for 'beta'.")
+            
+            if 'beta' in self.schedulers:
+                beta = self.schedulers['beta'].initial_value
+        
         self.beta = beta
         self.log_kl_components = log_kl_components
 
@@ -44,20 +56,48 @@ class Loss(baseloss.BaseLoss):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             'beta': self.beta,
             'log_kl_components': self.log_kl_components,
             'rec_dist': self.rec_dist,
         }
+        
+        # Add scheduler configurations
+        if self.schedulers:
+            schedulers_kwargs = []
+            for param_name, scheduler in self.schedulers.items():
+                schedulers_kwargs.append({
+                    'name': scheduler.name,
+                    'param_name': param_name,
+                    'kwargs': {**scheduler.kwargs}
+                })
+            kwargs_dict['schedulers_kwargs'] = schedulers_kwargs
+        
+        return kwargs_dict
 
     def state_dict(self):
-        # Beta VAE does not have any internal state to save
-        return None
+        state = {}
+        
+        # Save scheduler states
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
+        
+        return state if state else None
     
     def load_state_dict(self, state_dict):
-        return
+        if state_dict is None:
+            return
+            
+        # Load scheduler states
+        if 'scheduler_states' in state_dict and self.schedulers:
+            for param_name, scheduler_state in state_dict['scheduler_states'].items():
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
     def __call__(self, data, reconstructions, stats_qzx, **kwargs):   
+            
         if isinstance(stats_qzx, torch.Tensor):
             stats_qzx = stats_qzx.unbind(-1)     
 
@@ -81,4 +121,4 @@ class Loss(baseloss.BaseLoss):
                  log_data[f'kl_loss_{i}'] = value.item()
             # log_data['kl_components'] = kl_components.detach().cpu()
 
-        return {'loss': loss, 'to_log': log_data}
+        return {'loss': loss, 'to_log': log_data} # TODO add separate loss related logs and other logs

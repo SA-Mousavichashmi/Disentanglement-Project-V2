@@ -15,7 +15,7 @@ from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', **kwargs):
+    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -27,15 +27,19 @@ class Model(BaseVAE):
             Dimensionality of latent space.
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
+        use_batchnorm : bool
+            Whether to use batch normalization in encoder and decoder.
         """
-        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, decoder_output_dist=decoder_output_dist, **kwargs)
+        super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, 
+                                   decoder_output_dist=decoder_output_dist,
+                                   use_batchnorm=use_batchnorm, **kwargs)
 
         self.validate_img_size([[64, 64]])
 
         self.encoder = Encoder(
-            img_size, self.latent_dim, dist_nparams=self.dist_nparams)
+            img_size, self.latent_dim, dist_nparams=self.dist_nparams, use_batchnorm=use_batchnorm)
         self.decoder = Decoder(
-            img_size, self.latent_dim, output_dist=decoder_output_dist)
+            img_size, self.latent_dim, output_dist=decoder_output_dist, use_batchnorm=use_batchnorm)
         self.model_name = 'vae_montero_small'
         self.reset_parameters()
 
@@ -48,5 +52,6 @@ class Model(BaseVAE):
         return {
             'img_size': self.img_size,
             'latent_dim': self.latent_dim,
-            'decoder_output_dist': self.decoder_output_dist
+            'decoder_output_dist': self.decoder_output_dist,
+            'use_batchnorm': self.use_batchnorm
         }

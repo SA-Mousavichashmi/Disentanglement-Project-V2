@@ -32,7 +32,7 @@ import math
 
 from .basemetric import BaseMetric
 
-class DCId(BaseMetric):
+class DCI(BaseMetric):
     def __init__(self, num_train=None, num_test=None, split_ratio=None, backend='sklearn', num_workers=8, **kwargs):
         super().__init__(**kwargs)
 
@@ -196,11 +196,17 @@ class DCId(BaseMetric):
         disentanglement = np.sum(per_latent_disentanglement * total_latent_disentanglement)
         completeness = np.sum(per_factor_completeness * total_factor_completeness)
 
+        # return {
+        #     'disentanglement': disentanglement,
+        #     'completeness': completeness,
+        #     'informativeness_train_scores': informativeness_train_scores,
+        #     'informativeness_test_scores': informativeness_test_scores,
+        #     'informativeness_train_errors': informativeness_train_errors,
+        #     'informativeness_test_errors': informativeness_test_errors,
+        # }
+
         return {
             'disentanglement': disentanglement,
             'completeness': completeness,
-            'informativeness_train_scores': informativeness_train_scores,
-            'informativeness_test_scores': informativeness_test_scores,
-            'informativeness_train_errors': informativeness_train_errors,
-            'informativeness_test_errors': informativeness_test_errors,
+            'informativeness': informativeness_test_scores
         }

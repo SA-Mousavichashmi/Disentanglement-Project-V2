@@ -55,11 +55,12 @@ class Loss(BaseLoss):
                                    schedulers_kwargs=schedulers_kwargs, 
                                    **kwargs)
         
-        # Set initial values from schedulers if they exist
-        if 'commutative_weight' in self.schedulers:
-            commutative_weight = self.schedulers['commutative_weight'].initial_value
-        if 'meaningful_weight' in self.schedulers:
-            meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+        if self.schedulers: 
+            # Set initial values from schedulers if they exist
+            if 'commutative_weight' in self.schedulers:
+                commutative_weight = self.schedulers['commutative_weight'].initial_value
+            if 'meaningful_weight' in self.schedulers:
+                meaningful_weight = self.schedulers['meaningful_weight'].initial_value
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
@@ -366,6 +367,9 @@ class Loss(BaseLoss):
 
     def __call__(self, data, model, vae_optimizer):
 
+        if self.latent_factors_topologies is None:
+            self.latent_factors_topologies = model.latent_factor_topologies
+
         log_data = OrderedDict()
         base_loss = 0
 
@@ -374,6 +378,7 @@ class Loss(BaseLoss):
             inputs = {
                 'data': data,
                 **model_out,
+                'is_train': True,
             }
 
             loss_out = self.base_loss_f(**inputs)
@@ -384,6 +389,7 @@ class Loss(BaseLoss):
             inputs = {
                 'model': model,
                 'data': data,
+                'is_train': True,
             }
             loss_out = self.base_loss_f(**inputs)
             base_loss = loss_out['loss']
@@ -436,7 +442,7 @@ class Loss(BaseLoss):
 
                 gp = self.critic._compute_gradient_penalty(data, fake_images)
                 # WGAN-GP critic loss
-                d_loss = -(critic_real.mean() - critic_fake.mean()) \
+                d_loss = -(critic_real.mean() - critic_fake.mean()) * self.meaningful_weight \
                          + self.meaningful_critic_gradient_penalty_weight * gp
 
                 self.critic_optimizer.zero_grad()

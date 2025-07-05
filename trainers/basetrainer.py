@@ -53,7 +53,6 @@ class BaseTrainer():
                  chkpt_step_type='iter',
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
-                 chkpt_save_master_dir=None,
                  chkpt_viz=False, 
                  ):
         """
@@ -117,8 +116,6 @@ class BaseTrainer():
             File path to save final checkpoint. Exclusive with other save options. Defaults to None.
         chkpt_save_dir : str, optional
             Directory to save checkpoints. Exclusive with other save options. Defaults to None.
-        chkpt_save_master_dir : str, optional
-            Master directory for organized checkpoints. Exclusive with other save options. Defaults to None.
         chkpt_viz : bool, optional
             If True, saves visualizations (e.g., latent traversals, reconstructions) with checkpoints. Defaults to False.
         """
@@ -130,8 +127,8 @@ class BaseTrainer():
             chkpt_step_type=chkpt_step_type,
             chkpt_save_path=chkpt_save_path,
             chkpt_save_dir=chkpt_save_dir,
-            chkpt_save_master_dir=chkpt_save_master_dir,
-            chkpt_every_n_steps=chkpt_every_n_steps
+            chkpt_every_n_steps=chkpt_every_n_steps,
+            chkpt_viz=chkpt_viz # Pass chkpt_viz here
         )
 
         if train_id is None:
@@ -183,12 +180,11 @@ class BaseTrainer():
         self.return_chkpt = return_chkpt
         self.chkpt_save_path = chkpt_save_path
         self.chkpt_save_dir = chkpt_save_dir
-        self.chkpt_save_master_dir = chkpt_save_master_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
         self.chkpt_step_type = chkpt_step_type 
         self.chkpt_viz = chkpt_viz
 
-        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_master_dir is not None) or (chkpt_save_path is not None)
+        self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_path is not None)
         self.chkpt_list = []
         self.chkpt_train_losses_log = []
         self.chkpt_train_metrics_log = []
@@ -213,23 +209,18 @@ class BaseTrainer():
                 self.chkpt_result_file_name = 'chkpt_result.json'
                 Path(os.path.join(self.chkpt_save_dir, self.chkpt_result_file_name)).write_text("{}")
             else:
-                with open(os.path.join(self.chkpt_save_dir, 'train_metadata.json'), 'r') as f:
-                    chkpt_train_metadata = json.load(f)                
-                
-                chkpt_train_id = chkpt_train_metadata.get('train_id', None)
-
-                if chkpt_train_id != self.train_id:
-                    raise ValueError(f"Checkpointing directory {self.chkpt_save_dir} already contains a \
-                                      different training run with ID {chkpt_train_id}.")
-
                 # Find the maximum existing checkpoint number
                 existing_chkpt_nums = []
                 for item in os.listdir(self.chkpt_save_dir):
                     if item.startswith("chkpt_") and os.path.isdir(os.path.join(self.chkpt_save_dir, item)):
-                        num = int(item.split('_')[1])
-                        existing_chkpt_nums.append(num)
+                        try:
+                            num = int(item.split('_')[1])
+                            existing_chkpt_nums.append(num)
+                        except (ValueError, IndexError):
+                            # Skip items that don't follow the expected naming pattern
+                            continue
                 
-                self.chkpt_num = max(existing_chkpt_nums)
+                self.chkpt_num = max(existing_chkpt_nums) if existing_chkpt_nums else 0
 
     def _validate_init_params(
         self,
@@ -240,8 +231,8 @@ class BaseTrainer():
         chkpt_step_type,
         chkpt_save_path,
         chkpt_save_dir,
-        chkpt_save_master_dir,
-        chkpt_every_n_steps
+        chkpt_every_n_steps,
+        chkpt_viz # Add chkpt_viz here
     ):
         """
         Validates the parameters passed to the BaseTrainer constructor.
@@ -267,18 +258,21 @@ class BaseTrainer():
             raise ValueError("chkpt_step_type must be either 'epoch' or 'iter'")
 
         #### Checkpointing assertions ####
-        # Ensure at most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir is set
+        # Ensure at most one of chkpt_save_path or chkpt_save_dir is set
         save_path_set = chkpt_save_path is not None
         save_dir_set = chkpt_save_dir is not None
-        save_master_dir_set = chkpt_save_master_dir is not None
 
-        if sum([save_path_set, save_dir_set, save_master_dir_set]) > 1:
-             raise ValueError("At most one of chkpt_save_path, chkpt_save_dir, or chkpt_save_master_dir can be set.")
+        if sum([save_path_set, save_dir_set]) > 1:
+             raise ValueError("At most one of chkpt_save_path or chkpt_save_dir can be set.")
 
         # If chkpt_save_path is set, chkpt_every_n_steps must be None
         if chkpt_save_path is not None and chkpt_every_n_steps is not None:
             raise ValueError("chkpt_every_n_steps cannot be set when chkpt_save_path is used," \
             " as only the final checkpoint is saved at final step.")
+        
+        if chkpt_viz and chkpt_save_dir is None:
+            raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir is set. " \
+                             "Please provide a directory to save visualizations.")
 
     def train(self, step_unit, max_steps: int, dataloader=None):
         """
@@ -307,14 +301,6 @@ class BaseTrainer():
         elif self.dataloader is None:
             self.dataloader = dataloader
 
-        if self.chkpt_save_dir:
-            train_metadata = self.create_train_metadata()
-            # Save train_metadata as a JSON file
-            metadata_path = os.path.join(self.chkpt_save_dir, 'train_metadata.json')
-            with open(metadata_path, 'w') as f:
-                json.dump(train_metadata, f, indent=4)
-                  
-
         self.model.train()
 
         # Determine total iterations (epochs→iterations if needed)
@@ -333,7 +319,7 @@ class BaseTrainer():
         kwargs = dict(
             desc=f"Training for {total_iterations} iter, {approx_epochs:.2f} epochs",
             total=total_iterations,
-            leave=False,
+            leave=True,  # Changed from False to True
             disable=not self.is_progress_bar
         )
 
@@ -526,9 +512,9 @@ class BaseTrainer():
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             dataset=dataloader.dataset,  # Use dataloader.dataset directly
-            dataloader=dataloader,
-            loss=self.loss,
+            dataloader=dataloader,            loss=self.loss,
             use_torch_compile=self.use_torch_compile,  # Renamed
+            torch_compile_kwargs=self.torch_compile_kwargs,  # Added
             train_losses_log=self.train_losses_log,
             train_metrics_log=self.train_metrics_log,
             chkpt_train_losses_log=chkpt_train_losses_log,
@@ -538,13 +524,16 @@ class BaseTrainer():
             chkpt_step_type=self.chkpt_step_type,
             chkpt_save_path=self.chkpt_save_path,
             chkpt_save_dir=self.chkpt_save_dir,
-            chkpt_save_master_dir=self.chkpt_save_master_dir,
+            return_chkpt=self.return_chkpt, # Added
+            chkpt_viz=self.chkpt_viz, # Added
             # --- Pass logging args ---
             is_progress_bar=self.is_progress_bar,
             progress_bar_log_iter_interval=self.progress_bar_log_iter_interval,
             log_loss_interval_type=self.log_loss_interval_type,
             use_train_logging=self.use_train_logging,
             log_loss_iter_interval=self.log_loss_iter_interval,
+            log_metrics_interval_type=self.log_metrics_interval_type, # Added
+            log_metrics_iter_interval=self.log_metrics_iter_interval, # Added
             return_logs=self.return_logs,
         )
 
@@ -554,7 +543,7 @@ class BaseTrainer():
                 chkpt_save_path
             ) 
 
-        if self.chkpt_viz:
+        if self.chkpt_viz and chkpt_save_dir is not None:
             self._save_visualization(chkpt_save_dir)
 
         if self.chkpt_save_dir is not None:
@@ -586,61 +575,6 @@ class BaseTrainer():
 
         visualizer.plot_all_latent_traversals()
         visualizer.plot_random_reconstructions()
-    
-    def create_train_metadata(self):
-        """
-        Creates and returns a dictionary containing comprehensive metadata 
-        about the training configuration.
-        
-        Returns:
-            dict: Training metadata dictionary
-        """
-        return {
-            "train_id": str(self.train_id),
-            "model": {
-                "name": self.model.name,
-                "device": str(self.device),
-                "compiled": self.use_torch_compile,
-                "compile_kwargs": self.torch_compile_kwargs
-            },
-            "optimizer": {
-                "name": type(self.optimizer).__name__,
-                "params": self.optimizer.defaults
-            },
-            "lr_scheduler": {
-                "name": type(self.lr_scheduler).__name__ if self.lr_scheduler else None,
-                "state": self.lr_scheduler.state_dict() if self.lr_scheduler else None
-            },
-            "loss": {
-                "name": self.loss.name,
-                "kwargs": self.loss.kwargs,
-                "mode": self.loss.mode
-            },
-            "dataloader": {
-                "batch_size": self.dataloader.batch_size,
-                "num_workers": self.dataloader.num_workers,
-                "dataset_size": len(self.dataloader.dataset),
-                "pin_memory": self.dataloader.pin_memory,
-                "persistent_workers": self.dataloader.persistent_workers,
-                "shuffle": True
-            },
-            "training_state": {
-                "prev_iter": self.prev_train_iter
-            },
-            "checkpointing": {
-                "step_type": self.chkpt_step_type,
-                "every_n_steps": self.chkpt_every_n_steps,
-                "save_path": self.chkpt_save_path,
-                "save_dir": self.chkpt_save_dir,
-                "master_dir": self.chkpt_save_master_dir
-            },
-            "logging": {
-                "loss_interval_type": self.log_loss_interval_type,
-                "loss_iter_interval": self.log_loss_iter_interval,
-                "progress_bar_interval": self.progress_bar_log_iter_interval
-            },
-            "determinism": self.determinism_kwargs
-        }
     
     def _train_iteration(self, samples):
         """

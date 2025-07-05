@@ -19,7 +19,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
     Supports latent spaces with mixed topologies like ['R1', 'S1', 'R1'].
     """
     
-    def __init__(self, img_size, latent_factor_topologies, decoder_output_dist='bernoulli', **kwargs):
+    def __init__(self, img_size, latent_factor_topologies, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Base class for mixed topology VAE.
 
@@ -33,10 +33,10 @@ class S_N_VAE_base(nn.Module, abc.ABC):
             Example: ['R1', 'S1', 'R1']
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
+        use_batchnorm : bool
+            Whether to use batch normalization in encoder and decoder.
         """
-        super(S_N_VAE_base, self).__init__()
-
-        # Validate latent_factor_topologies
+        super(S_N_VAE_base, self).__init__()        # Validate latent_factor_topologies
         for topology in latent_factor_topologies:
             if topology not in ['R1', 'S1']:
                 raise ValueError(f"Unsupported topology: {topology}. Only 'R1' and 'S1' are supported.")
@@ -47,6 +47,7 @@ class S_N_VAE_base(nn.Module, abc.ABC):
         self.img_size = img_size
         self.num_pixels = self.img_size[1] * self.img_size[2]
         self.decoder_output_dist = decoder_output_dist
+        self.use_batchnorm = use_batchnorm
         
         # Calculate parameters for each factor type
         self.factor_params = []

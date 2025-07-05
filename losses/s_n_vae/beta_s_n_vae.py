@@ -5,7 +5,7 @@ import torch
 from .. import baseloss
 from ..reconstruction import reconstruction_loss
 from ..n_vae.kl_div import kl_normal_loss
-from ..s_vae.kl_div import kl_power_spherical_uniform_loss, kl_power_spherical_uniform_factor_wise
+from ..s_vae.kl_div import kl_power_spherical_uniform_factor_wise
 
 
 class BetaSNVAELoss(baseloss.BaseLoss):

@@ -31,7 +31,7 @@ from .basemetric import BaseMetric
 from utils.math import calculate_mutual_information, calculate_entropy
 
 class MIG(BaseMetric):
-    def __init__(self, num_bins=20, num_workers=8, mi_method='sklearn', entropy_method='scipy', **kwargs):
+    def __init__(self, num_bins=20, num_workers=8, mi_method='pyitlib', entropy_method='pyitlib', **kwargs):
         super().__init__(**kwargs)
         self.num_bins = num_bins
         self.num_workers = num_workers
