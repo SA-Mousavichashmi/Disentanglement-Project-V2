@@ -223,21 +223,18 @@ class MetricAggregator:
             dict: A dictionary containing the computed metrics.
         """
         # Separate reconstruction metrics from representation-based metrics
-        reconstruction_metrics = [m for m in self.metrics if m['name'] == 'reconstruction_error']
+        reconstruction_metric = next((m for m in self.metrics if m['name'] == 'reconstruction_error'), None)
         other_metrics = [m for m in self.metrics if m['name'] != 'reconstruction_error']
         
         results = {}
         
         # Handle reconstruction metrics separately
-        if reconstruction_metrics:
-            for metric in reconstruction_metrics:
-                metric_name = metric['name']
-                metric_args = metric.get('args', {})
-                # Force sum reduction for batch-wise computation
-                metric_args['reduction'] = 'sum'
-                metric_obj = select_metric(metric_name, **metric_args)
-                result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
-                results[metric_name] = result
+        if reconstruction_metric:
+            metric_name = reconstruction_metric['name']
+            metric_args = reconstruction_metric.get('args', {})
+            metric_obj = select_metric(metric_name, **metric_args)
+            result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
+            results[metric_name] = result
         
         # Handle other metrics that require latent representations
         if other_metrics:
