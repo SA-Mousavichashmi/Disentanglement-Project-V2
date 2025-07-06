@@ -102,11 +102,13 @@ trainer:
         num_workers: 8
         mi_method: "pyitlib"
         entropy_method: "pyitlib"
+        
       - name: "dci"
         num_train: 10000
         num_test: 5000
         backend: "sklearn"
         num_workers: 8
+
       - name: "reconstruction_error"
         error_type: "mse"
         reduction: "sum"
