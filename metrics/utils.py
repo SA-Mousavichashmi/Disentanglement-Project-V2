@@ -228,14 +228,6 @@ class MetricAggregator:
         
         results = {}
         
-        # Handle reconstruction metrics separately
-        if reconstruction_metric:
-            metric_name = reconstruction_metric['name']
-            metric_args = reconstruction_metric.get('args', {})
-            metric_obj = select_metric(metric_name, **metric_args)
-            result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
-            results[metric_name] = result
-        
         # Handle other metrics that require latent representations
         if other_metrics:
             latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
@@ -248,6 +240,14 @@ class MetricAggregator:
                 metric_obj = select_metric(metric_name, **metric_args)
                 result = metric_obj(latent_reps, gt_factors)
                 results[metric_name] = result
+
+        # Handle reconstruction metrics separately
+        if reconstruction_metric:
+            metric_name = reconstruction_metric['name']
+            metric_args = reconstruction_metric.get('args', {})
+            metric_obj = select_metric(metric_name, **metric_args)
+            result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
+            results[metric_name] = result
         
         return results
 
