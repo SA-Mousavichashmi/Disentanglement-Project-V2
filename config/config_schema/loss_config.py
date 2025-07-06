@@ -95,10 +95,10 @@ class GroupTheoryConfig(LossConfig):
     meaningful_transformation_order: int = 1
     meaningful_critic_gradient_penalty_weight: float = 10.0
     meaningful_critic_lr: float = 1e-4
-    meaningful_n_critic: int = 5
+    meaningful_n_critic: int = 1
     deterministic_rep: bool = True
-    group_action_latent_range: float = 1.0
-    group_action_latent_distribution: str = "normal"
+    group_action_latent_range: float = 2.0
+    group_action_latent_distribution: str = "uniform"
     comp_latent_select_threshold: float = 0.0
     base_loss_state_dict: Optional[Dict[str, Any]] = None
     warm_up_steps: int = 0
