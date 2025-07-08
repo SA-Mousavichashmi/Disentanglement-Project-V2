@@ -1,4 +1,5 @@
+
 defaults:
-  - g-meaningful-factor-vae_base
+  - /models/g-vae/g-meaningful/factor-vae/g-meaningful-factor-vae_base
   - /datasets/shapes3d/shapes3d
   - _self_

@@ -1,4 +1,5 @@
+
 defaults:
-  - factor-vae_base
+  - /models/factor-vae/factor-vae_base
   - /datasets/card3d/cars3d
   - _self_

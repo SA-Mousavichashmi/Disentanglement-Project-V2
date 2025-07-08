@@ -1,5 +1,6 @@
+
 defaults:
-  - b-vae_base
+  - /models/b-vae/b-vae_base
   - /datasets/card3d/cars3d
   - _self_
 

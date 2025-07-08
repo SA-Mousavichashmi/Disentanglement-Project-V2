@@ -1,5 +1,6 @@
+
 defaults:
-  - factor-vae_base
+  - /models/factor-vae/factor-vae_base
   - /datasets/dsprites/dsprites
   - _self_
 
