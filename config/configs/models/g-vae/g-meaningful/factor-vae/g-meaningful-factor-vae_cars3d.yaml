@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-factor-vae_base
+  - /datasets/card3d/cars3d
+  - _self_

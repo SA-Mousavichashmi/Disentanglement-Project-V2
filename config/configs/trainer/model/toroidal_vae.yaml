@@ -1,9 +1,0 @@
-# S-VAE Toroidal model configuration
-# Toroidal VAE for learning periodic latent factors
-
-name: "toroidal_vae"
-encoder_name: "locatello"
-decoder_name: "locatello"
-latent_factor_num: 10  # Number of latent factors for S-VAE models
-decoder_output_dist: "bernoulli"
-use_batchnorm: false

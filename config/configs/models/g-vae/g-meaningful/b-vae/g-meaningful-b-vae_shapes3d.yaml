@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-b-vae
+  - /datasets/shapes3d/shapes3d
+  - _self_

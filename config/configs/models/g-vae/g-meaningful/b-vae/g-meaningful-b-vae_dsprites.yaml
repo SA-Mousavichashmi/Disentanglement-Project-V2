@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-b-vae
+  - /datasets/dsprites/dsprites
+  - _self_

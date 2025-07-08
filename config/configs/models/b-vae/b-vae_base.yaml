@@ -1,0 +1,13 @@
+# BetaVAE config - inherits from base.yaml with Beta VAE loss
+# Uses vae_locatello with beta=16
+
+defaults:
+  - /base
+  - _self_
+
+trainer:
+  loss:
+    name: "betavae"
+    beta: 16  # Beta value set to 16
+    rec_dist: "gaussian"
+    log_kl_components: true

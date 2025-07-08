@@ -1,6 +1,0 @@
-# Modularity-d (Modularity - disentanglement) Metric Configuration
-# Measures the modularity of representations
-name: "modularity_d"
-num_bins: 20         # Number of bins for discretization
-num_workers: 8       # Number of parallel workers for computation
-mi_method: "sklearn" # Method for mutual information computation ('sklearn' or 'pyitlib')

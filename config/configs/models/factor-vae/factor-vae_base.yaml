@@ -1,0 +1,15 @@
+# FactorVAE config - inherits from base.yaml with FactorVAE loss
+# Uses vae_locatello with discriminator-based disentanglement
+
+defaults:
+  - /base
+  - _self_
+
+trainer:
+  loss:
+    name: "factorvae"
+    gamma: 10.0           # Weight of the TC loss term
+    discr_lr: 0.0001      # Discriminator learning rate
+    discr_betas: [0.5, 0.9] # Discriminator Adam betas
+    rec_dist: "gaussian"
+    log_kl_components: true

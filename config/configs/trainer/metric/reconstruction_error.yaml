@@ -1,3 +1,0 @@
-# Reconstruction Error Metric Configuration
-# Measures the reconstruction error of the VAE model
-name: "reconstruction_error"

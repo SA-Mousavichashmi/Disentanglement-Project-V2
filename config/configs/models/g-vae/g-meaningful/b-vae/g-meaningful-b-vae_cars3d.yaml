@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-b-vae
+  - /datasets/card3d/cars3d
+  - _self_

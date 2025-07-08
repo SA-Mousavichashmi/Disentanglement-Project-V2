@@ -1,0 +1,4 @@
+defaults:
+  - anneal-vae_base
+  - /datasets/shapes3d/shapes3d
+  - _self_

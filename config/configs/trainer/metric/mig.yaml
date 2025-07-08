@@ -1,7 +1,0 @@
-# MIG (Mutual Information Gap) Metric Configuration
-# Measures the mutual information gap between representations and factors
-name: "mig"
-num_bins: 20              # Number of bins for discretization
-num_workers: 8            # Number of parallel workers for computation
-mi_method: "pyitlib"      # Method for mutual information computation ('pyitlib' or 'sklearn')
-entropy_method: "pyitlib" # Method for entropy computation ('pyitlib' or 'sklearn')

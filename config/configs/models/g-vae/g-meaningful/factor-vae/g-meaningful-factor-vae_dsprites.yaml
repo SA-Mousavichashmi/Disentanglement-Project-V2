@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-factor-vae_base
+  - /datasets/dsprites/dsprites
+  - _self_

@@ -1,7 +1,0 @@
-# Beta-VAE loss configuration
-# Standard Beta-VAE loss with controllable beta weighting
-
-name: "betavae"
-beta: 4.0
-rec_dist: "bernoulli"
-log_kl_components: false

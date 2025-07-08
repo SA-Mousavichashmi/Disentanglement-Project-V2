@@ -1,0 +1,18 @@
+# GroupTheory loss config with Beta-TCVAE base
+# Inherits from base.yaml and overrides specific loss configuration
+
+defaults:
+  - /models/g-vae/g-meaningful/g-meaningful_base
+  - _self_
+
+trainer:
+  loss:
+    base_loss_name: "betatcvae"
+    base_loss_kwargs:
+      n_data: null        # Number of data in the training set (should be set to dataset size if known)
+      alpha: 1.0          # Weight of the mutual information term
+      beta: 16            # Weight of the total correlation term (set to 16 for experiment)
+      gamma: 1.0          # Weight of the dimension-wise KL term
+      is_mss: true        # Use minibatch stratified sampling
+      rec_dist: "gaussian"
+      log_kl_components: true

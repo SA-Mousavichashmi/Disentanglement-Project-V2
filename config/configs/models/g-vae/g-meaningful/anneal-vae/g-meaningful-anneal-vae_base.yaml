@@ -1,0 +1,17 @@
+# GroupTheory loss config with Annealed VAE base
+# Inherits from base.yaml and overrides specific loss configuration
+
+defaults:
+  - /models/g-vae/g-meaningful/g-meaningful_base
+  - _self_
+
+trainer:
+  loss:
+    base_loss_name: "annealedvae"
+    base_loss_kwargs:
+      gamma: 100.0
+      C_init: 0.0
+      C_fin: 25.0
+      anneal_steps: 100000
+      rec_dist: "gaussian"
+      log_kl_components: true

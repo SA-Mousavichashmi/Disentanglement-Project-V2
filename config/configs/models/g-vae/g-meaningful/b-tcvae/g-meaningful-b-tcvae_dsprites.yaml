@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-b-tcvae_base
+  - /datasets/dsprites/dsprites
+  - _self_

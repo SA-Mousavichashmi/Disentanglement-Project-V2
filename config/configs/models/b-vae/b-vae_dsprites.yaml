@@ -1,0 +1,4 @@
+defaults:
+  - b-vae_base
+  - /datasets/dsprites/dsprites
+  - _self_

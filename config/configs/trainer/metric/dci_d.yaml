@@ -1,7 +1,0 @@
-# DCI-d (Disentanglement, Completeness, and Informativeness - disentanglement) Metric Configuration
-# Measures three key aspects of disentangled representations
-name: "dci_d"
-num_train: 10000      # Number of training samples (if null, uses split_ratio)
-num_test: 5000        # Number of test samples (if null, uses split_ratio)
-backend: "sklearn"    # Backend for computation ('sklearn' or other)
-num_workers: 8        # Number of parallel workers for computation

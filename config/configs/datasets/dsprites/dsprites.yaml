@@ -1,0 +1,8 @@
+# @package _group_
+name: dsprites
+root: data/dsprites/
+selected_factors: 'all'
+not_selected_factors_index_value: null
+subset: 1.0
+transforms: null
+drop_color_factor: True

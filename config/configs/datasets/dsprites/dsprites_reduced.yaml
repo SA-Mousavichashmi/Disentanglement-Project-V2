@@ -1,0 +1,6 @@
+defaults:
+  - /datasets/dsprites/dsprites
+  - _self_
+
+selected_factors: ['color', 'shape', 'scale', 'posX', 'posY']
+not_selected_factors_index_value: {'orientation': 0}

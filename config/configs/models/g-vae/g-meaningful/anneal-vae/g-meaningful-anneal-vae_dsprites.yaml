@@ -1,0 +1,4 @@
+defaults:
+  - g-meaningful-anneal-vae_base
+  - /datasets/dsprites/dsprites
+  - _self_
