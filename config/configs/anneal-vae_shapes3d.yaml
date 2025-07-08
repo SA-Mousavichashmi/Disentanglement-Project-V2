@@ -7,7 +7,7 @@ hydra:
   output_subdir: null
 
 defaults:
-  - /base
+  - base
   - _self_
 
 # Override specific settings for AnnealedVAE

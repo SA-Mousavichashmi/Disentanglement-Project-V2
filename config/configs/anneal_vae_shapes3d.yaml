@@ -1,0 +1,11 @@
+# Main configuration file for AnnealedVAE with Shapes3D
+# This uses Hydra's config groups to organize configurations properly
+
+defaults:
+  - base  # Base configuration
+  - models: anneal-vae  # Config group: models, option: anneal-vae
+  - datasets: shapes3d  # Config group: datasets, option: shapes3d
+  - _self_  # This config's overrides
+
+# Any specific overrides for this experiment can go here
+# This file acts as the main entry point while keeping organized structure

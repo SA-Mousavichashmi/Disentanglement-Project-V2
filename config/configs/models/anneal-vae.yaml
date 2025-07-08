@@ -1,0 +1,13 @@
+# @package _global_
+# AnnealedVAE model configuration - merges into global config
+
+# Model-specific overrides
+trainer:
+  loss:
+    name: "annealedvae"
+    gamma: 100.0
+    C_init: 0.0
+    C_fin: 25.0
+    anneal_steps: 100000
+    rec_dist: "gaussian"
+    log_kl_components: true

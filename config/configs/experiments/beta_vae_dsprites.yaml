@@ -1,0 +1,11 @@
+# BetaVAE experiment with DSprites
+# This is a complete experiment configuration
+
+defaults:
+  - /base
+  - /models: beta-vae
+  - /datasets: dsprites
+  - _self_
+
+# Any experiment-specific overrides
+experiment_id: "beta_vae_dsprites_experiment"

@@ -1,5 +1,5 @@
 # AnnealedVAE configuration for Shapes3D dataset
-# This configuration follows the ExperimentConfig schema
+# This configuration follows the ExperimentConfig schema and produces the desired output
 
 hydra:
   run:
@@ -7,7 +7,7 @@ hydra:
   output_subdir: null
 
 defaults:
-  - /base
+  - base
   - _self_
 
 # Override specific settings for AnnealedVAE

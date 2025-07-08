@@ -1,6 +1,6 @@
 
 defaults:
-  - /models/b-vae/b-vae_base
+  - /losses/b-vae/b-vae_base
   - /datasets/card3d/cars3d
   - _self_
 

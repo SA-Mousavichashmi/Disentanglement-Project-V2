@@ -1,0 +1,11 @@
+# AnnealedVAE experiment with Shapes3D
+# This is a complete experiment configuration
+
+defaults:
+  - /base
+  - /models: anneal-vae
+  - /datasets: shapes3d
+  - _self_
+
+# Any experiment-specific overrides
+experiment_id: "anneal_vae_shapes3d_experiment"

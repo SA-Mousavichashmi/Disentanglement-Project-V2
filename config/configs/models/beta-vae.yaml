@@ -1,0 +1,10 @@
+# @package _global_
+# Beta-VAE model configuration - merges into global config
+
+# Model-specific overrides
+trainer:
+  loss:
+    name: "betavae"
+    beta: 4.0
+    rec_dist: "gaussian"
+    log_kl_components: true
