@@ -1,0 +1,8 @@
+# Dataset configuration for Shapes3D
+# Configured for training on the 3D Shapes dataset
+
+name: "shapes3d"
+root: "data/shapes3d/" 
+selected_factors: ['floorCol', 'wallCol', 'objCol', 'objSize', 'objType']
+not_selected_factors_index_value: {'objAzimuth':4}
+subset: 1.0

@@ -1,4 +1,7 @@
-# BetaVAE config based on baseconfig.yaml, using vae_locatello, beta=16, 40 epochs
+defaults:
+  - trainer/loss: null
+  - trainer/dataset: null
+  - _self_
 
 hydra:
   run:
@@ -24,19 +27,6 @@ trainer:
     latent_dim: 10
     decoder_output_dist: "bernoulli"
     use_batchnorm: false
-
-  loss:
-    name: "betavae"
-    beta: 16  # Beta value set to 16
-    rec_dist: "gaussian"
-    log_kl_components: true
-
-  dataset:
-    name: "shapes3d"
-    root: "data/shapes3d/"
-    selected_factors: "all"
-    not_selected_factors_index_value: null
-    subset: 1.0
 
   dataloader:
     batch_size: 64
