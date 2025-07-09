@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..base_group_theory import BaseGroupTheoryLoss
-from ..base_utils import Critic, select_latent_components,
+from ..base_utils import Critic
 from .utils import (apply_group_action_latent_space,
                     generate_group_action_parameters)
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from ..base_utils import select_latent_components
 
 def generate_latent_translations_selected_components(data_num,
                                                       latent_dim, 
@@ -50,51 +50,6 @@ def generate_latent_translations_selected_components(data_num,
     transformation_parameters.scatter_(1, selected_components_indices, transformation_values)
 
     return transformation_parameters
-
-
-def generate_latent_translations(data_num, 
-                                 latent_dim, 
-                                 component_order, 
-                                 kl_components, 
-                                 range=1, 
-                                 distribution='normal'
-                                 ):
-    """
-    Generates latent translations by combining component selection and parameter generation.
-
-    This higher-level function coordinates:
-    1. Component selection using KL-based probabilities
-    2. Variance gathering for selected components
-    3. Translation parameter generation using selected components
-
-    Args:
-        data_num (int): Number of transformation vectors to generate
-        latent_dim (int): Total dimensionality of latent space
-        component_order (int): Number of components to select/modify per sample
-        kl_components (torch.Tensor): Component selection weights (batch, latent_dim)
-        range (float): For uniform distribution: the range [-range, range] from which to sample translation values.
-                      For normal distribution: the standard deviation of the normal distribution.
-        distribution (str): The distribution to sample from. Either 'uniform' or 'normal'. Default is 'uniform'.
-
-    Returns:
-        torch.Tensor: Translation parameters tensor of shape (data_num, latent_dim)
-                      with non-zero values only in selected components, sampled from
-                      the specified distribution.
-    """
-    # Ensure inputs are on the correct device (assuming kl_components determines the device)
-    device = kl_components.device
-
-    # Select components and generate translations using helper functions
-    selected_indices = select_latent_components(component_order, kl_components)
-    
-    return generate_latent_translations_selected_components(
-        data_num, 
-        latent_dim,
-        selected_indices,
-        range=range,
-        distribution=distribution
-    )
-
 
 def apply_group_action_latent_space(transformation_parameters, latent_space):
     """
