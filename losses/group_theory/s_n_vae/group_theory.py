@@ -71,6 +71,10 @@ class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
         )
 
     @property
+    def name(self):
+        return "group_theory_s_n_vae"
+
+    @property
     def topology_specific_kwargs(self):
         """Return mixed topology-specific parameters for serialization."""
         return {

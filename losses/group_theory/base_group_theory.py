@@ -12,6 +12,7 @@ from ..baseloss import BaseLoss
 from ..reconstruction import reconstruction_loss
 from .. import select
 from ..n_vae.kl_div import kl_normal_loss
+from ..s_vae.kl_div import kl_power_spherical_uniform_factor_wise
 from .base_utils import select_latent_components
 
 
@@ -122,8 +123,10 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         self.latent_factors_topologies = None
 
     @property
+    @abstractmethod
     def name(self):
-        return 'group_theory'
+        """Return the name of the group theory loss variant."""
+        pass
     
     @property
     @abstractmethod
@@ -307,9 +310,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             z = model.get_representations(fake_images, is_deterministic=self.deterministic_rep)
             
             # Calculate KL components for current images
-            with torch.no_grad():
-                mean, logvar = model.encoder(fake_images)['stats_qzx'].unbind(-1)
-                current_kl_components = kl_normal_loss(mean, logvar, raw=True)
+            current_kl_components = self._compute_kl_components(fake_images, model)
 
             latent_dim = z.size(1)
 
@@ -396,6 +397,76 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
 
         return g_loss
 
+    def _compute_kl_components(self, data, model):
+        """
+        Compute KL components compatible with both n_vae and s_n_vae models.
+        
+        Parameters
+        ----------
+        data : torch.Tensor
+            Input data batch
+        model : nn.Module
+            The VAE model (n_vae or s_n_vae)
+            
+        Returns
+        -------
+        torch.Tensor
+            KL components for each latent factor
+        """
+        with torch.no_grad():
+            stats_qzx = model.encoder(data)['stats_qzx']
+            
+        # Use topology information from the model
+        # S_N_VAE case: parse mixed topology parameters
+        latent_factor_topologies = self.latent_factors_topologies
+        
+        # Calculate parameter counts for each factor type
+        factor_params = []
+        for topology in latent_factor_topologies:
+            if topology == 'R1':
+                factor_params.append(2)  # mean, logvar
+            elif topology == 'S1':
+                factor_params.append(3)  # mu_x, mu_y, kappa
+            else:
+                raise ValueError(f"Unknown latent factor topology: {topology}")
+        
+        # Verify the total parameter count matches
+        total_expected_params = sum(factor_params)
+        if stats_qzx.shape[1] != total_expected_params:
+            raise ValueError(
+                f"Expected {total_expected_params} parameters but got {stats_qzx.shape[1]} "
+                f"for topologies {latent_factor_topologies}."
+            )
+        
+        # Calculate KL components for each factor
+        kl_components_list = []
+        start_idx = 0
+        
+        for topology, n_params in zip(latent_factor_topologies, factor_params):
+            end_idx = start_idx + n_params
+            factor_params_tensor = stats_qzx[:, start_idx:end_idx]
+            
+            if topology == 'R1':
+                # For Normal distribution, params are (mean, logvar)
+                mean = factor_params_tensor[:, 0]
+                logvar = factor_params_tensor[:, 1]
+                kl_component = kl_normal_loss(mean, logvar, raw=True)
+            elif topology == 'S1':
+                # For Power Spherical distribution, params are (mu_x, mu_y, kappa)
+                kl_component = kl_power_spherical_uniform_factor_wise(factor_params_tensor)
+                # Expand to match batch dimension like kl_normal_loss(raw=True)
+                kl_component = kl_component.expand(factor_params_tensor.shape[0])
+            else:
+                raise ValueError(f"Unknown latent factor topology: {topology}")
+            
+            kl_components_list.append(kl_component)
+            start_idx = end_idx
+        
+        # Stack to create tensor with shape [batch_size, num_factors]
+        kl_components_raw = torch.stack(kl_components_list, dim=1)
+        
+        return kl_components_raw
+
     def __call__(self, data, model, vae_optimizer):
         """Main training loop with common structure."""
         # Initialize topology information from model
@@ -431,9 +502,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode for baseloss")
 
         # Get KL components
-        with torch.no_grad():
-            mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
-        kl_components_raw = kl_normal_loss(mean, logvar, raw=True)
+        kl_components_raw = self._compute_kl_components(data, model)
 
         # Increment step counter
         self.current_step += 1

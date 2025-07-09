@@ -75,6 +75,10 @@ class GroupTheoryNVAELoss(BaseGroupTheoryLoss):
             'group_action_latent_distribution': self.group_action_latent_distribution,
         }
 
+    @property
+    def name(self):
+        return "group_theory_n_vae"
+
     def _get_critic_class(self):
         """Return the Critic class for R^1 topology."""
         return Critic
