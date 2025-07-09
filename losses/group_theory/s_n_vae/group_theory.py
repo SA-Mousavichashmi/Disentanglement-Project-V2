@@ -8,7 +8,7 @@ from .utils import (apply_group_action_latent_space,
                     generate_group_action_parameters)
 
 
-class Loss(BaseGroupTheoryLoss):
+class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
     """    
     Group theory losses for mixed R^1 and S^1 topology VAE models.
     

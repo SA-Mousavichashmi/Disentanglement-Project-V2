@@ -3,13 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..base_group_theory import BaseGroupTheoryLoss
-from ..base_utils import Critic, select_latent_components
+from ..base_utils import Critic
 from .utils import (generate_latent_translations_selected_components,
                     apply_group_action_latent_space
                     )
 
 
-class Loss(BaseGroupTheoryLoss):
+class GroupTheoryNVAELoss(BaseGroupTheoryLoss):
     """    
     Group theory losses for R^1 topology (translation-only) VAE models.
     
