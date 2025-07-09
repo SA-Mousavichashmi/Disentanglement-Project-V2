@@ -453,9 +453,8 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
                 kl_component = kl_normal_loss(mean, logvar, raw=True)
             elif topology == 'S1':
                 # For Power Spherical distribution, params are (mu_x, mu_y, kappa)
-                kl_component = kl_power_spherical_uniform_factor_wise(factor_params_tensor)
-                # Expand to match batch dimension like kl_normal_loss(raw=True)
-                kl_component = kl_component.expand(factor_params_tensor.shape[0])
+                # Use reduction='none' to get per-sample KL values
+                kl_component = kl_power_spherical_uniform_factor_wise(factor_params_tensor, reduction='none')
             else:
                 raise ValueError(f"Unknown latent factor topology: {topology}")
             
