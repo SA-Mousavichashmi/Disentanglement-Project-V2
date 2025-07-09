@@ -27,8 +27,8 @@ trainer:
 
   loss:
     name: "group_theory"
-    base_loss_name: "annealedvae"
-    base_loss_kwargs:
+    base_loss:
+      name: "annealedvae"
       gamma: 100.0
       C_init: 0.0
       C_fin: 25.0

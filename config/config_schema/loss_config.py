@@ -83,8 +83,7 @@ class AnnealSNVAEConfig(LossConfig):
 class GroupTheoryConfig(LossConfig):
     """Configuration for Group Theory based loss."""
     name: str = "group_theory"
-    base_loss_name: str = "betavae"
-    base_loss_kwargs: Dict[str, Any] = field(default_factory=lambda: BetaVAEConfig().__dict__)
+    base_loss: LossConfig = field(default_factory=BetaVAEConfig)
     rec_dist: str = "bernoulli"
     device: str = "cpu"
     commutative_weight: float = 1.0

@@ -27,8 +27,8 @@ trainer:
 
   loss:
     name: "group_theory"
-    base_loss_name: "betavae"
-    base_loss_kwargs:
+    base_loss:
+      name: "betavae"
       beta: 16  # Match beta from standard-b-vae.yaml
       rec_dist: "gaussian"
       log_kl_components: true
