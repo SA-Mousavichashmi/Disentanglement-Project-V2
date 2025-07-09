@@ -165,6 +165,12 @@ class ExperimentManager:
         model_name = self.experiment_config.trainer.model.name
         loss_name = self.experiment_config.trainer.loss.name
         dataset_name = self.experiment_config.trainer.dataset.name
+        
+        # For group theory losses, include the base loss name
+        if loss_name == "group_theory":
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            loss_name = f"{loss_name}_{base_loss_name}"
+        
         return f"{model_name}_{loss_name}_{dataset_name}_{timestamp}"
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
