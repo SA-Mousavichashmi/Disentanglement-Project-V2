@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 
 def generate_group_action_parameters(data_num,
-                                    latent_dim,
                                     selected_component_indices,
                                     latent_factor_topologies,
                                     r1_range=1,
@@ -19,11 +18,10 @@ def generate_group_action_parameters(data_num,
     Args:
         data_num (int): The number of transformation sets to generate.
                         Should match selected_component_indices.size(0).
-        latent_dim (int): The total dimensionality of the latent space.
         selected_component_indices (torch.Tensor): Indices of the selected components to transform for each data point.
                                                  Shape (data_num, component_order).
         latent_factor_topologies (list): List of topology types for each latent factor (e.g., 'R^1', 'S^1').
-                                       Length must be latent_dim.
+                                       Length must be equal to the number of latent factors.
         r1_range (float): For uniform distribution: the range [-r1_range, r1_range] for R^1.
                          For normal distribution: the standard deviation for R^1.
         s1_range (float): For uniform distribution: the range [0, s1_range] for S^1 angles.
