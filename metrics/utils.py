@@ -42,7 +42,7 @@ def select_metric(name, **kwargs):
     if name == 'reconstruction_error':
         return metrics.ReconstructionError(**kwargs)
 
-class MetricAggregator: # TODO Add capability to compute metrics like reconstruction error that do not require latent representations
+class MetricAggregator:
     """
     This class aggregates multiple disentanglement metrics
     """
@@ -119,12 +119,97 @@ class MetricAggregator: # TODO Add capability to compute metrics like reconstruc
         data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
 
         return self._get_representation_dataloader(model, data_loader, device)
-    
+
     def _get_representation(self, model, device='cpu', **kwargs):
         if 'data_loader' in kwargs:
             return self._get_representation_dataloader(model, device=device, **kwargs)
         elif 'dataset' in kwargs:
             return self._get_representation_dataset(model, device=device, **kwargs)
+
+    def _compute_reconstruction_metric_dataloader(self, model, data_loader, metric_obj, device='cpu'):
+        """Compute reconstruction metric using data loader.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            data_loader (torch.utils.data.DataLoader): The data loader containing the dataset.
+            metric_obj: The reconstruction metric object.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            float: Average reconstruction error across all batches.
+        """
+        model.to(device)
+        model.eval()
+        total_error = 0.0
+        total_samples = 0
+
+        with torch.no_grad():
+            for batch in tqdm(data_loader, desc="Computing reconstruction error"):
+                inputs, _ = batch
+                inputs = inputs.to(device)
+                
+                # Get reconstructions using mean representation
+                reconstructions = model.reconstruct(inputs, mode='mean')
+                
+                # Compute batch error with sum reduction to get total error for batch
+                batch_error = metric_obj(reconstructions, inputs)
+                total_error += batch_error.item()
+                total_samples += inputs.size(0)
+
+        return total_error / total_samples
+
+    def _compute_reconstruction_metric_dataset(self, model, dataset, metric_obj, seed, sample_num=None, device='cpu'):
+        """Compute reconstruction metric using dataset.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            dataset (torch.utils.data.Dataset): The dataset containing the data.
+            metric_obj: The reconstruction metric object.
+            seed (int): Random seed for reproducible sampling.
+            sample_num (int, optional): Number of samples to use. If None, use entire dataset.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            float: Average reconstruction error across all batches.
+        """
+        if sample_num is not None:
+            if sample_num > len(dataset):
+                raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
+
+            # Create a torch generator for reproducible sampling of dataset indices
+            g = torch.Generator()
+            g.manual_seed(seed)
+            
+            # Generate random indices using torch.randperm and the seeded generator
+            # Then take the first 'sample_num' indices
+            indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
+            
+            sample_dataset = torch.utils.data.Subset(dataset, indices)
+        else:
+            sample_dataset = dataset
+        
+        data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
+
+        return self._compute_reconstruction_metric_dataloader(model, data_loader, metric_obj, device)
+
+    def _compute_reconstruction_metric(self, model, metric_obj, device='cpu', **kwargs):
+        """Compute reconstruction metric with either dataloader or dataset format.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            metric_obj: The reconstruction metric object.
+            device (torch.device): The device to perform computations on.
+            **kwargs: Additional arguments containing either 'data_loader' or 'dataset'.
+
+        Returns:
+            float: Average reconstruction error across all batches.
+        """
+        if 'data_loader' in kwargs:
+            return self._compute_reconstruction_metric_dataloader(model, kwargs['data_loader'], metric_obj, device)
+        elif 'dataset' in kwargs:
+            return self._compute_reconstruction_metric_dataset(model, kwargs['dataset'], metric_obj, kwargs.get('seed', 42), kwargs.get('sample_num'), device)
+        else:
+            raise ValueError("Either 'data_loader' or 'dataset' must be provided for reconstruction metrics")
 
     def compute(self, model, device='cpu', **kwargs):
         """Computes the disentanglement metrics for the given model and data loader.
@@ -137,16 +222,31 @@ class MetricAggregator: # TODO Add capability to compute metrics like reconstruc
         Returns:
             dict: A dictionary containing the computed metrics.
         """
-        latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
-
+        # Separate reconstruction metrics from representation-based metrics
+        reconstruction_metric = next((m for m in self.metrics if m['name'] == 'reconstruction_error'), None)
+        other_metrics = [m for m in self.metrics if m['name'] != 'reconstruction_error']
+        
         results = {}
-        progress_bar = tqdm(self.metrics, desc="Computing metrics")
-        for metric in progress_bar:
-            metric_name = metric['name']
-            progress_bar.set_description(f"Computing {metric_name}")
-            metric_args = metric.get('args', {})
+        
+        # Handle other metrics that require latent representations
+        if other_metrics:
+            latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
+            
+            progress_bar = tqdm(other_metrics, desc="Computing metrics")
+            for metric in progress_bar:
+                metric_name = metric['name']
+                progress_bar.set_description(f"Computing {metric_name}")
+                metric_args = metric.get('args', {})
+                metric_obj = select_metric(metric_name, **metric_args)
+                result = metric_obj(latent_reps, gt_factors)
+                results[metric_name] = result
+
+        # Handle reconstruction metrics separately
+        if reconstruction_metric:
+            metric_name = reconstruction_metric['name']
+            metric_args = reconstruction_metric.get('args', {})
             metric_obj = select_metric(metric_name, **metric_args)
-            result = metric_obj(latent_reps, gt_factors)
+            result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
             results[metric_name] = result
         
         return results

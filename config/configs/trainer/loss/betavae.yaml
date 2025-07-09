@@ -2,6 +2,6 @@
 # Standard Beta-VAE loss with controllable beta weighting
 
 name: "betavae"
-beta: 4.0
-rec_dist: "bernoulli"
-log_kl_components: false
+beta: 16.0
+rec_dist: "gaussian"  
+log_kl_components: true

@@ -83,8 +83,7 @@ class AnnealSNVAEConfig(LossConfig):
 class GroupTheoryConfig(LossConfig):
     """Configuration for Group Theory based loss."""
     name: str = "group_theory"
-    base_loss_name: str = "betavae"
-    base_loss_kwargs: Dict[str, Any] = field(default_factory=lambda: BetaVAEConfig().__dict__)
+    base_loss: LossConfig = field(default_factory=BetaVAEConfig)
     rec_dist: str = "bernoulli"
     device: str = "cpu"
     commutative_weight: float = 1.0
@@ -95,10 +94,10 @@ class GroupTheoryConfig(LossConfig):
     meaningful_transformation_order: int = 1
     meaningful_critic_gradient_penalty_weight: float = 10.0
     meaningful_critic_lr: float = 1e-4
-    meaningful_n_critic: int = 5
+    meaningful_n_critic: int = 1
     deterministic_rep: bool = True
-    group_action_latent_range: float = 1.0
-    group_action_latent_distribution: str = "normal"
+    group_action_latent_range: float = 2.0
+    group_action_latent_distribution: str = "uniform"
     comp_latent_select_threshold: float = 0.0
     base_loss_state_dict: Optional[Dict[str, Any]] = None
     warm_up_steps: int = 0

@@ -4,4 +4,4 @@
 name: "beta_toroidal_vae"
 beta: 2.0
 rec_dist: "bernoulli"
-log_kl_components: false
+log_kl_components: true

@@ -4,6 +4,7 @@ import logging
 import csv
 import json
 import shutil
+import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -164,6 +165,12 @@ class ExperimentManager:
         model_name = self.experiment_config.trainer.model.name
         loss_name = self.experiment_config.trainer.loss.name
         dataset_name = self.experiment_config.trainer.dataset.name
+        
+        # For group theory losses, include the base loss name
+        if loss_name == "group_theory":
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            loss_name = f"{loss_name}_{base_loss_name}"
+        
         return f"{model_name}_{loss_name}_{dataset_name}_{timestamp}"
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
@@ -657,6 +664,13 @@ def create_loss(cfg: LossConfig) -> torch.nn.Module:
     
     # Convert config to dict for loss creation
     loss_kwargs = OmegaConf.to_container(cfg, resolve=True)
+    
+    # Special handling for group_theory loss
+    if cfg.name == "group_theory":
+        # Extract base_loss configuration and convert it to the old format
+        base_loss_config = loss_kwargs.pop('base_loss')
+        loss_kwargs['base_loss_name'] = base_loss_config['name']
+        loss_kwargs['base_loss_kwargs'] = {k: v for k, v in base_loss_config.items() if k != 'name'}
     
     return losses.select(**loss_kwargs)
 

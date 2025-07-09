@@ -1,0 +1,143 @@
+# GroupTheory loss config based on standard-b-vae.yaml, using vae_locatello, group_theory loss, 40 epochs
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+# ================ Experiment Management ================
+experiment_id: null
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # Multiple seeds for robust evaluation
+results_dir: "experiments"
+resume: true
+
+# ================ Core Training Configuration ================
+trainer:
+  step_unit: "iter"
+  max_steps: 300000 
+  device: "cuda"
+
+  model:
+    name: "vae_locatello"
+    encoder_name: "locatello"
+    decoder_name: "locatello"
+    latent_dim: 10
+    decoder_output_dist: "bernoulli"
+    use_batchnorm: false
+
+  loss:
+    name: "group_theory"
+    base_loss:
+      name: "annealedvae"
+      gamma: 100.0
+      C_init: 0.0
+      C_fin: 25.0
+      anneal_steps: 100000
+      rec_dist: "gaussian"
+      log_kl_components: true
+    rec_dist: "gaussian"
+    device: "cuda"
+    commutative_weight: 0
+    commutative_component_order: 2
+    commutative_comparison_dist: "gaussian"
+    meaningful_weight: 1.0
+    meaningful_component_order: 1
+    meaningful_transformation_order: 1
+    meaningful_critic_gradient_penalty_weight: 10.0
+    meaningful_critic_lr: 1e-4
+    meaningful_n_critic: 1
+    deterministic_rep: true
+    group_action_latent_range: 2.0
+    group_action_latent_distribution: "uniform"
+    comp_latent_select_threshold: 0.1
+    base_loss_state_dict: null
+    warm_up_steps: 0
+    schedulers_kwargs:
+      - name: linear
+        kwargs:
+          param_name: meaningful_weight
+          initial_value: 0.0  # Start with no meaningful loss
+          final_value: 10     # End with full meaningful loss
+          total_steps: 300000
+
+  dataset:
+    name: "shapes3d"
+    root: "data/shapes3d/"
+    selected_factors: "all"
+    not_selected_factors_index_value: null
+    subset: 1.0
+
+  dataloader:
+    batch_size: 64
+    num_workers: 7
+    pin_memory: true
+    persistent_workers: true
+    shuffle: true
+    drop_last: false
+    in_order: true
+    snapshot_every_n_steps: 1
+
+  progress_bar:
+    enabled: true
+    log_iter_interval: 50
+
+  logging:
+    enabled: true
+    return_logs: true
+    loss_interval_type: "iter"
+    loss_iter_interval: 100
+    prev_train_losses_log: null
+    metrics_interval_type: "iter"
+    metrics_iter_interval: 200
+    prev_train_metrics_log: null
+
+  checkpoint:
+    enabled: true
+    return_chkpt: false
+    every_n_steps: null
+    step_type: "epoch"
+    save_path: null
+    save_dir: null
+    save_viz: true
+
+  determinism:
+    use_cuda_det: true
+    enforce_det: false
+
+  torch_compile:
+    enabled: false
+    mode: "max-autotune"
+    backend: "inductor"
+    fullgraph: false
+    dynamic: false
+
+  optimizer:
+    name: "Adam"
+    lr: 1e-4
+    weight_decay: 0.0
+    betas: [0.9, 0.999]
+    eps: 1e-8
+
+  lr_scheduler:
+    name: "constantLR"
+    factor: 1.0
+    total_iters: 1
+
+  metricAggregator:
+    sample_num: null
+    metrics:
+      - name: "mig"
+        num_bins: 20
+        num_workers: 8
+        mi_method: "pyitlib"
+        entropy_method: "pyitlib"
+        
+      - name: "dci"
+        num_train: 10000
+        num_test: 5000
+        backend: "sklearn"
+        num_workers: 8
+
+      - name: "reconstruction_error"
+        error_type: "mse"
+        reduction: "sum"
