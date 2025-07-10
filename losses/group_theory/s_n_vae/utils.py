@@ -34,7 +34,7 @@ def generate_group_action_parameters(data_num,
               Each inner list corresponds to a data sample and contains dictionaries,
               where each dictionary represents a specific transformation to be applied.
               Each transformation dictionary has the following keys:
-              - 'component_index' (int): The global index (0 to latent_dim-1) of the
+              - 'component_index' (int): The global index (0 to factor_num-1) of the
                                          latent component to be transformed.
               - 'topology' (str): The topology of the component ('R^1' or 'S^1').
               - 'value' (torch.Tensor): A scalar tensor representing the transformation magnitude.
@@ -116,7 +116,7 @@ def apply_group_action_latent_space(group_action_params, latent_rep, latent_fact
                                                             For 'R^1', this is the translation amount.
                                                             For 'S^1', this is the rotation angle in radians.
         latent_rep (torch.Tensor): Input latent representations.
-            Shape (batch_size, total_latent_dim).
+            Shape (batch_size, factor_num).
         latent_factor_topologies (list): List of topology types for each logical latent factor.
                                        Length must be num_logical_factors.
 

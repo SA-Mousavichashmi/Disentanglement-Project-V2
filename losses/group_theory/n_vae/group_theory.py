@@ -83,11 +83,11 @@ class GroupTheoryNVAELoss(BaseGroupTheoryLoss):
         """Return the Critic class for R^1 topology."""
         return Critic
 
-    def _generate_group_action_parameters(self, data_num, latent_dim, selected_component_indices, **kwargs):
+    def _generate_group_action_parameters(self, data_num, factor_num, selected_component_indices, **kwargs):
         """Generate R^1 translation parameters."""
         return generate_latent_translations_selected_components(
             data_num=data_num,
-            latent_dim=latent_dim,
+            factor_num=factor_num,
             selected_components_indices=selected_component_indices,
             range=self.group_action_latent_range,
             distribution=self.group_action_latent_distribution,

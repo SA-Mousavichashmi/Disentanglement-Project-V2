@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from ..base_utils import select_latent_components
 
 def generate_latent_translations_selected_components(data_num,
-                                                      latent_dim, 
+                                                      factor_num, 
                                                       selected_components_indices, 
                                                       range=1, 
                                                       distribution='normal'
@@ -17,14 +17,14 @@ def generate_latent_translations_selected_components(data_num,
 
     Args:
         data_num (int): The number of transformation vectors to generate.
-        latent_dim (int): The total dimensionality of the latent space.
+        factor_num (int): The total number of latent factors (latent space dimensionality).
         selected_components_indices (torch.Tensor): Indices of the selected components. Shape (batch, component_order).
         range (float): For uniform distribution: the range [-range, range] from which to sample translation values.
                       For normal distribution: the standard deviation of the normal distribution.
         distribution (str): The distribution to sample from. Either 'uniform' or 'normal'. Default is 'uniform'.
 
     Returns:
-        torch.Tensor: A tensor of shape (data_num, latent_dim) containing the
+        torch.Tensor: A tensor of shape (data_num, factor_num) containing the
                       random translation parameters. Only `component_order`
                       dimensions per vector will have non-zero values drawn from the specified distribution.
     """
@@ -32,7 +32,7 @@ def generate_latent_translations_selected_components(data_num,
     device = selected_components_indices.device
 
     # Initialize transformation parameters with zeros
-    transformation_parameters = torch.zeros(data_num, latent_dim, device=device)
+    transformation_parameters = torch.zeros(data_num, factor_num, device=device)
 
     # Sample from the specified distribution
     if distribution == 'uniform':

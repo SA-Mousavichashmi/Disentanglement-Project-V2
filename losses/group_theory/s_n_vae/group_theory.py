@@ -88,14 +88,13 @@ class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
         """Return the Critic class for mixed topology."""
         return Critic
 
-    def _generate_group_action_parameters(self, data_num, latent_dim, selected_component_indices, **kwargs):
+    def _generate_group_action_parameters(self, data_num, selected_component_indices, **kwargs):
         """Generate mixed topology group action parameters."""
         if self.latent_factor_topologies is None:
             raise ValueError("latent_factor_topologies must be set before generating group action parameters")
             
         return generate_group_action_parameters(
             data_num=data_num,
-            latent_dim=latent_dim,
             selected_component_indices=selected_component_indices,
             latent_factor_topologies=self.latent_factor_topologies,
             r1_range=self.g_action_r1_range,

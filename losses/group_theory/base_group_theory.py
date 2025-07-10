@@ -205,8 +205,18 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
                     self.schedulers[param_name].load_state_dict(scheduler_state)
 
     @abstractmethod
-    def _generate_group_action_parameters(self, data_num, latent_dim, selected_component_indices, **kwargs):
-        """Generate topology-specific group action parameters."""
+    def _generate_group_action_parameters(self, data_num, selected_component_indices, **kwargs):
+        """
+        Generates parameters for group actions.
+        
+        Args:
+            data_num (int): Number of data points.
+            factor_num (int): Number of latent factors.
+            selected_component_indices (list): Indices of the selected components.
+            
+        Returns:
+            Parameters for the group action.
+        """
         pass
 
     @abstractmethod
@@ -236,7 +246,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         operations to abstract methods.
         """
         z = model.get_representations(data, is_deterministic=self.deterministic_rep)
-        _, latent_dim = z.shape
+        factor_num = len(self.latent_factor_topologies)
 
         # Select components for group actions
         selected_row_indices, selected_component_indices = None, None
@@ -264,13 +274,13 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         # Generate transformation parameters
         g_params = self._generate_group_action_parameters(
             data_num=len(selected_row_indices),
-            latent_dim=latent_dim,
+            factor_num=factor_num,
             selected_component_indices=g_component_index
         )
         
         gprime_params = self._generate_group_action_parameters(
             data_num=len(selected_row_indices),
-            latent_dim=latent_dim,
+            factor_num=factor_num,
             selected_component_indices=g_prime_component_indices
         )
 
@@ -312,7 +322,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             # Calculate KL components for current images
             current_kl_components = self._compute_kl_components(fake_images, model)
 
-            latent_dim = z.size(1)
+            factor_num = len(self.latent_factor_topologies)
 
             # Select components for group action
             selected_row_indices, selected_component_indices = None, None
@@ -336,7 +346,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             # Generate and apply group action
             group_params = self._generate_group_action_parameters(
                 data_num=len(selected_row_indices),
-                latent_dim=latent_dim,
+                factor_num=factor_num,
                 selected_component_indices=selected_component_indices
             )
         
@@ -463,8 +473,6 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         
         # Stack to create tensor with shape [batch_size, num_factors]
         kl_components_raw = torch.cat(kl_components_list, dim=1)
-
-        print(f"KL components shape: {kl_components_raw.shape}")
         
         return kl_components_raw
 
