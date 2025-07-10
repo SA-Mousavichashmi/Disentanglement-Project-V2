@@ -47,7 +47,7 @@ class BetaTCVAEConfig(LossConfig):
     alpha: float = 1.0
     beta: float = 6.0
     gamma: float = 1.0
-    n_data: Optional[int] = None
+    n_data: int = MISSING
     is_mss: bool = True
 
 ########## S1 * .... * S1 latent topology ##########
