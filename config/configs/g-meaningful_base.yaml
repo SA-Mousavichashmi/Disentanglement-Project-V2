@@ -1,7 +1,6 @@
 defaults:
   - base
   - trainer/loss/base_loss: null
-  - trainer/dataset: null
   - _self_
 
 # Only override or add configs that are different from base.yaml below
