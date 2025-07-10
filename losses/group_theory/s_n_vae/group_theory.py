@@ -90,14 +90,14 @@ class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
 
     def _generate_group_action_parameters(self, data_num, latent_dim, selected_component_indices, **kwargs):
         """Generate mixed topology group action parameters."""
-        if self.latent_factors_topologies is None:
-            raise ValueError("latent_factors_topologies must be set before generating group action parameters")
+        if self.latent_factor_topologies is None:
+            raise ValueError("latent_factor_topologies must be set before generating group action parameters")
             
         return generate_group_action_parameters(
             data_num=data_num,
             latent_dim=latent_dim,
             selected_component_indices=selected_component_indices,
-            latent_factor_topologies=self.latent_factors_topologies,
+            latent_factor_topologies=self.latent_factor_topologies,
             r1_range=self.g_action_r1_range,
             s1_range=self.g_action_s1_range,
             r1_dist=self.g_action_r1_dist,
@@ -106,8 +106,8 @@ class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
 
     def _apply_group_action_latent_space(self, action_params, latent_rep, **kwargs):
         """Apply mixed topology group action."""
-        if self.latent_factors_topologies is None:
-            raise ValueError("latent_factors_topologies must be set before applying group actions")
-            
-        return apply_group_action_latent_space(action_params, latent_rep, self.latent_factors_topologies)
+        if self.latent_factor_topologies is None:
+            raise ValueError("latent_factor_topologies must be set before applying group actions")
+
+        return apply_group_action_latent_space(action_params, latent_rep, self.latent_factor_topologies)
 

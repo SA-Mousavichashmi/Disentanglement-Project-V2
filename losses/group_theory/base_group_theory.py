@@ -120,7 +120,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         self.current_step = 0
 
         # Topology information (set from model)
-        self.latent_factors_topologies = None
+        self.latent_factor_topologies = None
 
     @property
     @abstractmethod
@@ -418,7 +418,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             
         # Use topology information from the model
         # S_N_VAE case: parse mixed topology parameters
-        latent_factor_topologies = self.latent_factors_topologies
+        latent_factor_topologies = self.latent_factor_topologies
         
         # Calculate parameter counts for each factor type
         factor_params = []
@@ -471,7 +471,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
     def __call__(self, data, model, vae_optimizer):
         """Main training loop with common structure."""
         # Initialize topology information from model
-        self.latent_factors_topologies = model.latent_factors_topologies
+        self.latent_factor_topologies = model.latent_factor_topologies
 
         log_data = OrderedDict()
         base_loss = 0
