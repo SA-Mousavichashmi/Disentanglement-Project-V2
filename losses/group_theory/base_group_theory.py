@@ -463,14 +463,15 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         
         # Stack to create tensor with shape [batch_size, num_factors]
         kl_components_raw = torch.stack(kl_components_list, dim=1)
+
+        print(f"KL components shape: {kl_components_raw.shape}")
         
         return kl_components_raw
 
     def __call__(self, data, model, vae_optimizer):
         """Main training loop with common structure."""
         # Initialize topology information from model
-        if self.latent_factors_topologies is None:
-            self.latent_factors_topologies = getattr(model, 'latent_factor_topologies', None)
+        self.latent_factors_topologies = model.latent_factors_topologies
 
         log_data = OrderedDict()
         base_loss = 0
