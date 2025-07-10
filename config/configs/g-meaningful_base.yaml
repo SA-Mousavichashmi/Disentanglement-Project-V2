@@ -1,0 +1,42 @@
+defaults:
+  - base
+  - trainer/loss/base_loss: null
+  - trainer/dataset: null
+  - _self_
+
+# Only override or add configs that are different from base.yaml below
+trainer:
+  loss:
+    name: "group_theory"
+    rec_dist: "gaussian"
+    device: "cuda"
+
+    ### commutative settings ###
+    commutative_weight: 0
+    commutative_component_order: 2
+    commutative_comparison_dist: "gaussian"
+
+    ### meaningful settings ###
+    meaningful_weight: 1.0
+    meaningful_component_order: 1
+    meaningful_transformation_order: 1
+    meaningful_critic_gradient_penalty_weight: 10.0
+    meaningful_critic_lr: 1e-4
+    meaningful_n_critic: 1
+
+    ### overall settings ###
+    deterministic_rep: true
+    group_action_latent_range: 2.0
+    group_action_latent_distribution: "uniform"
+    comp_latent_select_threshold: 0.1
+    base_loss_state_dict: null
+    warm_up_steps: 0
+
+    ### scheduler settings ###
+    schedulers_kwargs:
+      - name: linear
+        kwargs:
+          param_name: meaningful_weight
+          initial_value: 0.0  # Start with no meaningful loss
+          final_value: 10     # End with full meaningful loss
+          total_steps: 300000
