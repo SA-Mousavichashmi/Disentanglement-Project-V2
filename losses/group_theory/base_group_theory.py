@@ -462,7 +462,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             start_idx = end_idx
         
         # Stack to create tensor with shape [batch_size, num_factors]
-        kl_components_raw = torch.stack(kl_components_list, dim=1)
+        kl_components_raw = torch.stack(kl_components_list)
 
         print(f"KL components shape: {kl_components_raw.shape}")
         
