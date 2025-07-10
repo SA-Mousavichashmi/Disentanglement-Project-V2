@@ -1,0 +1,9 @@
+# Beta-TC-VAE loss configuration
+# Total Correlation decomposition of the KL term
+
+name: "betatcvae"
+beta: 6.0
+alpha: 1.0
+gamma: 1.0
+rec_dist: "gaussian"
+log_kl_components: true

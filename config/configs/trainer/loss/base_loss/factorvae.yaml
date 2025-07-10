@@ -1,0 +1,7 @@
+# Factor-VAE loss configuration  
+# Encourages independence between latent factors
+
+name: "factorvae"
+gamma: 15
+rec_dist: "gaussian"
+log_kl_components: true

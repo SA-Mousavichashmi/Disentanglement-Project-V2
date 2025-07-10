@@ -1,0 +1,7 @@
+# Beta-VAE loss configuration
+# Standard Beta-VAE loss with controllable beta weighting
+
+name: "betavae"
+beta: 16.0
+rec_dist: "gaussian"  
+log_kl_components: true
