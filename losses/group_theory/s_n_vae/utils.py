@@ -172,12 +172,18 @@ def _rotate_s1(cos_sin_tensor, rotation_angle):
     Returns:
         torch.Tensor: The rotated 2D (cos, sin) tensor.
     """
+    # Extract cos and sin components
     cos_val = cos_sin_tensor[..., 0]
     sin_val = cos_sin_tensor[..., 1]
     
-    # Convert to angle, apply rotation, convert back
-    current_angle = torch.atan2(sin_val, cos_val)
-    new_angle = current_angle + rotation_angle
+    # Direct rotation using trigonometric addition formulas:
+    # cos(a+b) = cos(a)cos(b) - sin(a)sin(b)
+    # sin(a+b) = sin(a)cos(b) + cos(a)sin(b)
+    cos_rotation = torch.cos(rotation_angle)
+    sin_rotation = torch.sin(rotation_angle)
+    
+    new_cos = cos_val * cos_rotation - sin_val * sin_rotation
+    new_sin = sin_val * cos_rotation + cos_val * sin_rotation
     
     # Return new tensor with rotated values
-    return torch.stack((torch.cos(new_angle), torch.sin(new_angle)), dim=-1)
+    return torch.stack((new_cos, new_sin), dim=-1)
