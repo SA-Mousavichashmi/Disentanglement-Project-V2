@@ -10,10 +10,10 @@ from .utils import (apply_group_action_latent_space,
 
 class GroupTheorySNVAELoss(BaseGroupTheoryLoss):
     """    
-    Group theory losses for mixed R^1 and S^1 topology VAE models.
+    Group theory losses for mixed R1 and S1 topology VAE models.
     
     This implementation supports models with mixed latent factors that can have
-    both R^1 (translation) and S^1 (rotation) topologies.
+    both R1 (translation) and S1 (rotation) topologies.
     """
     
     def __init__(self,

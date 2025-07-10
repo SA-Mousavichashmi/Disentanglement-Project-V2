@@ -10,10 +10,9 @@ from .utils import (generate_latent_translations_selected_components,
 
 
 class GroupTheoryNVAELoss(BaseGroupTheoryLoss):
-    """    
-    Group theory losses for R^1 topology (translation-only) VAE models.
+    """Group theory losses for R1 topology (translation-only) VAE models.
     
-    This implementation is specialized for models with R^1 latent factors that only
+    This implementation is specialized for models with R1 latent factors that only
     support translation operations in latent space.
     """
     
@@ -80,7 +79,7 @@ class GroupTheoryNVAELoss(BaseGroupTheoryLoss):
         return "group_theory_n_vae"
 
     def _get_critic_class(self):
-        """Return the Critic class for R^1 topology."""
+        """Return the Critic class for R1 topology."""
         return Critic
 
     def _generate_group_action_parameters(self, data_num, factor_num, selected_component_indices, **kwargs):

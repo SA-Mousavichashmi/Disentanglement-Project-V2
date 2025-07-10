@@ -18,7 +18,7 @@ from .base_utils import select_latent_components
 
 class BaseGroupTheoryLoss(BaseLoss, ABC):
     """
-    Base class for Group Theory losses that provides common functionality for both R^1 and mixed topology implementations.
+    Base class for Group Theory losses that provides common functionality for both R1 and mixed topology implementations.
     
     This class handles:
     - Common initialization logic

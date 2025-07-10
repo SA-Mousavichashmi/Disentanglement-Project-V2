@@ -12,22 +12,23 @@ def generate_group_action_parameters(data_num,
                                     s1_dist='uniform'
                                     ):
     """
-    Generates random group action parameters for latent space transformation.
-    Supports both R^1 (translation) and S^1 (rotation) topologies.
+    Generates parameters for group actions based on specified topologies.
+
+    Supports both R1 (translation) and S1 (rotation) topologies.
 
     Args:
         data_num (int): The number of transformation sets to generate.
                         Should match selected_component_indices.size(0).
         selected_component_indices (torch.Tensor): Indices of the selected components to transform for each data point.
                                                  Shape (data_num, component_order).
-        latent_factor_topologies (list): List of topology types for each latent factor (e.g., 'R^1', 'S^1').
+        latent_factor_topologies (list): List of topology types for each latent factor (e.g., 'R1', 'S1').
                                        Length must be equal to the number of latent factors.
-        r1_range (float): For uniform distribution: the range [-r1_range, r1_range] for R^1.
-                         For normal distribution: the standard deviation for R^1.
-        s1_range (float): For uniform distribution: the range [0, s1_range] for S^1 angles.
-                         For normal distribution: the standard deviation for S^1.
-        r1_dist (str): The distribution to sample R^1 parameters from. Either 'uniform' or 'normal'.
-        s1_dist (str): The distribution to sample S^1 parameters from. Either 'uniform' or 'normal'.
+        r1_range (float): For uniform distribution: the range [-r1_range, r1_range] for R1.
+                         For normal distribution: the standard deviation for R1.
+        s1_range (float): For uniform distribution: the range [0, s1_range] for S1 angles.
+                         For normal distribution: the standard deviation for S1.
+        r1_dist (str): The distribution to sample R1 parameters from. Either 'uniform' or 'normal'.
+        s1_dist (str): The distribution to sample S1 parameters from. Either 'uniform' or 'normal'.
 
     Returns:
         list: A list of lists. The outer list has length `data_num`.
@@ -36,10 +37,10 @@ def generate_group_action_parameters(data_num,
               Each transformation dictionary has the following keys:
               - 'component_index' (int): The global index (0 to factor_num-1) of the
                                          latent component to be transformed.
-              - 'topology' (str): The topology of the component ('R^1' or 'S^1').
+              - 'topology' (str): The topology of the component ('R1' or 'S1').
               - 'value' (torch.Tensor): A scalar tensor representing the transformation magnitude.
-                                        For 'R^1', this is the translation amount.
-                                        For 'S^1', this is the rotation angle in radians.
+                                        For 'R1', this is the translation amount.
+                                        For 'S1', this is the rotation angle in radians.
     """
     device = selected_component_indices.device
     
@@ -65,15 +66,16 @@ def generate_group_action_parameters(data_num,
             topology = latent_factor_topologies[selected_comp]
             transform_value = None # Placeholder for the generated transformation value
             
-            if topology == 'R^1':
+            if topology == 'R1':
                 if r1_dist == 'uniform':
                     transform_value = (2 * torch.rand(1, device=device) - 1) * r1_range
                 elif r1_dist == 'normal':
                     transform_value = torch.randn(1, device=device) * r1_range
                 else:
-                    raise ValueError(f"Unsupported R^1 distribution '{r1_dist}'. Must be 'uniform' or 'normal'.")
+                    raise ValueError(f"Unsupported R^1 distribution '{r1_dist}'. Must be 'uniform' or 'normal'."
+                                    )
                 
-            elif topology == 'S^1':
+            elif topology == 'S1':
                 # For S^1, the value generated is an angle.
                 if s1_dist == 'uniform':
                     transform_value = torch.rand(1, device=device) * s1_range
@@ -100,9 +102,9 @@ def generate_group_action_parameters(data_num,
 
 
 def apply_group_action_latent_space(group_action_params, latent_rep, latent_factor_topologies):
-    """
-    Apply topology-aware group action on latent space.
-    Supports both R^1 (translation) and S^1 (rotation) topologies.
+    """Applies a group action to the latent space representation.
+
+    Supports both R1 (translation) and S1 (rotation) topologies.
 
     Args:
         group_action_params (list): A list of lists. The outer list has length `batch_size`.
@@ -111,10 +113,10 @@ def apply_group_action_latent_space(group_action_params, latent_rep, latent_fact
                                   Each transformation dictionary has the following keys:
                                   - 'component_index' (int): The logical index (0 to num_logical_factors-1) of the
                                                              latent component to be transformed.
-                                  - 'topology' (str): The topology of the component ('R^1' or 'S^1').
+                                  - 'topology' (str): The topology of the component ('R1' or 'S1').
                                   - 'value' (torch.Tensor): A scalar tensor representing the transformation magnitude.
-                                                            For 'R^1', this is the translation amount.
-                                                            For 'S^1', this is the rotation angle in radians.
+                                                            For 'R1', this is the translation amount.
+                                                            For 'S1', this is the rotation angle in radians.
         latent_rep (torch.Tensor): Input latent representations.
             Shape (batch_size, factor_num).
         latent_factor_topologies (list): List of topology types for each logical latent factor.
@@ -130,9 +132,9 @@ def apply_group_action_latent_space(group_action_params, latent_rep, latent_fact
     current_actual_dim = 0
     for logical_idx, topology in enumerate(latent_factor_topologies):
         logical_to_actual_dim_map[logical_idx] = current_actual_dim
-        if topology == 'R^1':
+        if topology == 'R1':
             current_actual_dim += 1
-        elif topology == 'S^1':
+        elif topology == 'S1':
             current_actual_dim += 2
         else:
             raise ValueError(f"Unsupported topology '{topology}' in latent_factor_topologies.")
@@ -145,9 +147,9 @@ def apply_group_action_latent_space(group_action_params, latent_rep, latent_fact
             
             actual_start_dim = logical_to_actual_dim_map[logical_component_index]
             
-            if topology == 'R^1':
+            if topology == 'R1':
                 transformed_latent[batch_idx, actual_start_dim] += value
-            elif topology == 'S^1':
+            elif topology == 'S1':
                 # Get the 2D pair for S^1 rotation
                 cos_sin_pair = transformed_latent[batch_idx, actual_start_dim : actual_start_dim + 2]
                 # Apply rotation and update the segment in transformed_latent
@@ -161,7 +163,7 @@ def apply_group_action_latent_space(group_action_params, latent_rep, latent_fact
 
 def _rotate_s1(cos_sin_tensor, rotation_angle):
     """
-    Helper function to rotate a 2D (cos, sin) representation on S^1.
+    Helper function to rotate a 2D (cos, sin) representation on S1.
     
     Args:
         cos_sin_tensor (torch.Tensor): Tensor of shape (..., 2) containing (cos, sin) values.
