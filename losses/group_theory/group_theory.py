@@ -7,11 +7,15 @@ from ..baseloss import BaseLoss
 from ..reconstruction import reconstruction_loss
 from .. import select
 
-from .utils import Critic
 from .utils import  generate_latent_translations,\
                     apply_group_action_latent_space, \
                     select_latent_components, \
                     generate_latent_translations_selected_components
+
+
+from .gan.trainer import GANTrainer
+from .gan.losses import select_gan_loss
+from .gan.discrim_archs import select_discriminator
 
 from ..n_vae.kl_div import kl_normal_loss
 
@@ -27,6 +31,7 @@ class Loss(BaseLoss):
                  base_loss_kwargs,
                  rec_dist,
                  device,
+                 img_size,  # (channels, height, width)
                  commutative_weight,
                  commutative_component_order,
                  commutative_comparison_dist,
@@ -42,6 +47,13 @@ class Loss(BaseLoss):
                  comp_latent_select_threshold=0,
                  base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
+                 # GAN configuration parameters
+                 gan_loss_type="wgan_gp",  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
+                 gan_architecture_type="locatello",  # Options: "locatello", "spectral_norm"
+                 gan_loss_kwargs=None,
+                 gan_architecture_kwargs=None,
+                 gan_optimizer_type="adam",  # Options: "adam", "rmsprop", "sgd"
+                 gan_optimizer_kwargs=None,
                  # schedulers kwargs
                  schedulers_kwargs=None,
                  **kwargs
@@ -73,6 +85,7 @@ class Loss(BaseLoss):
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
+        self.img_size = img_size  # Store image size (channels, height, width)
         self.deterministic_rep = deterministic_rep        # Store the weights
         self.commutative_weight = commutative_weight
         self.meaningful_weight = meaningful_weight
@@ -96,9 +109,28 @@ class Loss(BaseLoss):
         self.meaningful_critic_lr = meaningful_critic_lr
         self.meaningful_n_critic = meaningful_n_critic
 
-        # will be initialized in the first call to find the number of input channels
-        self.critic = None
-        self.critic_optimizer = None
+        # Store GAN configuration
+        self.gan_loss_type = gan_loss_type
+        self.gan_architecture_type = gan_architecture_type
+        self.gan_loss_kwargs = gan_loss_kwargs or {}
+        self.gan_architecture_kwargs = gan_architecture_kwargs or {}
+        self.gan_optimizer_type = gan_optimizer_type
+        self.gan_optimizer_kwargs = gan_optimizer_kwargs or {}
+
+        # Initialize GAN trainer immediately if meaningful_weight > 0
+        self.gan_trainer = None
+        if self.meaningful_weight > 0:
+            self.gan_trainer = GANTrainer(
+                img_size=self.img_size,
+                device=self.device,
+                lr=self.meaningful_critic_lr,
+                loss_type=self.gan_loss_type,
+                architecture_type=self.gan_architecture_type,
+                loss_kwargs=self.gan_loss_kwargs,
+                architecture_kwargs=self.gan_architecture_kwargs,
+                optimizer_type=self.gan_optimizer_type,
+                optimizer_kwargs=self.gan_optimizer_kwargs
+            )
 
         # Store commutative comparison distribution
         self.commutative_comparison_dist = commutative_comparison_dist
@@ -126,6 +158,7 @@ class Loss(BaseLoss):
             'base_loss_kwargs': self.base_loss_kwargs,
             'rec_dist': self.rec_dist,
             'device': self.device,
+            'img_size': self.img_size,
             'commutative_weight': self.commutative_weight,
             'commutative_component_order': self.commutative_component_order,
             'commutative_comparison_dist': self.commutative_comparison_dist,
@@ -140,8 +173,14 @@ class Loss(BaseLoss):
             'group_action_latent_distribution': self.group_action_latent_distribution,
             'comp_latent_select_threshold': self.comp_latent_select_threshold,
             'warm_up_steps': self.warm_up_steps,
+            'gan_loss_type': self.gan_loss_type,
+            'gan_architecture_type': self.gan_architecture_type,
+            'gan_loss_kwargs': self.gan_loss_kwargs,
+            'gan_architecture_kwargs': self.gan_architecture_kwargs,
+            'gan_optimizer_type': self.gan_optimizer_type,
+            'gan_optimizer_kwargs': self.gan_optimizer_kwargs,
             'current_step': self.current_step
-            }
+        }
         
         # Add scheduler configurations
         if self.schedulers:
@@ -159,8 +198,7 @@ class Loss(BaseLoss):
 
     def state_dict(self):
         state = {}
-        state['critic_state_dict'] = self.critic.state_dict() if self.critic is not None else None
-        state['critic_optimizer_state_dict'] = self.critic_optimizer.state_dict() if self.critic_optimizer is not None else None
+        state['gan_trainer_state_dict'] = self.gan_trainer.state_dict() if self.gan_trainer is not None else None
         state['base_loss_state_dict'] = self.base_loss_state_dict
         
         # Save scheduler states
@@ -171,10 +209,8 @@ class Loss(BaseLoss):
         return state
 
     def load_state_dict(self, state_dict):
-        if self.critic is not None:
-            self.critic.load_state_dict(state_dict['critic_state_dict'])
-        if self.critic_optimizer is not None:
-            self.critic_optimizer.load_state_dict(state_dict['critic_optimizer_state_dict'])
+        if self.gan_trainer is not None and state_dict.get('gan_trainer_state_dict') is not None:
+            self.gan_trainer.load_state_dict(state_dict['gan_trainer_state_dict'])
         
         self.base_loss_state_dict = state_dict['base_loss_state_dict']
         self.base_loss_f.load_state_dict(self.base_loss_state_dict)
@@ -213,7 +249,6 @@ class Loss(BaseLoss):
         # 1: Select components randomly without replacement and its variances
 
         for comp_order in reversed(range(2, self.commutative_component_order + 1)):
-            
             selected_row_indices, selected_component_indices = select_latent_components(
                 component_order=comp_order,
                 kl_components=kl_components,
@@ -395,13 +430,9 @@ class Loss(BaseLoss):
 
         # Meaningful loss (skip during warm-up)
         if self.meaningful_weight > 0 and not in_warm_up:
-            
-            # Initialize critic if not already done based on the first data sample channel
-            if  self.critic is None:
-                input_channels_num = data.shape[1]
-                self.critic = Critic(input_channels_num=input_channels_num).to(self.device)
-                self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.meaningful_critic_lr)
 
+            #################################################################
+            # 1) Multiple critic (discriminator) updates first
             #################################################################
             # 1) Multiple critic (discriminator) updates first
             #################################################################
@@ -414,19 +445,8 @@ class Loss(BaseLoss):
                         model=model,
                     )
 
-                critic_real = self.critic(data)
-                critic_fake = self.critic(fake_images)
-
-                gp = self.critic._compute_gradient_penalty(data, fake_images)
-                # WGAN-GP critic loss
-                d_loss = -(critic_real.mean() - critic_fake.mean()) * self.meaningful_weight \
-                         + self.meaningful_critic_gradient_penalty_weight * gp
-
-                self.critic_optimizer.zero_grad()
-                d_loss.backward()
-                self.critic_optimizer.step()
-
-                d_losses[i] = d_loss.item()
+                d_loss = self.gan_trainer.train_discriminator(data, fake_images)
+                d_losses[i] = d_loss
 
             # Log the average critic loss over the n_critic updates
             log_data['critic_loss'] = d_losses.mean().item()
@@ -440,11 +460,11 @@ class Loss(BaseLoss):
                 model=model,
             )
 
-            for p in self.critic.parameters(): p.requires_grad_(False)  # Freeze critic for generator update
+            # Freeze discriminator for generator update
+            self.gan_trainer.freeze_discriminator()
 
-            # WGAN generator loss (we want critic_fake to be high => negative sign)
-            critic_fake = self.critic(fake_images)
-            g_loss = -critic_fake.mean()
+            # Compute generator loss using the GAN trainer
+            g_loss = self.gan_trainer.compute_generator_loss(fake_images)
             log_data['generator_loss'] = g_loss.item()
 
             # Combine with the other group losses
@@ -456,7 +476,8 @@ class Loss(BaseLoss):
             total_loss.backward()
             vae_optimizer.step()
 
-            for p in self.critic.parameters(): p.requires_grad_(True)  # Unfreeze critic
+            # Unfreeze discriminator
+            self.gan_trainer.unfreeze_discriminator()
 
             #################################################################
             # 3) Final combined loss for logging
