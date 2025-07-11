@@ -210,7 +210,7 @@ class FactorDiscriminator(nn.Module):
 
         # Activation parameters
         self.neg_slope = neg_slope
-        self.leaky_relu = nn.LeakyReLU(self.neg_slope, True)
+        self.leaky_relu = nn.LeakyReLU(self.neg_slope, False)
 
         # Layer parameters
         self.z_dim = latent_dim
