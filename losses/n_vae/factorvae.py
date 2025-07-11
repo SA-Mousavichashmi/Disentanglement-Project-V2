@@ -99,6 +99,8 @@ class Loss(baseloss.BaseLoss):
         kl_loss = kl_comp.sum()
 
         # total-correlation estimator (log D₀ − log D₁)
+        for p in self.discriminator.parameters(): p.requires_grad_(False)
+
         tc_logits = self.discriminator(out["samples_qzx"])
         tc_loss = (tc_logits[:, 0] - tc_logits[:, 1]).mean()
 
@@ -133,9 +135,11 @@ class Loss(baseloss.BaseLoss):
         # ------------------------------------------------------------------ #
         #  STEP B – discriminator update (ψ) - always performed              #
         # ------------------------------------------------------------------ #
+        for p in self.discriminator.parameters(): p.requires_grad_(True)
+
         # latent batch z′ from B′ *after* θ has just been updated (or not)
         with torch.no_grad():
-            z_real = model.sample_qzx(data_Bp)   # no grad to θ
+            z_real = model.sample_qzx(data_Bp).detach()   # no grad to θ
 
         z_perm = _permute_dims(z_real)
 
