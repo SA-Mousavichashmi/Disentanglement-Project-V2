@@ -230,17 +230,15 @@ class FactorDiscriminator(nn.Module):
         self.reset_parameters()
 
     def forward(self, z):
-
-        # Fully connected layers with leaky ReLu activations
-        z = self.leaky_relu(self.lin1(z))
-        z = self.leaky_relu(self.lin2(z))
-        z = self.leaky_relu(self.lin3(z))
-        z = self.leaky_relu(self.lin4(z))
-        z = self.leaky_relu(self.lin5(z))
-        z = self.leaky_relu(self.lin6(z))
-        z = self.lin7(z)
-
-        return z
+        # Use intermediate variables instead of reusing z
+        h = self.leaky_relu(self.lin1(z))
+        h = self.leaky_relu(self.lin2(h))
+        h = self.leaky_relu(self.lin3(h))
+        h = self.leaky_relu(self.lin4(h))
+        h = self.leaky_relu(self.lin5(h))
+        h = self.leaky_relu(self.lin6(h))
+        out = self.lin7(h)
+        return out
 
     def reset_parameters(self):
         self.apply(initialization.weights_init)
