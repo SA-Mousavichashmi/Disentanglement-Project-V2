@@ -44,7 +44,7 @@ class Loss(baseloss.BaseLoss):
         **kwargs,
     ):
         # Set mode based on whether external optimization is used
-        mode = "post_forward" if external_optimization else "optimizes_internally"
+        mode = "pre_forward" if external_optimization else "optimizes_internally"
         super().__init__(mode=mode, **kwargs)
 
         self.device = device
