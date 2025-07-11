@@ -39,6 +39,7 @@ class FactorVAEConfig(LossConfig):
     gamma: float = 10.0
     discr_lr: float = 1e-4
     discr_betas: tuple = (0.5, 0.9)
+    external_optimization: bool = False
 
 @dataclass
 class BetaTCVAEConfig(LossConfig):

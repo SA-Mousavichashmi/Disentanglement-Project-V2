@@ -15,149 +15,165 @@ from ..reconstruction import reconstruction_loss
 from .kl_div import kl_normal_loss
 from .utils import _permute_dims
 
-
 class Loss(baseloss.BaseLoss):
     """
-    Compute the Factor-VAE loss as per Algorithm 2 of [1]
+    FactorVAE loss faithful to Algorithm 2 (Kim & Mnih, 2018).
 
     Parameters
     ----------
-    device : torch.device
-
-    gamma : float, optional
-        Weight of the TC loss term. `gamma` in the paper.
-
-    optimizer_d : torch.optim
-
-    kwargs:
-        Additional arguments for `BaseLoss`, e.g. rec_dist`.
-
-    References
-    ----------
-        [1] Kim, Hyunjik, and Andriy Mnih. "Disentangling by factorizing."
-        arXiv preprint arXiv:1802.05983 (2018).
+    device      : torch.device
+    gamma       : float      weight for TC term
+    discr_lr    : float      ψ learning-rate
+    discr_betas : tuple      Adam β parameters
+    external_optimization : bool
+        If True, the VAE loss is returned without internal optimization (mode='post_forward').
+        If False, the VAE loss is optimized internally as usual (mode='optimizes_internally').
+        Default: False (maintains backward compatibility).
+        
+        When True, the discriminator is still updated internally, but the VAE loss 
+        can be combined with other losses (e.g., group theory losses) for external optimization.
     """
+    def __init__(
+        self,
+        device,
+        gamma=6.4,
+        discr_lr=5e-5,
+        discr_betas=(0.5, 0.9),
+        log_kl_components=False,
+        external_optimization=False,
+        **kwargs,
+    ):
+        # Set mode based on whether external optimization is used
+        mode = "post_forward" if external_optimization else "optimizes_internally"
+        super().__init__(mode=mode, **kwargs)
 
-    def __init__(self, device, gamma=6.4, discr_lr=5e-5, discr_betas=(0.5, 0.9), log_kl_components=False, **kwargs):
-        super().__init__(mode="optimizes_internally", **kwargs)
-        self.gamma = gamma
         self.device = device
-        self.discriminator = FactorDiscriminator(neg_slope=0.2, latent_dim=10, hidden_units=1000).to(self.device)
-        self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(),
-                                            lr=discr_lr,
-                                            betas=discr_betas)
+        self.gamma = gamma
+        self.external_optimization = external_optimization
+        self.discriminator = FactorDiscriminator().to(device)
+        self.optimizer_d = torch.optim.Adam(
+            self.discriminator.parameters(), lr=discr_lr, betas=discr_betas
+        )
         self.log_kl_components = log_kl_components
 
+    # ------------ public helpers ------------------------------------------------
     @property
     def name(self):
-        return 'factorvae'
+        return "factorvae"
 
     @property
     def kwargs(self):
         return {
-            'gamma': self.gamma,
-            'discr_lr': self.optimizer_d.param_groups[0]['lr'] if hasattr(self, 'optimizer_d') else None,
-            'discr_betas': self.optimizer_d.param_groups[0]['betas'] if hasattr(self, 'optimizer_d') else None,
-            'log_kl_components': self.log_kl_components,
-            'rec_dist': self.rec_dist,
+            "gamma": self.gamma,
+            "discr_lr": self.optimizer_d.param_groups[0]["lr"],
+            "discr_betas": self.optimizer_d.param_groups[0]["betas"],
+            "log_kl_components": self.log_kl_components,
+            "external_optimization": self.external_optimization,
+            "rec_dist": self.rec_dist,
         }
 
-    def __call__(self, data, model, optimizer, **kwargs):
-        is_train = model.training
+    # ------------ main loss call -------------------------------------------------
+    def __call__(self, data, model, optimizer=None, **kwargs):
+        """
+        One full optimization step or loss computation:
+            - If external_optimization=False: update encoder/decoder (θ) + discriminator (ψ)
+            - If external_optimization=True: only update discriminator (ψ), return VAE loss for external optimization
+        """
+        log_dict = {}
+        batch_size = data.size(0)
 
-        log_data = {}
+        # ------------------------------------------------------------------ #
+        #  STEP A – VAE loss computation                                      #
+        # ------------------------------------------------------------------ #
+        data_B, data_Bp = torch.chunk(data, 2, dim=0)   # B  and B′ (equal halves)
 
-        # factor-vae split data into two batches. In the paper they sample 2 batches
-        batch_size = data.size(dim=0)
-        half_batch_size = batch_size // 2
-        data = data.split(half_batch_size)
-        data1 = data[0]
-        data2 = data[1]
+        # forward B through VAE
+        out = model(data_B)
+        if isinstance(out["stats_qzx"], torch.Tensor):
+            out["stats_qzx"] = out["stats_qzx"].unbind(-1)
 
-        # Factor VAE Loss
-        model_out1 = model(data1)
-        if isinstance(model_out1['stats_qzx'], torch.Tensor):
-            model_out1['stats_qzx'] = model_out1['stats_qzx'].unbind(-1)
+        rec_loss = reconstruction_loss(
+            data_B, out["reconstructions"], distribution=self.rec_dist
+        )
+        kl_comp = kl_normal_loss(*out["stats_qzx"], return_components=True)
+        kl_loss = kl_comp.sum()
 
-        rec_loss = reconstruction_loss(data1,
-                                        model_out1['reconstructions'],
-                                        distribution=self.rec_dist)
-        log_data['rec_loss'] = rec_loss.item()
-
-        kl_loss = kl_normal_loss(*model_out1['stats_qzx'], return_components=True)
-
-        if self.log_kl_components:
-            log_data.update(
-                {f'kl_loss_{i}': value.item() for i, value in enumerate(kl_loss)})
-            # log_data['kl_components'] = kl_loss.detach().cpu() # Log the tensor directly
-            
-        kl_loss = kl_loss.sum()
-        log_data['kl_loss'] = kl_loss.item()
-
-        d_z = self.discriminator(model_out1['samples_qzx'])
-        # We want log(p_true/p_false). If not using logistic regression but softmax
-        # then p_true = exp(logit_true) / Z; p_false = exp(logit_false) / Z
-        # so log(p_true/p_false) = logit_true - logit_false
-        tc_loss = (d_z[:, 0] - d_z[:, 1]).mean()
-        # with sigmoid (not good results) should be `tc_loss = (2 * d_z.flatten()).mean()`
+        # total-correlation estimator (log D₀ − log D₁)
+        tc_logits = self.discriminator(out["samples_qzx"])
+        tc_loss = (tc_logits[:, 0] - tc_logits[:, 1]).mean()
 
         vae_loss = rec_loss + kl_loss + self.gamma * tc_loss
 
-        log_data['loss'] = vae_loss.item()
-        log_data['tc_loss'] = tc_loss.item()
+        # ---- VAE optimization (only if not using external optimizer)
+        if not self.external_optimization:
+            if optimizer is None:
+                raise ValueError("optimizer must be provided when external_optimization=False")
+            optimizer.zero_grad()
+            vae_loss.backward()
+            optimizer.step()
+            # After optimization, detach for discriminator step
+            vae_loss_for_log = vae_loss.detach()
+        else:
+            # Keep gradients for external optimization
+            vae_loss_for_log = vae_loss
 
-        if not is_train:
-            # don't backprop if evaluating
-            return {'loss': vae_loss, 'to_log': log_data}
+        log_dict.update(
+            {
+                "loss": vae_loss_for_log.item() if torch.is_tensor(vae_loss_for_log) else vae_loss_for_log,
+                "rec_loss": rec_loss.item(),
+                "kl_loss": kl_loss.item(),
+                "tc_loss": tc_loss.item(),
+            }
+        )
+        if self.log_kl_components:
+            log_dict.update(
+                {f"kl_loss_{i}": v.item() for i, v in enumerate(kl_comp)}
+            )
 
-        # Compute VAE gradients
-        optimizer.zero_grad()
-        vae_loss.backward(retain_graph=True)
+        # ------------------------------------------------------------------ #
+        #  STEP B – discriminator update (ψ) - always performed              #
+        # ------------------------------------------------------------------ #
+        # latent batch z′ from B′ *after* θ has just been updated (or not)
+        with torch.no_grad():
+            z_real = model.sample_qzx(data_Bp)   # no grad to θ
 
-        # Discriminator Loss
-        # Get second sample of latent distribution
-        samples_qzx2 = model.sample_qzx(data2)
-        z_perm = _permute_dims(samples_qzx2).detach()
-        d_z_perm = self.discriminator(z_perm)
+        z_perm = _permute_dims(z_real)
 
-        # Calculate total correlation loss
-        # for cross entropy the target is the index => need to be long and says
-        # that it's first output for d_z and second for perm
-        ones = torch.ones(half_batch_size,
-                          dtype=torch.long,
-                          device=self.device)
-        zeros = torch.zeros_like(ones)
-        d_tc_loss = 0.5 * (F.cross_entropy(d_z, zeros) +
-                           F.cross_entropy(d_z_perm, ones))
-        # with sigmoid would be :
-        # d_tc_loss = 0.5 * (self.bce(d_z.flatten(), ones) + self.bce(d_z_perm.flatten(), 1 - ones))
+        logits_real = self.discriminator(z_real)          # grad → ψ only
+        logits_perm = self.discriminator(z_perm)
 
-        # TO-DO: check if should also anneals discriminator if not becomes too good ???
-        #d_tc_loss = anneal_reg * d_tc_loss
+        target_real = torch.zeros(len(z_real), dtype=torch.long, device=self.device)
+        target_perm = torch.ones_like(target_real)
 
-        # Compute discriminator gradients
+        discr_loss = 0.5 * (
+            F.cross_entropy(logits_real, target_real)
+            + F.cross_entropy(logits_perm, target_perm)
+        )
+
         self.optimizer_d.zero_grad()
-        d_tc_loss.backward()
-
-        # Update at the end (since pytorch 1.5. complains if update before)
-        optimizer.step()
+        discr_loss.backward()
         self.optimizer_d.step()
 
-        log_data['discrim_loss'] = d_tc_loss.item()
+        log_dict["discrim_loss"] = discr_loss.item()
 
-        return {'loss': vae_loss, 'to_log': log_data}
+        # Return based on mode
+        if self.external_optimization:
+            # Return VAE loss for external optimization
+            return {"loss": vae_loss, "to_log": log_dict}
+        else:
+            # Return detached loss (already optimized internally)
+            return {"loss": vae_loss.detach(), "to_log": log_dict}
 
+    # ------------ checkpoint helpers -------------------------------------------
     def state_dict(self):
-        """Returns the state dictionary of the loss function."""
         return {
-            'discriminator': self.discriminator.state_dict(),
-            'optimizer_d': self.optimizer_d.state_dict(),
+            "discriminator": self.discriminator.state_dict(),
+            "optimizer_d": self.optimizer_d.state_dict(),
         }
 
-    def load_state_dict(self, state_dict):
-        """Loads the state dictionary into the loss function."""
-        self.discriminator.load_state_dict(state_dict['discriminator']) # keep in mind the device
-        self.optimizer_d.load_state_dict(state_dict['optimizer_d']) # keep in mind the device
+    def load_state_dict(self, state):
+        self.discriminator.load_state_dict(state["discriminator"])
+        self.optimizer_d.load_state_dict(state["optimizer_d"])
 
 class FactorDiscriminator(nn.Module):
 

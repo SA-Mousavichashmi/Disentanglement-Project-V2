@@ -40,7 +40,6 @@ class Loss(BaseLoss):
                  group_action_latent_range=1,
                  group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
-                 base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
@@ -62,12 +61,10 @@ class Loss(BaseLoss):
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
-        self.base_loss_state_dict = base_loss_state_dict
 
         self.base_loss_f = select( 
                              name=self.base_loss_name, 
                              **self.base_loss_kwargs,
-                             state_dict=self.base_loss_state_dict,
                              device=device
                              )  # base loss function
 
@@ -161,7 +158,7 @@ class Loss(BaseLoss):
         state = {}
         state['critic_state_dict'] = self.critic.state_dict() if self.critic is not None else None
         state['critic_optimizer_state_dict'] = self.critic_optimizer.state_dict() if self.critic_optimizer is not None else None
-        state['base_loss_state_dict'] = self.base_loss_state_dict
+        state['base_loss_state_dict'] = self.base_loss_f.state_dict() 
         
         # Save scheduler states
         state['scheduler_states'] = {}
@@ -373,7 +370,11 @@ class Loss(BaseLoss):
             log_data.update(loss_out['to_log'])
 
         elif self.base_loss_f.mode == 'optimizes_internally':
-            raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode. for baseloss")
+            raise NotImplementedError(
+                "The base loss function is set to 'optimizes_internally', "
+                "but this mode is not supported in the group theory loss. "
+                "Please use 'post_forward' or 'pre_forward' modes."
+            )
 
         with torch.no_grad():
             mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
@@ -448,8 +449,7 @@ class Loss(BaseLoss):
             log_data['generator_loss'] = g_loss.item()
 
             # Combine with the other group losses
-            group_loss += self.meaningful_weight * g_loss
-            total_loss = base_loss + group_loss  # plus any base VAE loss
+            total_loss = base_loss + self.meaningful_weight * g_loss  # plus any base VAE loss
 
             # Backprop through generator (i.e., the decoder) + group constraints
             vae_optimizer.zero_grad()
