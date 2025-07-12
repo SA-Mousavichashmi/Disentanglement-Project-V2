@@ -440,7 +440,7 @@ class Loss(BaseLoss):
                 d_losses[i] = d_loss.item()
 
             # Log the average critic loss over the n_critic updates
-            log_data['g_meaningful_critic_loss'] = d_losses.mean().item()
+            log_data['g_meaningful_critic'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
@@ -456,7 +456,7 @@ class Loss(BaseLoss):
             # WGAN generator loss (we want critic_fake to be high => negative sign)
             critic_fake = self.critic(fake_images)
             g_loss = -critic_fake.mean()
-            log_data['g_meaningful_generator_loss'] = g_loss.item()
+            log_data['g_meaningful_generator'] = g_loss.item()
 
             # Combine with the other group losses
             total_loss = base_loss + self.meaningful_weight * g_loss  # plus any base VAE loss
