@@ -170,7 +170,7 @@ class Loss(baseloss.BaseLoss):
         
         return {
             "discrim_loss": discr_loss.item(),
-            "to_log": {"discrim_loss": discr_loss.item()}
+            "to_log": {"factorvae_discrim_loss": discr_loss.item()}
         }
     
     # ------------ main loss call -------------------------------------------------

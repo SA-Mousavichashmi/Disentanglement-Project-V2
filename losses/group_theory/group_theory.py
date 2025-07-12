@@ -117,7 +117,7 @@ class Loss(BaseLoss):
         self.warm_up_steps = warm_up_steps
         self.current_step = 0
 
-        self.latent_factors_topologies = None
+        self.latent_factor_topologies = None
 
     @property
     def name(self):
@@ -348,8 +348,8 @@ class Loss(BaseLoss):
 
     def __call__(self, data, model, vae_optimizer):
 
-        if self.latent_factors_topologies is None:
-            self.latent_factors_topologies = model.latent_factor_topologies
+        if self.latent_factor_topologies is None:
+            self.latent_factor_topologies = model.latent_factor_topologies
 
         log_data = OrderedDict()
         base_loss = 0
@@ -440,7 +440,7 @@ class Loss(BaseLoss):
                 d_losses[i] = d_loss.item()
 
             # Log the average critic loss over the n_critic updates
-            log_data['critic_loss'] = d_losses.mean().item()
+            log_data['g_meaningful_critic_loss'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
@@ -456,7 +456,7 @@ class Loss(BaseLoss):
             # WGAN generator loss (we want critic_fake to be high => negative sign)
             critic_fake = self.critic(fake_images)
             g_loss = -critic_fake.mean()
-            log_data['generator_loss'] = g_loss.item()
+            log_data['g_meaningful_generator_loss'] = g_loss.item()
 
             # Combine with the other group losses
             total_loss = base_loss + self.meaningful_weight * g_loss  # plus any base VAE loss
