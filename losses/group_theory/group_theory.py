@@ -445,8 +445,6 @@ class Loss(BaseLoss):
             #################################################################
             # 1) Multiple critic (discriminator) updates first
             #################################################################
-            # 1) Multiple critic (discriminator) updates first
-            #################################################################
             d_losses = torch.zeros(self.meaningful_n_critic, device=data.device)
             for i in range(self.meaningful_n_critic):
                 # Generate 'fake_images' without gradient for the critic
