@@ -461,6 +461,7 @@ class Loss(BaseLoss):
 
             # Log the average critic loss over the n_critic updates
             log_data['g_meaningful_critic'] = d_losses.mean().item()
+            log_data['g_meaningful_critic'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
