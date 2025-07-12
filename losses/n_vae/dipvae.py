@@ -45,6 +45,7 @@ class Loss(baseloss.BaseLoss):
         lambda_d=100.0,
         beta=1.0,
         schedulers_kwargs=None,
+        log_kl_components=False,
         **kwargs,
     ):
         super().__init__(mode="post_forward",
@@ -67,6 +68,7 @@ class Loss(baseloss.BaseLoss):
         self.lambda_od  = lambda_od
         self.lambda_d   = lambda_d
         self.beta       = beta
+        self.log_kl_components = log_kl_components
 
     # --------------------------------------------------------------------- #
     #                      Properties for checkpointing                     #
