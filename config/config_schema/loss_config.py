@@ -51,6 +51,15 @@ class BetaTCVAEConfig(LossConfig):
     n_data: int = MISSING
     is_mss: bool = True
 
+@dataclass
+class DipVAEConfig(LossConfig):
+    """Configuration for DIP-VAE loss (both variants)."""
+    name: str = "dipvae"
+    dip_type: str = "i"  # "i" for DIP-VAE-I, "ii" for DIP-VAE-II
+    lambda_od: float = 10.0  # Weight for off-diagonal covariance penalty
+    lambda_d: float = 100.0  # Weight for diagonal covariance penalty
+    beta: float = 1.0  # Weight of the KL term
+
 ########## S1 * .... * S1 latent topology ##########
 
 @dataclass
