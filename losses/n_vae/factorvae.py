@@ -46,7 +46,6 @@ class Loss(baseloss.BaseLoss):
         # Set mode based on whether external optimization is used
         mode = "pre_forward" if external_optimization else "optimizes_internally"
         super().__init__(mode=mode, **kwargs)
-
         self.device = device
         self.gamma = gamma
         self.external_optimization = external_optimization
@@ -72,101 +71,143 @@ class Loss(baseloss.BaseLoss):
             "rec_dist": self.rec_dist,
         }
 
-    # ------------ main loss call -------------------------------------------------
-    def __call__(self, data, model, optimizer=None, **kwargs):
+    # ------------ separate methods for VAE loss and discriminator update --------
+    def compute_vae_loss(self, data_B, model):
         """
-        One full optimization step or loss computation:
-            - If external_optimization=False: update encoder/decoder (θ) + discriminator (ψ)
-            - If external_optimization=True: only update discriminator (ψ), return VAE loss for external optimization
+        Compute the FactorVAE loss without optimization.
+        
+        Args:
+            data: Input data tensor
+            model: VAE model
+            
+        Returns:
+            dict: Contains 'loss', 'components' (individual loss terms), and 'to_log' (logging dict)
         """
         log_dict = {}
-        batch_size = data.size(0)
-
-        # ------------------------------------------------------------------ #
-        #  STEP A – VAE loss computation                                      #
-        # ------------------------------------------------------------------ #
-        data_B, data_Bp = torch.chunk(data, 2, dim=0)   # B  and B′ (equal halves)
-
-        # forward B through VAE
+        
+        # Forward pass through VAE
         out = model(data_B)
         if isinstance(out["stats_qzx"], torch.Tensor):
             out["stats_qzx"] = out["stats_qzx"].unbind(-1)
-
+        
+        # Compute loss components
         rec_loss = reconstruction_loss(
             data_B, out["reconstructions"], distribution=self.rec_dist
         )
         kl_comp = kl_normal_loss(*out["stats_qzx"], return_components=True)
         kl_loss = kl_comp.sum()
-
-        # total-correlation estimator (log D₀ − log D₁)
-        for p in self.discriminator.parameters(): p.requires_grad_(False)
-
+        
+        # Total-correlation estimator (log D₀ − log D₁)
+        # Freeze discriminator parameters for VAE loss computation
+        for p in self.discriminator.parameters(): 
+            p.requires_grad_(False)
+        
         tc_logits = self.discriminator(out["samples_qzx"])
         tc_loss = (tc_logits[:, 0] - tc_logits[:, 1]).mean()
-
+        
+        # Restore discriminator gradients
+        # for p in self.discriminator.parameters(): 
+        #     p.requires_grad_(True)
+        
+        # Total VAE loss
         vae_loss = rec_loss + kl_loss + self.gamma * tc_loss
-
-        # ---- VAE optimization (only if not using external optimizer)
-        if not self.external_optimization:
-            if optimizer is None:
-                raise ValueError("optimizer must be provided when external_optimization=False")
-            optimizer.zero_grad()
-            vae_loss.backward()
-            optimizer.step()
-            # After optimization, detach for discriminator step
-            vae_loss_for_log = vae_loss.detach()
-        else:
-            # Keep gradients for external optimization
-            vae_loss_for_log = vae_loss
-
-        log_dict.update(
-            {
-                "loss": vae_loss_for_log.item() if torch.is_tensor(vae_loss_for_log) else vae_loss_for_log,
-                "rec_loss": rec_loss.item(),
-                "kl_loss": kl_loss.item(),
-                "tc_loss": tc_loss.item(),
-            }
-        )
+        
+        # Prepare logging
+        log_dict.update({
+            "loss": vae_loss.item(),
+            "rec_loss": rec_loss.item(),
+            "kl_loss": kl_loss.item(),
+            "tc_loss": tc_loss.item(),
+        })
+        
         if self.log_kl_components:
-            log_dict.update(
-                {f"kl_loss_{i}": v.item() for i, v in enumerate(kl_comp)}
-            )
-
-        # ------------------------------------------------------------------ #
-        #  STEP B – discriminator update (ψ) - always performed              #
-        # ------------------------------------------------------------------ #
-        for p in self.discriminator.parameters(): p.requires_grad_(True)
-
-        # latent batch z′ from B′ *after* θ has just been updated (or not)
+            log_dict.update({f"kl_loss_{i}": v.item() for i, v in enumerate(kl_comp)})
+        
+        return {
+            "loss": vae_loss,
+            "to_log": log_dict
+        }
+    
+    def update_discriminator(self, data_Bp, model):
+        """
+        Update the discriminator using the second half of the data.
+        
+        Args:
+            data_Bp: Second half of the data batch for discriminator update
+            model: VAE model
+            
+        Returns:
+            dict: Contains discriminator loss and logging information
+        """
+        # Ensure discriminator gradients are enabled
+        for p in self.discriminator.parameters(): 
+            p.requires_grad_(True)
+        
+        # Generate latent samples from the second half of data
         with torch.no_grad():
-            z_real = model.sample_qzx(data_Bp).detach()   # no grad to θ
-
+            z_real = model.sample_qzx(data_Bp)   # no grad to θ
+        
         z_perm = _permute_dims(z_real)
-
-        logits_real = self.discriminator(z_real)          # grad → ψ only
+        
+        # Discriminator forward pass
+        logits_real = self.discriminator(z_real)
         logits_perm = self.discriminator(z_perm)
-
+        
+        # Targets for classification
         target_real = torch.zeros(len(z_real), dtype=torch.long, device=self.device)
         target_perm = torch.ones_like(target_real)
-
+        
+        # Discriminator loss
         discr_loss = 0.5 * (
             F.cross_entropy(logits_real, target_real)
             + F.cross_entropy(logits_perm, target_perm)
         )
-
+        
+        # Update discriminator
         self.optimizer_d.zero_grad()
         discr_loss.backward()
         self.optimizer_d.step()
+        
+        return {
+            "discrim_loss": discr_loss.item(),
+            "to_log": {"discrim_loss": discr_loss.item()}
+        }
+    
+    # ------------ main loss call -------------------------------------------------
+    def __call__(self, data, model, optimizer=None, **kwargs):
+        """
+        One full optimization step or loss computation:
+            - If external_optimization=False: update encoder/decoder (θ) + discriminator (ψ)
+            - If external_optimization=True: return VAE loss for external optimization, skip discriminator update
+        """
 
-        log_dict["discrim_loss"] = discr_loss.item()
-
-        # Return based on mode
-        if self.external_optimization:
-            # Return VAE loss for external optimization
-            return {"loss": vae_loss, "to_log": log_dict}
-        else:
-            # Return detached loss (already optimized internally)
+        # Split data for VAE loss computation
+        data_B, data_Bp = torch.chunk(data, 2, dim=0)   # B and B′ (equal halves)
+        
+        # Compute VAE loss
+        vae_result = self.compute_vae_loss(data_B, model)
+        vae_loss = vae_result["loss"]
+        log_dict = vae_result["to_log"]
+        
+        if not self.external_optimization:
+            # Internal optimization mode: optimize VAE and discriminator
+            if optimizer is None:
+                raise ValueError("optimizer must be provided when external_optimization=False")
+            
+            # Optimize VAE
+            optimizer.zero_grad()
+            vae_loss.backward()
+            optimizer.step()
+            
+            # Update discriminator
+            discr_result = self.update_discriminator(data_Bp, model)
+            log_dict.update(discr_result["to_log"])
+            
             return {"loss": vae_loss.detach(), "to_log": log_dict}
+        else:
+            # External optimization mode: return VAE loss with gradients for external optimizer
+            # Do not update discriminator here - it will be updated externally
+            return {"loss": vae_loss, "to_log": log_dict}
 
     # ------------ checkpoint helpers -------------------------------------------
     def state_dict(self):
@@ -210,7 +251,7 @@ class FactorDiscriminator(nn.Module):
 
         # Activation parameters
         self.neg_slope = neg_slope
-        self.leaky_relu = nn.LeakyReLU(self.neg_slope, False)
+        self.leaky_relu = nn.LeakyReLU(self.neg_slope, True)
 
         # Layer parameters
         self.z_dim = latent_dim

@@ -67,6 +67,13 @@ class Loss(BaseLoss):
                              **self.base_loss_kwargs,
                              device=device
                              )  # base loss function
+        
+        # If using FactorVAE with group theory, ensure external optimization is enabled
+        if self.base_loss_name == 'factor_vae' and not self.base_loss_f.external_optimization:
+            raise ValueError(
+                "When using FactorVAE with group theory loss, the FactorVAE must be configured "
+                "with external_optimization=True to allow proper discriminator update scheduling."
+            )
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
@@ -376,6 +383,9 @@ class Loss(BaseLoss):
                 "Please use 'post_forward' or 'pre_forward' modes."
             )
 
+        if self.base_loss_f.name == 'factorvae':
+             _, data_Bp = torch.chunk(data, 2, dim=0)
+
         with torch.no_grad():
             mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
 
@@ -456,6 +466,11 @@ class Loss(BaseLoss):
             total_loss.backward()
             vae_optimizer.step()
 
+            if self.base_loss_f.name == 'factor_vae':
+                # Update FactorVAE discriminator after VAE optimization
+                discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+                log_data.update(discr_result['to_log'])
+
             for p in self.critic.parameters(): p.requires_grad_(True)  # Unfreeze critic
 
             #################################################################
@@ -473,6 +488,11 @@ class Loss(BaseLoss):
         vae_optimizer.zero_grad()
         total_loss.backward()
         vae_optimizer.step()
+
+        if self.base_loss_f.name == 'factor_vae':
+            # Update FactorVAE discriminator after VAE optimization
+            discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+            log_data.update(discr_result['to_log'])
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
