@@ -466,7 +466,7 @@ class Loss(BaseLoss):
             total_loss.backward()
             vae_optimizer.step()
 
-            if self.base_loss_f.name == 'factor_vae':
+            if self.base_loss_f.name == 'factorvae':
                 # Update FactorVAE discriminator after VAE optimization
                 discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
                 log_data.update(discr_result['to_log'])
@@ -489,7 +489,7 @@ class Loss(BaseLoss):
         total_loss.backward()
         vae_optimizer.step()
 
-        if self.base_loss_f.name == 'factor_vae':
+        if self.base_loss_f.name == 'factorvae':
             # Update FactorVAE discriminator after VAE optimization
             discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
             log_data.update(discr_result['to_log'])
