@@ -1,0 +1,10 @@
+# DIP-VAE-I configuration - regularizes Cov_{p(x)}[μ]
+# Based on: Variational Inference of Disentangled Latent Concepts from Unlabelled Observations
+# Kumar et al., ICLR 2018
+
+name: "dipvae-ii"
+lambda_od: 10.0  # Weight for off-diagonal covariance penalty
+lambda_d: 100.0  # Weight for diagonal covariance penalty
+beta: 1.0  # Weight of the KL term (original paper uses β=1)
+rec_dist: "gaussian"
+log_kl_components: true
