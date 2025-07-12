@@ -460,7 +460,7 @@ class Loss(BaseLoss):
                 d_losses[i] = d_loss
 
             # Log the average critic loss over the n_critic updates
-            log_data['g_meaningful_critic_loss'] = d_losses.mean().item()
+            log_data['g_meaningful_critic'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
@@ -476,7 +476,7 @@ class Loss(BaseLoss):
 
             # Compute generator loss using the GAN trainer
             g_loss = self.gan_trainer.compute_generator_loss(fake_images)
-            log_data['generator_loss'] = g_loss.item()
+            log_data['g_meaningful_generator'] = g_loss.item()
 
             # Combine with the other group losses
             total_loss = base_loss + self.meaningful_weight * g_loss  # plus any base VAE loss
@@ -488,7 +488,7 @@ class Loss(BaseLoss):
 
             # Unfreeze discriminator
             self.gan_trainer.unfreeze_discriminator()
-            
+
             if self.base_loss_f.name == 'factorvae':
                 # Update FactorVAE discriminator after VAE optimization
                 discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
