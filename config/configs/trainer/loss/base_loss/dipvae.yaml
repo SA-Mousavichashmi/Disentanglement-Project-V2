@@ -1,4 +1,3 @@
-# @package _group_
 # DIP-VAE-I configuration - regularizes Cov_{p(x)}[μ]
 # Based on: Variational Inference of Disentangled Latent Concepts from Unlabelled Observations
 # Kumar et al., ICLR 2018
