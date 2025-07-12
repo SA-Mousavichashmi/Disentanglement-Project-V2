@@ -7,7 +7,7 @@ LICENSE file in the root directory of this source tree.
 """
 
 # Only include implemented and valid loss names
-LOSS_LIST = ['betavae', 'annealedvae', 'factorvae', 'betatcvae', 'beta_toroidal_vae', 'group_theory', 'beta_s_n_vae', 'dipvae']
+LOSS_LIST = ['betavae', 'annealedvae', 'factorvae', 'betatcvae', 'beta_toroidal_vae', 'group_theory', 'beta_s_n_vae', 'dipvae-i', 'dipvae-ii']
 RECON_DISTS = ["bernoulli", "laplace", "gaussian"]
 
 def select(name, **kwargs):
@@ -33,8 +33,15 @@ def select(name, **kwargs):
     if name == 'beta_s_n_vae':
         from losses.s_n_vae.beta_s_n_vae import BetaSNVAELoss
         return BetaSNVAELoss(**kwargs)
-    if name == 'dipvae':
+    if name == 'dipvae-i':
         from losses.n_vae.dipvae import Loss
+        kwargs = dict(kwargs)
+        kwargs['dip_type'] = 'i'
+        return Loss(**kwargs)
+    if name == 'dipvae-ii':
+        from losses.n_vae.dipvae import Loss
+        kwargs = dict(kwargs)
+        kwargs['dip_type'] = 'ii'
         return Loss(**kwargs)
     
     err = "Unknown loss.name = {}. Possible values: {}"
