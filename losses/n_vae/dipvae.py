@@ -73,7 +73,7 @@ class Loss(baseloss.BaseLoss):
     # --------------------------------------------------------------------- #
     @property
     def name(self):
-        return 'dipvae'
+        return f'dipvae-{self.dip_type}'
 
     @property
     def kwargs(self):
