@@ -5,3 +5,4 @@ name: "factorvae"
 gamma: 15
 rec_dist: "gaussian"
 log_kl_components: true
+external_optimization: false

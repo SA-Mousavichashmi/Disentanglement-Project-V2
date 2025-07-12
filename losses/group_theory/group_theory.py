@@ -45,7 +45,6 @@ class Loss(BaseLoss):
                  group_action_latent_range=1,
                  group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
-                 base_loss_state_dict=None,
                  warm_up_steps=0,  # Add this parameter
                  # GAN configuration parameters
                  gan_loss_type="wgan_gp",  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
@@ -74,14 +73,19 @@ class Loss(BaseLoss):
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
-        self.base_loss_state_dict = base_loss_state_dict
 
         self.base_loss_f = select( 
                              name=self.base_loss_name, 
                              **self.base_loss_kwargs,
-                             state_dict=self.base_loss_state_dict,
                              device=device
                              )  # base loss function
+        
+        # If using FactorVAE with group theory, ensure external optimization is enabled
+        if self.base_loss_name == 'factor_vae' and not self.base_loss_f.external_optimization:
+            raise ValueError(
+                "When using FactorVAE with group theory loss, the FactorVAE must be configured "
+                "with external_optimization=True to allow proper discriminator update scheduling."
+            )
 
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
@@ -145,7 +149,7 @@ class Loss(BaseLoss):
         self.warm_up_steps = warm_up_steps
         self.current_step = 0
 
-        self.latent_factors_topologies = None
+        self.latent_factor_topologies = None
 
     @property
     def name(self):
@@ -379,8 +383,8 @@ class Loss(BaseLoss):
 
     def __call__(self, data, model, vae_optimizer):
 
-        if self.latent_factors_topologies is None:
-            self.latent_factors_topologies = model.latent_factor_topologies
+        if self.latent_factor_topologies is None:
+            self.latent_factor_topologies = model.latent_factor_topologies
 
         log_data = OrderedDict()
         base_loss = 0
@@ -408,7 +412,14 @@ class Loss(BaseLoss):
             log_data.update(loss_out['to_log'])
 
         elif self.base_loss_f.mode == 'optimizes_internally':
-            raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode. for baseloss")
+            raise NotImplementedError(
+                "The base loss function is set to 'optimizes_internally', "
+                "but this mode is not supported in the group theory loss. "
+                "Please use 'post_forward' or 'pre_forward' modes."
+            )
+
+        if self.base_loss_f.name == 'factorvae':
+             _, data_Bp = torch.chunk(data, 2, dim=0)
 
         with torch.no_grad():
             mean, logvar = model.encoder(data)['stats_qzx'].unbind(-1)
@@ -449,7 +460,7 @@ class Loss(BaseLoss):
                 d_losses[i] = d_loss
 
             # Log the average critic loss over the n_critic updates
-            log_data['critic_loss'] = d_losses.mean().item()
+            log_data['g_meaningful_critic_loss'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
@@ -468,8 +479,7 @@ class Loss(BaseLoss):
             log_data['generator_loss'] = g_loss.item()
 
             # Combine with the other group losses
-            group_loss += self.meaningful_weight * g_loss
-            total_loss = base_loss + group_loss  # plus any base VAE loss
+            total_loss = base_loss + self.meaningful_weight * g_loss  # plus any base VAE loss
 
             # Backprop through generator (i.e., the decoder) + group constraints
             vae_optimizer.zero_grad()
@@ -478,6 +488,13 @@ class Loss(BaseLoss):
 
             # Unfreeze discriminator
             self.gan_trainer.unfreeze_discriminator()
+            
+            if self.base_loss_f.name == 'factorvae':
+                # Update FactorVAE discriminator after VAE optimization
+                discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+                log_data.update(discr_result['to_log'])
+
+            for p in self.critic.parameters(): p.requires_grad_(True)  # Unfreeze critic
 
             #################################################################
             # 3) Final combined loss for logging
@@ -494,6 +511,11 @@ class Loss(BaseLoss):
         vae_optimizer.zero_grad()
         total_loss.backward()
         vae_optimizer.step()
+
+        if self.base_loss_f.name == 'factorvae':
+            # Update FactorVAE discriminator after VAE optimization
+            discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+            log_data.update(discr_result['to_log'])
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
