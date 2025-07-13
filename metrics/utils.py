@@ -23,7 +23,8 @@ METRICS = [
     'sap_d',
     'dci',
     'modularity_d',
-    'reconstruction_error'
+    'reconstruction_error',
+    'kld'
 ]
 
 def select_metric(name, **kwargs):
@@ -41,6 +42,8 @@ def select_metric(name, **kwargs):
         return metrics.Modularityd(**kwargs)
     if name == 'reconstruction_error':
         return metrics.ReconstructionError(**kwargs)
+    if name == 'kld':
+        return metrics.KLD(**kwargs)
 
 class MetricAggregator:
     """
@@ -211,6 +214,84 @@ class MetricAggregator:
         else:
             raise ValueError("Either 'data_loader' or 'dataset' must be provided for reconstruction metrics")
 
+    def _get_encoder_statistics_dataloader(self, model, data_loader, device='cpu'):
+        """Get encoder statistics from the model and data loader.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            data_loader (torch.utils.data.DataLoader): The data loader containing the dataset.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+        """
+        model.to(device)
+        model.eval()
+        encoder_stats = []
+
+        with torch.no_grad():
+            for batch in tqdm(data_loader, desc="Computing encoder statistics"):
+                inputs, _ = batch
+                inputs = inputs.to(device)
+                
+                # Get encoder statistics (mean and logvar)
+                stats = model.encode(inputs)
+                
+                encoder_stats.append(stats.cpu())
+
+        return torch.cat(encoder_stats, dim=0)
+
+    def _get_encoder_statistics_dataset(self, model, dataset, seed, sample_num=None, device='cpu'):
+        """Get encoder statistics from the model and dataset.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            dataset (torch.utils.data.Dataset): The dataset containing the data.
+            seed (int): Random seed for reproducible sampling.
+            sample_num (int, optional): Number of samples to use. If None, use entire dataset.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+        """
+        if sample_num is not None:
+            if sample_num > len(dataset):
+                raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
+
+            # Create a torch generator for reproducible sampling of dataset indices
+            g = torch.Generator()
+            g.manual_seed(seed)
+            
+            # Generate random indices using torch.randperm and the seeded generator
+            # Then take the first 'sample_num' indices
+            indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
+            
+            sample_dataset = torch.utils.data.Subset(dataset, indices)
+        else:
+            sample_dataset = dataset
+        
+        data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
+
+        return self._get_encoder_statistics_dataloader(model, data_loader, device)
+
+    def _get_encoder_statistics(self, model, device='cpu', **kwargs):
+        """Get encoder statistics with either dataloader or dataset format.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            device (torch.device): The device to perform computations on.
+            **kwargs: Additional arguments containing either 'data_loader' or 'dataset'.
+
+        Returns:
+            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+        """
+        if 'data_loader' in kwargs:
+            return self._get_encoder_statistics_dataloader(model, kwargs['data_loader'], device)
+        elif 'dataset' in kwargs:
+            return self._get_encoder_statistics_dataset(model, kwargs['dataset'], kwargs.get('seed', 42), kwargs.get('sample_num'), device)
+        else:
+            raise ValueError("Either 'data_loader' or 'dataset' must be provided for encoder statistics")
+
     def compute(self, model, device='cpu', **kwargs):
         """Computes the disentanglement metrics for the given model and data loader.
 
@@ -222,16 +303,17 @@ class MetricAggregator:
         Returns:
             dict: A dictionary containing the computed metrics.
         """
-        # Separate reconstruction metrics from representation-based metrics
+        # Separate different types of metrics
         reconstruction_metric = next((m for m in self.metrics if m['name'] == 'reconstruction_error'), None)
-        other_metrics = [m for m in self.metrics if m['name'] != 'reconstruction_error']
-        
+        kld_metric = next((m for m in self.metrics if m['name'] == 'kld'), None)
+        other_metrics = [m for m in self.metrics if m['name'] not in ['reconstruction_error', 'kld']]
+
         results = {}
-        
+
         # Handle other metrics that require latent representations
         if other_metrics:
             latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
-            
+
             progress_bar = tqdm(other_metrics, desc="Computing metrics")
             for metric in progress_bar:
                 metric_name = metric['name']
@@ -249,6 +331,15 @@ class MetricAggregator:
             result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
             results[metric_name] = result
         
+        # Handle KLD metric that requires encoder statistics
+        if kld_metric:
+            encoder_stats = self._get_encoder_statistics(model, device=device, **kwargs)
+            metric_name = kld_metric['name']
+            metric_args = kld_metric.get('args', {})
+            metric_obj = select_metric(metric_name, **metric_args)
+            result = metric_obj(stats_qzx=encoder_stats)
+            results[metric_name] = result
+
         return results
 
 

@@ -10,3 +10,4 @@ from .sap_d import SAPd
 from .dci import DCI
 from .modularity_d import Modularityd
 from .reconstruction import ReconstructionError
+from .kld import KLD
