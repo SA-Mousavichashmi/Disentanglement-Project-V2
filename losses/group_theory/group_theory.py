@@ -47,12 +47,7 @@ class Loss(BaseLoss):
                  comp_latent_select_threshold=0,
                  warm_up_steps=0,  # Add this parameter
                  # GAN configuration parameters
-                 gan_loss_type="wgan_gp",  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
-                 gan_architecture_type="locatello",  # Options: "locatello", "spectral_norm"
-                 gan_loss_kwargs=None,
-                 gan_architecture_kwargs=None,
-                 gan_optimizer_type="adam",  # Options: "adam", "rmsprop", "sgd"
-                 gan_optimizer_kwargs=None,
+                 meaningful_gan_config=None,
                  # schedulers kwargs
                  schedulers_kwargs=None,
                  **kwargs
@@ -113,13 +108,8 @@ class Loss(BaseLoss):
         self.meaningful_critic_lr = meaningful_critic_lr
         self.meaningful_n_critic = meaningful_n_critic
 
-        # Store GAN configuration
-        self.gan_loss_type = gan_loss_type
-        self.gan_architecture_type = gan_architecture_type
-        self.gan_loss_kwargs = gan_loss_kwargs or {}
-        self.gan_architecture_kwargs = gan_architecture_kwargs or {}
-        self.gan_optimizer_type = gan_optimizer_type
-        self.gan_optimizer_kwargs = gan_optimizer_kwargs or {}
+        # Store GAN configuration - use default if none provided
+        self.meaningful_gan_config = meaningful_gan_config
 
         # Initialize GAN trainer immediately if meaningful_weight > 0
         self.gan_trainer = None
@@ -127,13 +117,7 @@ class Loss(BaseLoss):
             self.gan_trainer = GANTrainer(
                 img_size=self.img_size,
                 device=self.device,
-                lr=self.meaningful_critic_lr,
-                loss_type=self.gan_loss_type,
-                architecture_type=self.gan_architecture_type,
-                loss_kwargs=self.gan_loss_kwargs,
-                architecture_kwargs=self.gan_architecture_kwargs,
-                optimizer_type=self.gan_optimizer_type,
-                optimizer_kwargs=self.gan_optimizer_kwargs
+                **self.meaningful_gan_config
             )
 
         # Store commutative comparison distribution
@@ -163,27 +147,23 @@ class Loss(BaseLoss):
             'rec_dist': self.rec_dist,
             'device': self.device,
             'img_size': self.img_size,
+            'warm_up_steps': self.warm_up_steps,
+            'current_step': self.current_step,
+            # g-commutative loss parameters
             'commutative_weight': self.commutative_weight,
             'commutative_component_order': self.commutative_component_order,
             'commutative_comparison_dist': self.commutative_comparison_dist,
+            # g-meaningful loss parameters
             'meaningful_weight': self.meaningful_weight,
             'meaningful_component_order': self.meaningful_component_order,
             'meaningful_transformation_order': self.meaningful_transformation_order,
-            'meaningful_critic_gradient_penalty_weight': self.meaningful_critic_gradient_penalty_weight,
-            'meaningful_critic_lr': self.meaningful_critic_lr,
             'meaningful_n_critic': self.meaningful_n_critic,
+            'meaningful_gan_config': self.meaningful_gan_config,
+            # general group theory parameters
             'deterministic_rep': self.deterministic_rep,
             'group_action_latent_range': self.group_action_latent_range,
             'group_action_latent_distribution': self.group_action_latent_distribution,
             'comp_latent_select_threshold': self.comp_latent_select_threshold,
-            'warm_up_steps': self.warm_up_steps,
-            'gan_loss_type': self.gan_loss_type,
-            'gan_architecture_type': self.gan_architecture_type,
-            'gan_loss_kwargs': self.gan_loss_kwargs,
-            'gan_architecture_kwargs': self.gan_architecture_kwargs,
-            'gan_optimizer_type': self.gan_optimizer_type,
-            'gan_optimizer_kwargs': self.gan_optimizer_kwargs,
-            'current_step': self.current_step
         }
         
         # Add scheduler configurations
@@ -459,7 +439,6 @@ class Loss(BaseLoss):
 
             # Log the average critic loss over the n_critic updates
             log_data['g_meaningful_critic'] = d_losses.mean().item()
-            log_data['g_meaningful_critic'] = d_losses.mean().item()
 
             #################################################################
             # 2) Now update the generator (decoder) + group losses
@@ -492,8 +471,6 @@ class Loss(BaseLoss):
                 # Update FactorVAE discriminator after VAE optimization
                 discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
                 log_data.update(discr_result['to_log'])
-
-            for p in self.critic.parameters(): p.requires_grad_(True)  # Unfreeze critic
 
             #################################################################
             # 3) Final combined loss for logging

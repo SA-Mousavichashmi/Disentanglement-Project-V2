@@ -179,27 +179,7 @@ def select_discriminator(
     )
 
 
-# Convenience functions for common configurations
-def create_locatello_discriminator(input_channels: int, **kwargs) -> LocatelloDiscriminator:
-    """Create a standard Locatello discriminator."""
-    return LocatelloDiscriminator(input_channels=input_channels, **kwargs)
-
-
-def create_spectral_norm_discriminator(input_channels: int, **kwargs) -> LocatelloDiscriminator:
-    """Create a Locatello discriminator with spectral normalization (equivalent to old SN-GAN)."""
-    return LocatelloDiscriminator(input_channels=input_channels, spectral_norm=True, **kwargs)
-
-
-# Backward compatibility aliases
-SpectralNormDiscriminator = lambda input_channels, **kwargs: create_spectral_norm_discriminator(
-    input_channels, **kwargs
-)
-
 # Export all important classes and functions
 __all__ = [
-    'BaseDiscriminator',
-    'LocatelloDiscriminator', 
     'select_discriminator',
-    'create_locatello_discriminator',
-    'create_spectral_norm_discriminator',
 ]

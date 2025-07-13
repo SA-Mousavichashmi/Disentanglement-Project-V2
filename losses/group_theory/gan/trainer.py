@@ -24,11 +24,10 @@ class GANTrainer:
     def __init__(self, 
                  img_size: Tuple[int, int, int],  # (channels, height, width)
                  device: torch.device,
-                 lr: float = 1e-4,
                  loss_type: str = "wgan_gp",
-                 architecture_type: str = "locatello",
                  loss_kwargs: Optional[Dict] = None,
-                 architecture_kwargs: Optional[Dict] = None,
+                 discrim_arch: str = "locatello",
+                 discrim_kwargs: Optional[Dict] = None,
                  optimizer_type: str = "adam",
                  optimizer_kwargs: Optional[Dict] = None):
         """
@@ -37,23 +36,23 @@ class GANTrainer:
         Args:
             img_size: Tuple of (channels, height, width) for input images
             device: Device to place the discriminator on
-            lr: Learning rate for the discriminator optimizer
             loss_type: Type of GAN loss (e.g., "wgan_gp", "hinge", "bce")
-            architecture_type: Type of discriminator architecture (e.g., "locatello", "spectral_norm")
+            discrim_arch: Type of discriminator architecture (e.g., "locatello", "spectral_norm")
             loss_kwargs: Additional kwargs for loss function
-            architecture_kwargs: Additional kwargs for architecture
+            discrim_kwargs: Additional kwargs for architecture
             optimizer_type: Type of optimizer for discriminator
             optimizer_kwargs: Additional kwargs for optimizer
         """
         self.img_size = img_size
         self.device = device
-        self.lr = lr
         self.loss_type = loss_type
-        self.architecture_type = architecture_type
+        self.discrim_arch = discrim_arch
         self.loss_kwargs = loss_kwargs or {}
-        self.architecture_kwargs = architecture_kwargs or {}
+        self.discrim_kwargs = discrim_kwargs or {}
         self.optimizer_type = optimizer_type
+        # ensure learning rate is provided in optimizer_kwargs
         self.optimizer_kwargs = optimizer_kwargs or {}
+        assert 'lr' in self.optimizer_kwargs, "optimizer_kwargs must include 'lr'"
         
         # Initialize loss function
         self.loss_fn = select_gan_loss(loss_type, **self.loss_kwargs)
@@ -69,27 +68,26 @@ class GANTrainer:
         
         # Create discriminator
         self.discriminator = select_discriminator(
-            architecture_type=self.architecture_type,
+            architecture_type=self.discrim_arch,
             input_channels=input_channels,
-            **self.architecture_kwargs
+            **self.discrim_kwargs
         ).to(self.device)
         
         # Create optimizer
-        optimizer_kwargs = {**self.optimizer_kwargs, 'lr': self.lr}
         if self.optimizer_type.lower() == "adam":
             self.discriminator_optimizer = torch.optim.Adam(
                 self.discriminator.parameters(), 
-                **optimizer_kwargs
+                **self.optimizer_kwargs
             )
         elif self.optimizer_type.lower() == "rmsprop":
             self.discriminator_optimizer = torch.optim.RMSprop(
                 self.discriminator.parameters(), 
-                **optimizer_kwargs
+                **self.optimizer_kwargs
             )
         elif self.optimizer_type.lower() == "sgd":
             self.discriminator_optimizer = torch.optim.SGD(
                 self.discriminator.parameters(), 
-                **optimizer_kwargs
+                **self.optimizer_kwargs
             )
         else:
             raise ValueError(f"Unknown optimizer type: {self.optimizer_type}")
@@ -163,11 +161,10 @@ class GANTrainer:
         """Get state dict for saving."""
         state = {
             'img_size': self.img_size,
-            'lr': self.lr,
             'loss_type': self.loss_type,
-            'architecture_type': self.architecture_type,
+            'discrim_arch': self.discrim_arch,
             'loss_kwargs': self.loss_kwargs,
-            'architecture_kwargs': self.architecture_kwargs,
+            'discrim_kwargs': self.discrim_kwargs,
             'optimizer_type': self.optimizer_type,
             'optimizer_kwargs': self.optimizer_kwargs,
             'discriminator_state_dict': self.discriminator.state_dict(),
@@ -179,11 +176,10 @@ class GANTrainer:
         """Load state dict."""
         # Update configuration
         self.img_size = state_dict.get('img_size', self.img_size)
-        self.lr = state_dict.get('lr', self.lr)
         self.loss_type = state_dict.get('loss_type', self.loss_type)
-        self.architecture_type = state_dict.get('architecture_type', self.architecture_type)
+        self.discrim_arch = state_dict.get('discrim_arch', self.discrim_arch)
+        self.discrim_kwargs = state_dict.get('discrim_kwargs', self.discrim_kwargs)
         self.loss_kwargs = state_dict.get('loss_kwargs', self.loss_kwargs)
-        self.architecture_kwargs = state_dict.get('architecture_kwargs', self.architecture_kwargs)
         self.optimizer_type = state_dict.get('optimizer_type', self.optimizer_type)
         self.optimizer_kwargs = state_dict.get('optimizer_kwargs', self.optimizer_kwargs)
         
@@ -201,4 +197,4 @@ class GANTrainer:
         
     def __repr__(self) -> str:
         return (f"GANTrainer(img_size={self.img_size}, loss_type='{self.loss_type}', "
-                f"architecture_type='{self.architecture_type}', device={self.device})")
+                f"discrim_arch='{self.discrim_arch}', device={self.device})")

@@ -1,0 +1,12 @@
+
+meaningful_gan_config:
+  gan_loss_type: "wgan_gp"
+  gan_loss_kwargs:
+    gradient_penalty_weight: 10.0
+  gan_discrim_arch: "locatello"
+  gan_discrim_kwargs:
+    spectral_norm: false
+  gan_optimizer_type: "adam"
+  gan_optimizer_kwargs:
+    lr: 0.0001
+    betas: [0.5, 0.9]
