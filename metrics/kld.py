@@ -1,6 +1,6 @@
 import torch
 from .basemetric import BaseMetric
-from ..losses.n_vae.kl_div import kl_normal_loss
+from losses.n_vae.kl_div import kl_normal_loss
 
 
 class KLD(BaseMetric):
