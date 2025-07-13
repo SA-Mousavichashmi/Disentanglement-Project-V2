@@ -20,6 +20,7 @@ trainer:
     meaningful_weight: 1.0
     meaningful_component_order: 1
     meaningful_transformation_order: 1
+    meaningful_n_critic: 1
 
     ### overall settings ###
     deterministic_rep: true
