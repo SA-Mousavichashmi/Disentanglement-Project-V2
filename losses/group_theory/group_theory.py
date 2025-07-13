@@ -31,23 +31,23 @@ class Loss(BaseLoss):
                  base_loss_kwargs,
                  rec_dist,
                  device,
-                 img_size,  # (channels, height, width)
+                 img_size,
+                 # g-commutative loss parameters
                  commutative_weight,
                  commutative_component_order,
                  commutative_comparison_dist,
+                 # g-meaningful loss parameters
                  meaningful_weight,
                  meaningful_component_order,
                  meaningful_transformation_order,
-                 meaningful_critic_gradient_penalty_weight,
-                 meaningful_critic_lr,
                  meaningful_n_critic,
+                 meaningful_gan_config,
+                # general group theory parameters
                  deterministic_rep,
                  group_action_latent_range=1,
                  group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
                  warm_up_steps=0,  # Add this parameter
-                 # GAN configuration parameters
-                 meaningful_gan_config=None,
                  # schedulers kwargs
                  schedulers_kwargs=None,
                  **kwargs
@@ -104,11 +104,9 @@ class Loss(BaseLoss):
              
         # The parameters for the group
         self.meaningful_transformation_order = meaningful_transformation_order
-        self.meaningful_critic_gradient_penalty_weight = meaningful_critic_gradient_penalty_weight
-        self.meaningful_critic_lr = meaningful_critic_lr
         self.meaningful_n_critic = meaningful_n_critic
 
-        # Store GAN configuration - use default if none provided
+        # Store GAN configuration
         self.meaningful_gan_config = meaningful_gan_config
 
         # Initialize GAN trainer immediately if meaningful_weight > 0
