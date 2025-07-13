@@ -1,22 +1,15 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
 from ..baseloss import BaseLoss
-from ..reconstruction import reconstruction_loss
 from .. import select
 
-from .utils import  generate_latent_translations,\
-                    apply_group_action_latent_space, \
+from .utils import  apply_group_action_latent_space, \
                     select_latent_components, \
                     generate_latent_translations_selected_components
 
-
 from .gan.trainer import GANTrainer
-from .gan.losses import select_gan_loss
-from .gan.discrim_archs import select_discriminator
-
 from ..n_vae.kl_div import kl_normal_loss
 
 
