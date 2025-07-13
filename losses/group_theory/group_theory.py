@@ -15,8 +15,6 @@ from ..n_vae.kl_div import kl_normal_loss
 
 class Loss(BaseLoss):
     """    Compute Group theory losses in addition to base losses of models (BetaVAE, FactorVAE, etc.)
-
-    Now supports scheduling for commutative_weight and meaningful_weight parameters.
     """
     
     def __init__(self,
