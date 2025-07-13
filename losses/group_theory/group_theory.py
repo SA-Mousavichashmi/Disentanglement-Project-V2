@@ -24,19 +24,19 @@ class Loss(BaseLoss):
                  device,
                  img_size,
                  # g-commutative loss parameters
-                 commutative_weight,
-                 commutative_component_order,
-                 commutative_comparison_dist,
+                 commutative_weight=1,
+                 commutative_component_order=2,
+                 commutative_comparison_dist= 'gaussian',
                  # g-meaningful loss parameters
-                 meaningful_weight,
-                 meaningful_component_order,
-                 meaningful_transformation_order,
-                 meaningful_n_critic,
-                 meaningful_gan_config,
+                 meaningful_weight=1,
+                 meaningful_component_order=2,
+                 meaningful_transformation_order=1,
+                 meaningful_n_critic=1,
+                 meaningful_gan_config=None,
                 # general group theory parameters
-                 deterministic_rep,
-                 group_action_latent_range=1,
-                 group_action_latent_distribution='normal',
+                 deterministic_rep=True,
+                 group_action_latent_range=2,
+                 group_action_latent_distribution='uniform',
                  comp_latent_select_threshold=0,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
@@ -102,7 +102,7 @@ class Loss(BaseLoss):
 
         # Initialize GAN trainer immediately if meaningful_weight > 0
         self.gan_trainer = None
-        if self.meaningful_weight > 0:
+        if self.meaningful_gan_config is not None:
             self.gan_trainer = GANTrainer(
                 img_size=self.img_size,
                 device=self.device,
