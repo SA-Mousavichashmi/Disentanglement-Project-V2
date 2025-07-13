@@ -108,12 +108,12 @@ class GANConfig:
     - Discriminator architecture and parameters  
     - Optimizer type and parameters
     """
-    gan_loss_type: str = "wgan_gp"  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
-    gan_loss_kwargs: Optional[Dict[str, Any]] = None
-    gan_discrim_arch: str = "locatello"  # Options: "locatello", "spectral_norm"
-    gan_discrim_kwargs: Optional[Dict[str, Any]] = None
-    gan_optimizer_type: str = "adam"  # Options: "adam", "rmsprop", "sgd"
-    gan_optimizer_kwargs: Optional[Dict[str, Any]] = None
+    loss_type: str = "wgan_gp"  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
+    loss_kwargs: Optional[Dict[str, Any]] = None
+    d_arch: str = "locatello"  # Options: "locatello", "spectral_norm"
+    d_kwargs: Optional[Dict[str, Any]] = None
+    d_optimizer_type: str = "adam"  # Options: "adam", "rmsprop", "sgd"
+    d_optimizer_kwargs: Optional[Dict[str, Any]] = None
 
 @dataclass
 class GroupTheoryConfig(LossConfig):

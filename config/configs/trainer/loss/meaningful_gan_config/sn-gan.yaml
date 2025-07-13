@@ -1,10 +1,10 @@
 
-gan_loss_type: "hinge"
-gan_loss_kwargs: {}
-gan_discrim_arch: "locatello"
-gan_discrim_kwargs:
+loss_type: "hinge"
+loss_kwargs: {}
+d_arch: "locatello"
+d_kwargs:
   spectral_norm: true
-gan_optimizer_type: "adam"
-gan_optimizer_kwargs:
+d_optimizer_type: "adam"
+d_optimizer_kwargs:
   lr: 0.0001
   betas: [0.5, 0.9]
