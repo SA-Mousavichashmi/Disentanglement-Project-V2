@@ -133,6 +133,8 @@ class DSprites(datasets.base.DisentangledDataset):
         
         self.drop_color_factor = drop_color_factor
         if drop_color_factor:
+            if not_selected_factors_index_value is None:
+                not_selected_factors_index_value = {}
             not_selected_factors_index_value['color'] = 0
 
         super().__init__(root, 
