@@ -99,13 +99,13 @@ class Cars3D(datasets.base.DisentangledDataset):
         self.factor_values = self.factor_values / (self.factor_sizes.reshape(1, -1).astype(float) - 1)
 
         self.selected_img_indices = self._get_selected_img_indices()
-        self.selected_imgs = self.imgs[self.selected_img_indices]
+        self.imgs = self.imgs[self.selected_img_indices]
         self._process_factor_values()
 
         if self.subset < 1:
-            n_samples = int(len(self.selected_imgs) * self.subset)
-            subset = np.random.choice(len(self.selected_imgs), n_samples, replace=False)
-            self.selected_imgs = self.selected_imgs[subset]
+            n_samples = int(len(self.imgs) * self.subset)
+            subset = np.random.choice(len(self.imgs), n_samples, replace=False)
+            self.imgs = self.imgs[subset]
             self.factor_values = self.factor_values[subset]
 
     @property

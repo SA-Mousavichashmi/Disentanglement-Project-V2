@@ -149,7 +149,7 @@ class DSprites(datasets.base.DisentangledDataset):
         # self.lat_values = sklearn.preprocessing.minimax_scale(self.lat_values)
 
         self.selected_img_indices = self._get_selected_img_indices()
-        self.selected_imgs = self.imgs[self.selected_img_indices]
+        self.imgs = self.imgs[self.selected_img_indices]
         self._process_factor_values()
 
         if self.subset < 1:
@@ -185,7 +185,7 @@ class DSprites(datasets.base.DisentangledDataset):
     def __getitem__(self, idx):
         # stored image have binary and shape (H x W) so multiply by 255 to get pixel
         # values + add dimension
-        sample = np.expand_dims(self.selected_imgs[idx] * 255, axis=-1)
+        sample = np.expand_dims(self.imgs[idx] * 255, axis=-1)
 
         # ToTensor transforms numpy.ndarray (H x W x C) in the range
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
