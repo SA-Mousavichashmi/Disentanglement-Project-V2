@@ -235,7 +235,7 @@ class MetricAggregator:
                 inputs = inputs.to(device)
                 
                 # Get encoder statistics (mean and logvar)
-                stats = model.encode(inputs)
+                stats = model.encoder(inputs)['stats_qzx']
                 
                 encoder_stats.append(stats.cpu())
 
