@@ -214,45 +214,51 @@ class MetricAggregator:
         else:
             raise ValueError("Either 'data_loader' or 'dataset' must be provided for reconstruction metrics")
 
-    def _get_encoder_statistics_dataloader(self, model, data_loader, device='cpu'):
-        """Get encoder statistics from the model and data loader.
+    def _compute_kld_metric_dataloader(self, model, data_loader, metric_obj, device='cpu'):
+        """Compute KLD metric using data loader.
 
         Args:
             model (torch.nn.Module): The model to evaluate.
             data_loader (torch.utils.data.DataLoader): The data loader containing the dataset.
+            metric_obj: The KLD metric object.
             device (torch.device): The device to perform computations on.
 
         Returns:
-            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+            float: Average KLD across all batches.
         """
         model.to(device)
         model.eval()
-        encoder_stats = []
+        total_kld = 0.0
+        total_samples = 0
 
         with torch.no_grad():
-            for batch in tqdm(data_loader, desc="Computing encoder statistics"):
+            for batch in tqdm(data_loader, desc="Computing KLD"):
                 inputs, _ = batch
                 inputs = inputs.to(device)
                 
                 # Get encoder statistics (mean and logvar)
                 stats = model.encoder(inputs)['stats_qzx']
                 
-                encoder_stats.append(stats.cpu())
+                # Compute batch KLD
+                batch_kld = metric_obj(stats_qzx=stats)
+                total_kld += batch_kld.item() * inputs.size(0)  # Multiply by batch size for proper averaging
+                total_samples += inputs.size(0)
 
-        return torch.cat(encoder_stats, dim=0)
+        return total_kld / total_samples
 
-    def _get_encoder_statistics_dataset(self, model, dataset, seed, sample_num=None, device='cpu'):
-        """Get encoder statistics from the model and dataset.
+    def _compute_kld_metric_dataset(self, model, dataset, metric_obj, seed, sample_num=None, device='cpu'):
+        """Compute KLD metric using dataset.
 
         Args:
             model (torch.nn.Module): The model to evaluate.
             dataset (torch.utils.data.Dataset): The dataset containing the data.
+            metric_obj: The KLD metric object.
             seed (int): Random seed for reproducible sampling.
             sample_num (int, optional): Number of samples to use. If None, use entire dataset.
             device (torch.device): The device to perform computations on.
 
         Returns:
-            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+            float: Average KLD across all batches.
         """
         if sample_num is not None:
             if sample_num > len(dataset):
@@ -272,25 +278,26 @@ class MetricAggregator:
         
         data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
 
-        return self._get_encoder_statistics_dataloader(model, data_loader, device)
+        return self._compute_kld_metric_dataloader(model, data_loader, metric_obj, device)
 
-    def _get_encoder_statistics(self, model, device='cpu', **kwargs):
-        """Get encoder statistics with either dataloader or dataset format.
+    def _compute_kld_metric(self, model, metric_obj, device='cpu', **kwargs):
+        """Compute KLD metric with either dataloader or dataset format.
 
         Args:
             model (torch.nn.Module): The model to evaluate.
+            metric_obj: The KLD metric object.
             device (torch.device): The device to perform computations on.
             **kwargs: Additional arguments containing either 'data_loader' or 'dataset'.
 
         Returns:
-            torch.Tensor: Encoder statistics tensor of shape (batch_size, latent_dim, 2) containing mean and logvar
+            float: Average KLD across all batches.
         """
         if 'data_loader' in kwargs:
-            return self._get_encoder_statistics_dataloader(model, kwargs['data_loader'], device)
+            return self._compute_kld_metric_dataloader(model, kwargs['data_loader'], metric_obj, device)
         elif 'dataset' in kwargs:
-            return self._get_encoder_statistics_dataset(model, kwargs['dataset'], kwargs.get('seed', 42), kwargs.get('sample_num'), device)
+            return self._compute_kld_metric_dataset(model, kwargs['dataset'], metric_obj, kwargs.get('seed', 42), kwargs.get('sample_num'), device)
         else:
-            raise ValueError("Either 'data_loader' or 'dataset' must be provided for encoder statistics")
+            raise ValueError("Either 'data_loader' or 'dataset' must be provided for KLD metrics")
 
     def compute(self, model, device='cpu', **kwargs):
         """Computes the disentanglement metrics for the given model and data loader.
@@ -331,13 +338,12 @@ class MetricAggregator:
             result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
             results[metric_name] = result
         
-        # Handle KLD metric that requires encoder statistics
+        # Handle KLD metric separately
         if kld_metric:
-            encoder_stats = self._get_encoder_statistics(model, device=device, **kwargs)
             metric_name = kld_metric['name']
             metric_args = kld_metric.get('args', {})
-            metric_obj = select_metric(metric_name, reduction='mean', **metric_args)
-            result = metric_obj(stats_qzx=encoder_stats)
+            metric_obj = select_metric(metric_name, **metric_args)
+            result = self._compute_kld_metric(model, metric_obj, device, **kwargs)
             results[metric_name] = result
 
         return results
