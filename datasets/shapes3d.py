@@ -35,7 +35,7 @@ class Shapes3D(datasets.base.DisentangledDataset):
 
     References
     ----------
-    [1] Hyunjik Kim, Andriy Mnih (2018). Disentangling by Factorising.
+    [1] Hyunjik Kim, Andriy Mnih (2018). Disentangling by Factorizing.
 
     """
     urls = {
@@ -103,6 +103,7 @@ class Shapes3D(datasets.base.DisentangledDataset):
 
         self.selected_img_indices = self._get_selected_img_indices()
         self.selected_imgs = self.imgs[self.selected_img_indices]
+        self._process_factor_values()
 
         if self.subset < 1:
             n_samples = int(len(self.imgs) * self.subset)

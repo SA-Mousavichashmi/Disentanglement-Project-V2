@@ -100,12 +100,13 @@ class Cars3D(datasets.base.DisentangledDataset):
 
         self.selected_img_indices = self._get_selected_img_indices()
         self.selected_imgs = self.imgs[self.selected_img_indices]
+        self._process_factor_values()
 
         if self.subset < 1:
             n_samples = int(len(self.selected_imgs) * self.subset)
             subset = np.random.choice(len(self.selected_imgs), n_samples, replace=False)
             self.selected_imgs = self.selected_imgs[subset]
-            self.factor_values = self.factor_values[self.selected_img_indices][subset]
+            self.factor_values = self.factor_values[subset]
 
     @property
     def name(self):
@@ -177,4 +178,4 @@ class Cars3D(datasets.base.DisentangledDataset):
         """
         # ToTensor transforms numpy.ndarray (H x W x C) in the range
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-        return self.transforms(self.selected_imgs[idx]), self.factor_values[self.selected_img_indices[idx]]
+        return self.transforms(self.selected_imgs[idx]), self.factor_values[idx]

@@ -131,12 +131,16 @@ class DSprites(datasets.base.DisentangledDataset):
         The dataset will be downloaded automatically if it doesn't exist at the specified root.
         """
         
+        self.drop_color_factor = drop_color_factor
+        if drop_color_factor:
+            not_selected_factors_index_value['color'] = 0
+
         super().__init__(root, 
                          selected_factors,
                          not_selected_factors_index_value, 
                          [torchvision.transforms.ToTensor()], 
                          **kwargs)
-        self.drop_color_factor = drop_color_factor
+
         dataset_zip = np.load(self.train_data)
         self.imgs = dataset_zip['imgs']
         self.factor_values = dataset_zip['latents_values']
@@ -144,6 +148,7 @@ class DSprites(datasets.base.DisentangledDataset):
 
         self.selected_img_indices = self._get_selected_img_indices()
         self.selected_imgs = self.imgs[self.selected_img_indices]
+        self._process_factor_values()
 
         if self.subset < 1:
             n_samples = int(len(self.imgs) * self.subset)
@@ -182,7 +187,4 @@ class DSprites(datasets.base.DisentangledDataset):
 
         # ToTensor transforms numpy.ndarray (H x W x C) in the range
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-        if self.drop_color_factor:
-            return self.transforms(sample), self.factor_values[idx][1:]
-        else:
-            return self.transforms(sample), self.factor_values[idx]
+        return self.transforms(sample), self.factor_values[idx]
