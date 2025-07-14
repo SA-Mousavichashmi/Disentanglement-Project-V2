@@ -36,8 +36,8 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
         # Assertions
         assert selected_factors == 'all' or isinstance(selected_factors, list), "selected_factors must be a list of strings or 'all.'"
 
-        if selected_factors == 'all':
-            assert not_selected_factors_index_value is None, "not_selected_factors_index_value must be None when all factors are selected."
+        # if selected_factors == 'all':
+        #     assert not_selected_factors_index_value is None, "not_selected_factors_index_value must be None when all factors are selected."
 
         factor_names = type(self).factor_names
         self.not_selected_factors_index_value = not_selected_factors_index_value

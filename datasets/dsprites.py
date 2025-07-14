@@ -130,18 +130,18 @@ class DSprites(datasets.base.DisentangledDataset):
         -----
         The dataset will be downloaded automatically if it doesn't exist at the specified root.
         """
+        
+        self.drop_color_factor = drop_color_factor
+        if self.drop_color_factor:
+            if not_selected_factors_index_value is None:
+                self.not_selected_factors_index_value = {}
+            self.not_selected_factors_index_value['color'] = 0
 
         super().__init__(root, 
                          selected_factors,
                          not_selected_factors_index_value, 
                          [torchvision.transforms.ToTensor()], 
                          **kwargs)
-
-        self.drop_color_factor = drop_color_factor
-        if self.drop_color_factor:
-            if not_selected_factors_index_value is None:
-                self.not_selected_factors_index_value = {}
-            self.not_selected_factors_index_value['color'] = 0
 
         dataset_zip = np.load(self.train_data)
         self.imgs = dataset_zip['imgs']
