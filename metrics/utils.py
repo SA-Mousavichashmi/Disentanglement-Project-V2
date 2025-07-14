@@ -224,11 +224,11 @@ class MetricAggregator:
             device (torch.device): The device to perform computations on.
 
         Returns:
-            float: Average KLD across all batches.
+            dict: Dictionary with averaged KLD values for all dimensions and total KL.
         """
         model.to(device)
         model.eval()
-        total_kld = 0.0
+        total_kld = {}
         total_samples = 0
 
         with torch.no_grad():
@@ -239,12 +239,23 @@ class MetricAggregator:
                 # Get encoder statistics (mean and logvar)
                 stats = model.encoder(inputs)['stats_qzx']
                 
-                # Compute batch KLD
-                batch_kld = metric_obj(stats_qzx=stats)
-                total_kld += batch_kld.item() * inputs.size(0)  # Multiply by batch size for proper averaging
+                # Compute batch KLD - returns a dictionary with KL_i and KL keys
+                batch_kld_dict = metric_obj(stats_qzx=stats)
+                
+                # Accumulate all KLD components
+                for key, value in batch_kld_dict.items():
+                    if key not in total_kld:
+                        total_kld[key] = 0.0
+                    total_kld[key] += value
+                
                 total_samples += inputs.size(0)
 
-        return total_kld / total_samples
+        # Average all KLD components across all samples
+        averaged_kld = {}
+        for key, total_value in total_kld.items():
+            averaged_kld[key] = total_value / total_samples
+
+        return averaged_kld
 
     def _compute_kld_metric_dataset(self, model, dataset, metric_obj, seed, sample_num=None, device='cpu'):
         """Compute KLD metric using dataset.
@@ -258,7 +269,7 @@ class MetricAggregator:
             device (torch.device): The device to perform computations on.
 
         Returns:
-            float: Average KLD across all batches.
+            dict: Dictionary with averaged KLD values for all dimensions and total KL.
         """
         if sample_num is not None:
             if sample_num > len(dataset):
