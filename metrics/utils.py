@@ -336,7 +336,7 @@ class MetricAggregator:
             encoder_stats = self._get_encoder_statistics(model, device=device, **kwargs)
             metric_name = kld_metric['name']
             metric_args = kld_metric.get('args', {})
-            metric_obj = select_metric(metric_name, **metric_args)
+            metric_obj = select_metric(metric_name, reduction='mean', **metric_args)
             result = metric_obj(stats_qzx=encoder_stats)
             results[metric_name] = result
 
