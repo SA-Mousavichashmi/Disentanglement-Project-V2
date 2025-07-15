@@ -50,7 +50,7 @@ class ModularitydConfig(BaseMetricConfig):
 @dataclass
 class ReconstructionErrorConfig(BaseMetricConfig):
     """Configuration for Reconstruction Error metric."""
-    name: str = "reconstruction_error"
+    name: str = "rec_error"
     error_type: str = "mse"  # Options: "mse" or "ce"
 
 @dataclass

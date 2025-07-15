@@ -99,7 +99,7 @@ trainer:
         backend: "sklearn"
         num_workers: 8
 
-      - name: "reconstruction_error"
+      - name: "rec_error"
         error_type: "mse"
         reduction: "sum"
 
