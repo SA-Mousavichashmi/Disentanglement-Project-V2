@@ -310,9 +310,17 @@ class ExperimentManager:
                     if isinstance(metric_value, dict):
                         # If metric returns a dictionary, flatten it
                         for sub_key, sub_value in metric_value.items():
-                            row_data[f'{metric_name}_{sub_key}'] = sub_value
+                            # Round float values to 4 decimal places
+                            if isinstance(sub_value, float):
+                                row_data[f'{metric_name}_{sub_key}'] = round(sub_value, 4)
+                            else:
+                                row_data[f'{metric_name}_{sub_key}'] = sub_value
                     else:
-                        row_data[metric_name] = metric_value
+                        # Round float values to 4 decimal places
+                        if isinstance(metric_value, float):
+                            row_data[metric_name] = round(metric_value, 4)
+                        else:
+                            row_data[metric_name] = metric_value
                 logger.info(f"Successfully computed {len(computed_metrics)} metrics for seed {seed}")
             except Exception as e:
                 logger.error(f"Failed to compute metrics for seed {seed}: {str(e)}")
@@ -363,10 +371,11 @@ class ExperimentManager:
                 # If only one seed, std will be NaN; set to 0.0
                 if len(df) == 1:
                     std_val = 0.0
-            
+                
+                # Round float values to 4 decimal places
                 summary_data['metrics'][col] = {
-                    'mean': mean_val,
-                    'std': std_val,
+                    'mean': round(mean_val, 4),
+                    'std': round(std_val, 4),
                 }
 
         # Save summary as YAML
