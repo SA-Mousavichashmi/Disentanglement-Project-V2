@@ -23,7 +23,7 @@ METRICS = [
     'sap_d',
     'dci',
     'modularity_d',
-    'reconstruction_error',
+    'rec_error',
     'kld'
 ]
 
