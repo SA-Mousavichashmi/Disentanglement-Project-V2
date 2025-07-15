@@ -23,7 +23,8 @@ METRICS = [
     'sap_d',
     'dci',
     'modularity_d',
-    'reconstruction_error'
+    'reconstruction_error',
+    'kld'
 ]
 
 def select_metric(name, **kwargs):
@@ -41,6 +42,8 @@ def select_metric(name, **kwargs):
         return metrics.Modularityd(**kwargs)
     if name == 'reconstruction_error':
         return metrics.ReconstructionError(**kwargs)
+    if name == 'kld':
+        return metrics.KLD(**kwargs)
 
 class MetricAggregator:
     """
@@ -211,6 +214,102 @@ class MetricAggregator:
         else:
             raise ValueError("Either 'data_loader' or 'dataset' must be provided for reconstruction metrics")
 
+    def _compute_kld_metric_dataloader(self, model, data_loader, metric_obj, device='cpu'):
+        """Compute KLD metric using data loader.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            data_loader (torch.utils.data.DataLoader): The data loader containing the dataset.
+            metric_obj: The KLD metric object.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            dict: Dictionary with averaged KLD values for all dimensions and total KL.
+        """
+        model.to(device)
+        model.eval()
+        total_kld = {}
+        total_samples = 0
+
+        with torch.no_grad():
+            for batch in tqdm(data_loader, desc="Computing KLD"):
+                inputs, _ = batch
+                inputs = inputs.to(device)
+                
+                # Get encoder statistics (mean and logvar)
+                stats = model.encoder(inputs)['stats_qzx']
+                
+                # Compute batch KLD - returns a dictionary with KL_i and KL keys
+                batch_kld_dict = metric_obj(stats_qzx=stats)
+                
+                # Accumulate all KLD components
+                for key, value in batch_kld_dict.items():
+                    if key not in total_kld:
+                        total_kld[key] = 0.0
+                    total_kld[key] += value
+                
+                total_samples += inputs.size(0)
+
+        # Average all KLD components across all samples
+        averaged_kld = {}
+        for key, total_value in total_kld.items():
+            averaged_kld[key] = total_value / total_samples
+
+        return averaged_kld
+
+    def _compute_kld_metric_dataset(self, model, dataset, metric_obj, seed, sample_num=None, device='cpu'):
+        """Compute KLD metric using dataset.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            dataset (torch.utils.data.Dataset): The dataset containing the data.
+            metric_obj: The KLD metric object.
+            seed (int): Random seed for reproducible sampling.
+            sample_num (int, optional): Number of samples to use. If None, use entire dataset.
+            device (torch.device): The device to perform computations on.
+
+        Returns:
+            dict: Dictionary with averaged KLD values for all dimensions and total KL.
+        """
+        if sample_num is not None:
+            if sample_num > len(dataset):
+                raise ValueError(f"Sample number {sample_num} exceeds dataset size {len(dataset)}.")
+
+            # Create a torch generator for reproducible sampling of dataset indices
+            g = torch.Generator()
+            g.manual_seed(seed)
+            
+            # Generate random indices using torch.randperm and the seeded generator
+            # Then take the first 'sample_num' indices
+            indices = torch.randperm(len(dataset), generator=g).tolist()[:sample_num]
+            
+            sample_dataset = torch.utils.data.Subset(dataset, indices)
+        else:
+            sample_dataset = dataset
+        
+        data_loader = torch.utils.data.DataLoader(sample_dataset, batch_size=64, shuffle=False, num_workers=get_cpu_core_num(), pin_memory=True)
+
+        return self._compute_kld_metric_dataloader(model, data_loader, metric_obj, device)
+
+    def _compute_kld_metric(self, model, metric_obj, device='cpu', **kwargs):
+        """Compute KLD metric with either dataloader or dataset format.
+
+        Args:
+            model (torch.nn.Module): The model to evaluate.
+            metric_obj: The KLD metric object.
+            device (torch.device): The device to perform computations on.
+            **kwargs: Additional arguments containing either 'data_loader' or 'dataset'.
+
+        Returns:
+            float: Average KLD across all batches.
+        """
+        if 'data_loader' in kwargs:
+            return self._compute_kld_metric_dataloader(model, kwargs['data_loader'], metric_obj, device)
+        elif 'dataset' in kwargs:
+            return self._compute_kld_metric_dataset(model, kwargs['dataset'], metric_obj, kwargs.get('seed', 42), kwargs.get('sample_num'), device)
+        else:
+            raise ValueError("Either 'data_loader' or 'dataset' must be provided for KLD metrics")
+
     def compute(self, model, device='cpu', **kwargs):
         """Computes the disentanglement metrics for the given model and data loader.
 
@@ -222,16 +321,17 @@ class MetricAggregator:
         Returns:
             dict: A dictionary containing the computed metrics.
         """
-        # Separate reconstruction metrics from representation-based metrics
+        # Separate different types of metrics
         reconstruction_metric = next((m for m in self.metrics if m['name'] == 'reconstruction_error'), None)
-        other_metrics = [m for m in self.metrics if m['name'] != 'reconstruction_error']
-        
+        kld_metric = next((m for m in self.metrics if m['name'] == 'kld'), None)
+        other_metrics = [m for m in self.metrics if m['name'] not in ['reconstruction_error', 'kld']]
+
         results = {}
-        
+
         # Handle other metrics that require latent representations
         if other_metrics:
             latent_reps, gt_factors = self._get_representation(model, device=device, **kwargs)
-            
+
             progress_bar = tqdm(other_metrics, desc="Computing metrics")
             for metric in progress_bar:
                 metric_name = metric['name']
@@ -249,6 +349,14 @@ class MetricAggregator:
             result = self._compute_reconstruction_metric(model, metric_obj, device, **kwargs)
             results[metric_name] = result
         
+        # Handle KLD metric separately
+        if kld_metric:
+            metric_name = kld_metric['name']
+            metric_args = kld_metric.get('args', {})
+            metric_obj = select_metric(metric_name, **metric_args)
+            result = self._compute_kld_metric(model, metric_obj, device, **kwargs)
+            results[metric_name] = result
+
         return results
 
 

@@ -35,7 +35,7 @@ class Shapes3D(datasets.base.DisentangledDataset):
 
     References
     ----------
-    [1] Hyunjik Kim, Andriy Mnih (2018). Disentangling by Factorising.
+    [1] Hyunjik Kim, Andriy Mnih (2018). Disentangling by Factorizing.
 
     """
     urls = {
@@ -102,7 +102,8 @@ class Shapes3D(datasets.base.DisentangledDataset):
         self.factor_values = np.load(self.train_data.replace('.h5', '_labs.npy'))
 
         self.selected_img_indices = self._get_selected_img_indices()
-        self.selected_imgs = self.imgs[self.selected_img_indices]
+        self.imgs = self.imgs[self.selected_img_indices]
+        self._process_factor_values()
 
         if self.subset < 1:
             n_samples = int(len(self.imgs) * self.subset)
@@ -143,4 +144,4 @@ class Shapes3D(datasets.base.DisentangledDataset):
     def __getitem__(self, idx):
         # ToTensor transforms numpy.ndarray (H x W x C) in the range
         # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-        return self.transforms(self.selected_imgs[idx]), self.factor_values[idx]
+        return self.transforms(self.imgs[idx]), self.factor_values[idx]

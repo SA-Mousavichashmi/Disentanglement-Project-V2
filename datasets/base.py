@@ -36,8 +36,8 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
         # Assertions
         assert selected_factors == 'all' or isinstance(selected_factors, list), "selected_factors must be a list of strings or 'all.'"
 
-        if selected_factors == 'all':
-            assert not_selected_factors_index_value is None, "not_selected_factors_index_value must be None when all factors are selected."
+        # if selected_factors == 'all':
+        #     assert not_selected_factors_index_value is None, "not_selected_factors_index_value must be None when all factors are selected."
 
         factor_names = type(self).factor_names
         self.not_selected_factors_index_value = not_selected_factors_index_value
@@ -74,17 +74,6 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
     def __len__(self):
         return len(self.selected_img_indices)
 
-    def __getitem__(self, idx):
-        """Get the image of `idx`.
-
-        Return
-        ------
-        sample : torch.Tensor
-            Tensor in [0.,1.] of shape `img_size`.
-        """
-        # ToTensor transforms numpy.ndarray (H x W x C) in the range
-        # [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-        return self.transforms(self.imgs[self.selected_img_indices[idx]]), self.lat_values[idx]
 
     def _get_selected_img_indices(self):
         """
@@ -130,6 +119,34 @@ class DisentangledDataset(torch.utils.data.Dataset, abc.ABC):
                     selected_indices = selected_indices[factor_values[selected_indices] == target_value]
         
         return selected_indices
+
+    def _process_factor_values(self):
+        """
+        Filter factor values to only include selected factors, removing all non-selected factors.
+
+        This method updates self.factor_values so that it contains only the columns corresponding to the selected factors
+        for the filtered images (those in self.selected_img_indices). As a result, when accessing dataset items, only the
+        relevant factor values (i.e., those for selected factors) are returned. All non-selected factors are removed from
+        the returned factor_values.
+
+        The method handles two cases:
+        1. If all factors are selected ('all'), factor_values contains all factors for the selected images.
+        2. If specific factors are selected, factor_values contains only those selected factors for the selected images.
+        """
+        assert self.factor_values is not None, "Factor values must be set before calling this method."
+        assert self.selected_img_indices is not None, "Selected image indices must be set before calling this method."
+        
+        if self.selected_factors == 'all':
+            # Include all factors for the selected images
+            self.factor_values = self.factor_values[self.selected_img_indices]
+        else:
+            # Get indices of selected factors in the factor_names list
+            factor_indices = [
+                self.factor_names.index(factor) 
+                for factor in self.selected_factors
+            ]
+            # Filter both by selected images and selected factors
+            self.factor_values = self.factor_values[self.selected_img_indices][:, factor_indices]
 
     @abc.abstractmethod
     def download(self):
