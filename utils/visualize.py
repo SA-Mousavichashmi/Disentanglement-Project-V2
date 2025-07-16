@@ -318,215 +318,130 @@ class BaseVisualizer(ABC):
         self.plot_reconstructions(imgs, reconstructions, figsize)
 
 
-################## Concrete Visualizer Subclasses ##################
+################## Topology-Based Visualizer ##################
 
-class NVAEVisualizer(BaseVisualizer):
-    """Visualizer for N-VAE models (Normal VAE with Gaussian latent space)."""
+class Visualizer(BaseVisualizer):
+    """
+    Visualizer that handles all VAE model types based on latent_factor_topologies.
+    
+    Automatically detects and uses appropriate traversal methods based on the topology
+    of each latent factor (R1, S1).
+    """
     
     def __init__(self, vae_model, dataset, is_plot=True, save_dir=None):
         super().__init__(vae_model, dataset, is_plot, save_dir)
-        # Import here to avoid circular imports and make it clear which utils are used
+        
+        # Import utility modules
         from vae_models.n_vae import utils as n_vae_utils
+        from vae_models.s_n_vae import utils as sn_vae_utils
+        
         self.n_vae_utils = n_vae_utils
+        self.sn_vae_utils = sn_vae_utils
+        
+        # Get latent factor topologies from the model
+        self.latent_factor_topologies = self._get_latent_factor_topologies()
+    
+    def _get_latent_factor_topologies(self):
+        """Extract latent factor topologies from the VAE model."""
+        # All models now have the latent_factor_topologies attribute
+        return self.vae_model.latent_factor_topologies
     
     def _get_latent_dimension_count(self):
-        """Get the number of latent dimensions from the N-VAE model."""
-        return self.vae_model.latent_dim
+        """Get the number of latent dimensions from the VAE model."""
+        return len(self.latent_factor_topologies)
     
-    def _generate_single_traversal(self, 
-                                   latent_factor_idx, 
-                                   ref_img,
-                                   num_samples, 
-                                   max_traversal_type='probability', 
-                                   max_traversal=0.95, 
-                                   ):
-        """Generate traversal images for a single latent dimension using N-VAE utils."""
-        return self.n_vae_utils.traverse_single_latent(
-            vae_model=self.vae_model,
-            latent_factor_idx=latent_factor_idx,
-            num_samples=num_samples,
-            max_traversal_type=max_traversal_type,
-            max_traversal=max_traversal,
-            ref_img=ref_img
-        )
+    def _get_default_traversal_params(self, topology):
+        """Get default traversal parameters based on topology type."""
+        if topology == 'R1':
+            return {'max_traversal_type': 'probability', 'max_traversal': 0.99}
+        elif topology == 'S1':
+            return {'max_traversal_type': 'fraction', 'max_traversal': 1.0}
+        else:
+            # Default fallback for unknown topologies
+            return {'max_traversal_type': 'probability', 'max_traversal': 0.99}
     
-    def plot_all_latent_traversals(self,
-                                   max_traversal=0.99,
-                                   max_traversal_type='probability', 
-                                   num_samples=7,
-                                   use_ref_img=True, 
-                                   ref_img=None,  
-                                   reg_img_idx=None,
-                                   figsize=(10, 3)
-                                   ):
-        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
-        if use_ref_img and ref_img is None:
-            if reg_img_idx is not None:
-                ref_img = self.dataset[reg_img_idx][0]
-            else:
-                random_idx = torch.randint(0, len(self.dataset), (1,)).item()
-                ref_img = self.dataset[random_idx][0]
-
-        all_traversals = self.n_vae_utils.traverse_all_latents(
-            vae_model=self.vae_model,
-            num_samples=num_samples,
-            max_traversal_type=max_traversal_type,
-            max_traversal=max_traversal,
-            ref_img=ref_img
-        )
-        
-        fig = self._plot_traversal_grid(all_traversals, num_samples, figsize)
-        
-        if self.is_save:
-            if not self.save_dir:
-                raise ValueError("save_dir must be provided when is_save=True")
-            plt.savefig(os.path.join(self.save_dir, 'all_latent_traversals.png'))
-            
-        if self.is_plot:
-            plt.show()
-            
-        plt.close()
-
-class SVAEVisualizer(BaseVisualizer):
-    """Visualizer for S-VAE models (Spherical VAE with toroidal latent space)."""
-    
-    def __init__(self, vae_model, dataset, is_plot=True, save_dir=None):
-        super().__init__(vae_model, dataset, is_plot, save_dir)
-        # Import here to avoid circular imports and make it clear which utils are used
-        from vae_models.s_vae.toroidal_vae import utils as s_vae_utils
-        self.s_vae_utils = s_vae_utils
-    
-    def _get_latent_dimension_count(self):
-        """Get the number of latent dimensions from the S-VAE model."""
-        return self.vae_model.latent_factor_num
-
     def _generate_single_traversal(self, 
                                    latent_factor_idx, 
                                    num_samples,
-                                   ref_img, 
-                                   max_traversal_type='fraction', 
-                                   max_traversal=1, 
-                                   ):
-        """Generate traversal images for a single latent dimension using S-VAE utils.
-        Also, S-VAE uses 'fraction' instead of 'probability' for max_traversal_type.
-        """
-
-        return self.s_vae_utils.traverse_single_toroidal_latent(
-            vae_model=self.vae_model,
-            latent_factor_idx=latent_factor_idx,
-            num_samples=num_samples,
-            max_traversal_type=max_traversal_type,
-            max_traversal=max_traversal,
-            ref_img=ref_img
-        )
+                                   max_traversal_type=None, 
+                                   max_traversal=None, 
+                                   ref_img=None):
+        """Generate traversal images for a single latent dimension based on its topology."""
+        topology = self.latent_factor_topologies[latent_factor_idx]
+        
+        # Use provided parameters or defaults based on topology
+        if max_traversal_type is None or max_traversal is None:
+            defaults = self._get_default_traversal_params(topology)
+            max_traversal_type = max_traversal_type or defaults['max_traversal_type']
+            max_traversal = max_traversal or defaults['max_traversal']
+        
+        # Route to appropriate utility function based on topology
+        if topology == 'R1':
+            return self.n_vae_utils.traverse_single_latent(
+                vae_model=self.vae_model,
+                latent_factor_idx=latent_factor_idx,
+                num_samples=num_samples,
+                max_traversal_type=max_traversal_type,
+                max_traversal=max_traversal,
+                ref_img=ref_img
+            )
+        elif topology == 'S1':
+            return self.sn_vae_utils.traverse_single_r1_s1_latent(
+                vae_model=self.vae_model,
+                latent_factor_idx=latent_factor_idx,
+                num_samples=num_samples,
+                max_traversal_type=max_traversal_type,
+                max_traversal=max_traversal,
+                ref_img=ref_img
+            )
+        else:
+            raise ValueError(f"Unsupported latent factor topology: {topology}. Only 'R1' and 'S1' are supported.")
     
     def plot_all_latent_traversals(self,
-                                   max_traversal=1,
-                                   max_traversal_type='fraction', 
                                    num_samples=7,
                                    use_ref_img=True, 
                                    ref_img=None,
                                    reg_img_idx=None,
-                                   figsize=(10, 3)
-                                   ):
-        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
-        if use_ref_img and ref_img is None:
-            if reg_img_idx is not None:
-                ref_img = self.dataset[reg_img_idx][0]
-            else:
-                random_idx = torch.randint(0, len(self.dataset), (1,)).item()
-                ref_img = self.dataset[random_idx][0]
-
-        all_traversals = self.s_vae_utils.traverse_all_toroidal_latents(
-            vae_model=self.vae_model,
-            num_samples=num_samples,
-            max_traversal_type=max_traversal_type,
-            max_traversal=max_traversal,
-            ref_img=ref_img
-        )
-        
-        fig = self._plot_traversal_grid(all_traversals, num_samples, figsize)
-        
-        if self.is_save:
-            if not self.save_dir:
-                raise ValueError("save_dir must be provided when is_save=True")
-            plt.savefig(os.path.join(self.save_dir, 'all_latent_traversals.png'))
-            
-        if self.is_plot:
-            plt.show()
-            
-        plt.close()
-
-class SNVAEVisualizer(BaseVisualizer):
-    """Visualizer for S-N-VAE models (Mixed topology VAE with both R1 and S1 latent factors)."""
-    
-    def __init__(self, vae_model, dataset, is_plot=True, save_dir=None):
-        super().__init__(vae_model, dataset, is_plot, save_dir)
-        # Import here to avoid circular imports and make it clear which utils are used
-        from vae_models.s_n_vae import utils as sn_vae_utils
-        self.sn_vae_utils = sn_vae_utils
-        
-        # Validate that the model has the required attributes
-        if not hasattr(vae_model, 'latent_factor_topologies'):
-            raise ValueError("VAE model must have 'latent_factor_topologies' attribute for S-N-VAE visualization")
-        
-        self.latent_factor_topologies = vae_model.latent_factor_topologies
-    
-    def _get_latent_dimension_count(self):
-        """Get the number of latent factors from the S-N-VAE model."""
-        return self.vae_model.latent_factor_num
-    
-    def _generate_single_traversal(self, 
-                                   latent_factor_idx, 
-                                   num_samples,
-                                   max_traversal_type, 
-                                   max_traversal, 
-                                   ref_img):
-        """Generate traversal images for a single latent dimension using S-N VAE utils."""
-
-        return self.sn_vae_utils.traverse_single_r1_s1_latent(
-            vae_model=self.vae_model,
-            latent_factor_idx=latent_factor_idx,
-            num_samples=num_samples,
-            max_traversal_type=max_traversal_type,
-            max_traversal=max_traversal,
-            ref_img=ref_img
-        )
-        
-    @property
-    def latent_factor_num(self):
-        """Get the number of latent factors."""
-        return self._get_latent_dimension_count()
-
-    def plot_all_latent_traversals(self,
+                                   figsize=(10, 3),
+                                   # Topology-specific parameters
                                    r1_max_traversal_type='probability',
                                    r1_max_traversal=0.99,
                                    s1_max_traversal_type='fraction',
                                    s1_max_traversal=1.0,
-                                   num_samples=7,
-                                   use_ref_img=True, 
-                                   ref_img=None,
-                                   reg_img_idx=None,  
-                                   figsize=(10, 3)
-                                   ):
-        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
+                                   # Legacy parameters for backward compatibility
+                                   max_traversal_type=None,
+                                   max_traversal=None,
+                                   **kwargs):
+        """Plot traversals for all latent dimensions using appropriate methods per topology."""
+        
+        # Handle reference image selection
         if use_ref_img and ref_img is None:
             if reg_img_idx is not None:
                 ref_img = self.dataset[reg_img_idx][0]
             else:
                 random_idx = torch.randint(0, len(self.dataset), (1,)).item()
                 ref_img = self.dataset[random_idx][0]
-
-        all_traversals = self.sn_vae_utils.traverse_all_r1_s1_latents(
-            vae_model=self.vae_model,
-            num_samples=num_samples,
-            ref_img=ref_img,
-            r1_max_traversal_type=r1_max_traversal_type,
-            r1_max_traversal=r1_max_traversal,
-            s1_max_traversal_type=s1_max_traversal_type,
-            s1_max_traversal=s1_max_traversal
-        )
         
+        # Always traverse each latent dimension individually based on its topology
+        all_traversals = []
+        for i, topology in enumerate(self.latent_factor_topologies):
+            if topology == 'R1':
+                params = {'max_traversal_type': r1_max_traversal_type, 'max_traversal': r1_max_traversal}
+            elif topology == 'S1':
+                params = {'max_traversal_type': s1_max_traversal_type, 'max_traversal': s1_max_traversal}
+            else:
+                # Use default parameters for unknown topologies
+                params = self._get_default_traversal_params(topology)
+            
+            traversal = self._generate_single_traversal(
+                latent_factor_idx=i,
+                num_samples=num_samples,
+                ref_img=ref_img,
+                **params
+            )
+            all_traversals.append(traversal)
+        
+        # Plot the grid
         fig = self._plot_traversal_grid(all_traversals, num_samples, figsize)
         
         if self.is_save:
@@ -539,13 +454,7 @@ class SNVAEVisualizer(BaseVisualizer):
             
         plt.close()
 
-################## Legacy Compatibility ##################
 
-# For backward compatibility, create an alias to the N-VAE visualizer
-# This allows existing code using Visualizer to continue working
-class Visualizer(NVAEVisualizer):
-    """Legacy alias for NVAEVisualizer to maintain backward compatibility."""
-    pass
 
 
 

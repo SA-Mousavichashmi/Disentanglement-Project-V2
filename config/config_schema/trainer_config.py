@@ -99,12 +99,19 @@ class VisualizationConfig:
     # ================ Latent Traversal Visualizations ================
     latent_traversals: bool = True  # Enable latent traversal visualizations
     num_traversal_samples: int = 15  # Number of steps in each traversal
-    traversal_range_type: str = "fraction"  # "fraction", "probability", or "absolute"
-    traversal_range_value: float = 1.0  # Range value based on traversal_range_type
-    traverse_all_latents: bool = True  # Traverse all latent dimensions
-    traverse_specific_latents: Optional[List[int]] = None  # Specific latent indices to traverse
     use_reference_image: bool = True  # Use reference image for traversal center
     reference_image_index: Optional[int] = None  # Index of reference image (random if None)
+    traverse_all_latents: bool = True  # Traverse all latent dimensions
+    traverse_specific_latents: Optional[List[int]] = None  # Specific latent indices to traverse
+    
+    # ================ Topology-Specific Traversal Settings ================
+    # Settings for R1 (Normal/Gaussian) latent factors
+    r1_traversal_type: str = "probability"  # "probability" or "absolute"
+    r1_traversal_range: float = 0.99  # Range value for R1 factors
+    
+    # Settings for S1 (Power Spherical) latent factors  
+    s1_traversal_type: str = "fraction"  # "fraction" for S1 factors
+    s1_traversal_range: float = 1.0  # Range value for S1 factors
     
     # ================ Figure Settings ================
     figure_size: Tuple[int, int] = (12, 8)  # Default figure size (width, height)
@@ -121,29 +128,6 @@ class VisualizationConfig:
     interactive_plots: bool = False  # Enable interactive plots (for Jupyter environments)
     show_plots: bool = False  # Show plots during training (can slow down training)
     clear_memory_after_viz: bool = True  # Clear visualization memory after saving
-    
-    # ================ Model-Specific Settings ================
-    # These will be used based on the model type being trained
-    # For S-VAE models (toroidal latent space)
-    s_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
-        "traversal_range_type": "fraction",
-        "traversal_range_value": 1.0
-    })
-    
-    # For N-VAE models (normal latent space)  
-    n_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
-        "traversal_range_type": "probability", 
-        "traversal_range_value": 0.99,
-        "use_ref_img_lat_std": False
-    })
-    
-    # For SN-VAE models (mixed latent space)
-    sn_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
-        "r1_traversal_range_type": "probability",
-        "r1_traversal_range_value": 0.99,
-        "s1_traversal_range_type": "fraction", 
-        "s1_traversal_range_value": 1.0
-    })
 
 
 @dataclass

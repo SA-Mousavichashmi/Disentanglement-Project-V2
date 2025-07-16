@@ -664,44 +664,19 @@ class BaseTrainer():
             
             # Save latent traversals if enabled
             if config.latent_traversals:
-                model_type = self._detect_model_type()
-                
-                # Get model-specific settings
-                if model_type == "sn_vae":
-                    settings = config.sn_vae_settings
-                    self.visualizer.plot_all_latent_traversals(
-                        r1_max_traversal_type=settings.get("r1_traversal_range_type", "probability"),
-                        r1_max_traversal=settings.get("r1_traversal_range_value", 0.99),
-                        s1_max_traversal_type=settings.get("s1_traversal_range_type", "fraction"),
-                        s1_max_traversal=settings.get("s1_traversal_range_value", 1.0),
-                        num_samples=config.num_traversal_samples,
-                        use_ref_img=config.use_reference_image,
-                        ref_img=None,
-                        reg_img_idx=config.reference_image_index,
-                        figsize=config.figure_size
-                    )
-                elif model_type == "s_vae":
-                    settings = config.s_vae_settings
-                    self.visualizer.plot_all_latent_traversals(
-                        max_traversal_type=settings.get("traversal_range_type", "fraction"),
-                        max_traversal=settings.get("traversal_range_value", 1.0),
-                        num_samples=config.num_traversal_samples,
-                        use_ref_img=config.use_reference_image,
-                        ref_img=None,
-                        reg_img_idx=config.reference_image_index,
-                        figsize=config.figure_size
-                    )
-                else:  # n_vae
-                    settings = config.n_vae_settings
-                    self.visualizer.plot_all_latent_traversals(
-                        max_traversal_type=settings.get("traversal_range_type", "probability"),
-                        max_traversal=settings.get("traversal_range_value", 0.99),
-                        num_samples=config.num_traversal_samples,
-                        use_ref_img=config.use_reference_image,
-                        ref_img=None,
-                        reg_img_idx=config.reference_image_index,
-                        figsize=config.figure_size
-                    )
+                # Use unified approach - Visualizer automatically detects topology
+                # and applies appropriate settings based on latent_factor_topologies
+                self.visualizer.plot_all_latent_traversals(
+                    r1_max_traversal_type=config.r1_traversal_type,
+                    r1_max_traversal=config.r1_traversal_range,
+                    s1_max_traversal_type=config.s1_traversal_type,
+                    s1_max_traversal=config.s1_traversal_range,
+                    num_samples=config.num_traversal_samples,
+                    use_ref_img=config.use_reference_image,
+                    ref_img=None,
+                    reg_img_idx=config.reference_image_index,
+                    figsize=config.figure_size
+                )
                     
             # Clear memory if configured
             if config.clear_memory_after_viz:
@@ -775,13 +750,10 @@ class BaseTrainer():
 
     def _setup_visualization(self):
         """
-        Initialize the appropriate visualizer based on the model type and visualization config.
+        Initialize the visualizer for all model types.
         """
         if not self.visualization_config or not self.visualization_config.enabled:
             return
-            
-        # Import visualizers here to avoid circular imports
-        from utils.visualize import NVAEVisualizer, SVAEVisualizer, SNVAEVisualizer
         
         # Create visualization directory if specified and doesn't exist
         viz_dir = self.visualization_config.save_dir
@@ -793,48 +765,13 @@ class BaseTrainer():
             os.makedirs(viz_dir, exist_ok=True)
             self.visualization_config.save_dir = viz_dir  # Update config with actual path
         
-        # Determine the appropriate visualizer based on model type
-        model_type = self._detect_model_type()
-        
-        if model_type == "sn_vae":
-            self.visualizer = SNVAEVisualizer(
-                vae_model=self.model,
-                dataset=self.dataloader.dataset if self.dataloader else None,
-                is_plot=self.visualization_config.show_plots,
-                save_dir=viz_dir
-            )
-        elif model_type == "s_vae":
-            self.visualizer = SVAEVisualizer(
-                vae_model=self.model,
-                dataset=self.dataloader.dataset if self.dataloader else None,
-                is_plot=self.visualization_config.show_plots,
-                save_dir=viz_dir
-            )
-        else:  # Default to N-VAE (normal VAE)
-            self.visualizer = NVAEVisualizer(
-                vae_model=self.model,
-                dataset=self.dataloader.dataset if self.dataloader else None,
-                is_plot=self.visualization_config.show_plots,
-                save_dir=viz_dir
-            )
-    
-    def _detect_model_type(self):
-        """
-        Detect the type of VAE model to determine which visualizer to use.
-        
-        Returns:
-            str: One of "n_vae", "s_vae", or "sn_vae"
-        """
-        # Check for S-N-VAE (mixed topology) - has latent_factor_topologies
-        if hasattr(self.model, 'latent_factor_topologies'):
-            return "sn_vae"
-        
-        # Check for S-VAE (toroidal) - has latent_factor_num instead of latent_dim
-        if hasattr(self.model, 'latent_factor_num') and not hasattr(self.model, 'latent_dim'):
-            return "s_vae"
-        
-        # Default to N-VAE (normal VAE with Gaussian latent space)
-        return "n_vae"
+        # Use visualizer for all model types
+        self.visualizer = Visualizer(
+            vae_model=self.model,
+            dataset=self.dataloader.dataset if self.dataloader else None,
+            is_plot=self.visualization_config.show_plots,
+            save_dir=viz_dir
+        )
     
     def _should_save_visualization(self, step, total_steps, step_type):
         """

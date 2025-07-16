@@ -40,18 +40,12 @@ interactive_plots: false  # For Jupyter environments
 show_plots: false  # Avoid blocking training
 clear_memory_after_viz: true
 
-# ================ Model-Specific Settings ================
-s_vae_settings:
-  traversal_range_type: "fraction"
-  traversal_range_value: 1.0
+# ================ Topology-Specific Traversal Settings ================
+# These settings are automatically applied by Visualizer based on each latent factor's topology
+# Settings for R1 (Normal/Gaussian) latent factors
+r1_traversal_type: "probability"  # "probability" or "absolute"
+r1_traversal_range: 0.99  # Range value for R1 factors
 
-n_vae_settings:
-  traversal_range_type: "probability"
-  traversal_range_value: 0.99
-  use_ref_img_lat_std: false
-
-sn_vae_settings:
-  r1_traversal_range_type: "probability"
-  r1_traversal_range_value: 0.99
-  s1_traversal_range_type: "fraction"
-  s1_traversal_range_value: 1.0
+# Settings for S1 (Power Spherical) latent factors  
+s1_traversal_type: "fraction"  # "fraction" for S1 factors
+s1_traversal_range: 1.0  # Range value for S1 factors

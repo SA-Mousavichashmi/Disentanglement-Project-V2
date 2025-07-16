@@ -15,7 +15,7 @@ import abc
 
 class Toroidal_VAE_Base(nn.Module, abc.ABC):
     """
-    Base S-VAE (with S^1 * ... * S^1 latent space, N-Torus latent space) using Power spherical distribution.
+    Base S-VAE (with S1 * ... * S1 latent space, N-Torus latent space) using Power spherical distribution.
     """
     def __init__(self, img_size, latent_factor_num=10, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
@@ -43,7 +43,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         self.decoder = None
         self.decoder_output_dist = decoder_output_dist
         self.use_batchnorm = use_batchnorm
-        self.latent_factor_topologies = ['S^1'] * latent_factor_num  # Each factor is on S^1
+        self.latent_factor_topologies = ['S1'] * latent_factor_num  # Each factor is on S1
     
     @property
     @abc.abstractmethod
@@ -92,7 +92,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         dict
             A dictionary containing:
             - 'samples_qzx': torch.Tensor of shape (batch_size, latent_factor_num, 2)
-              The sampled or mean latent vectors for each factor. Each factor's sample is on S^1 (a 2D vector).
+              The sampled or mean latent vectors for each factor. Each factor's sample is on S1 (a 2D vector).
         """
 
         factorized_latent_samples = []
@@ -171,7 +171,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         mu_raw = stats_qzx_raw[:, :, :2]
         kappa_raw = stats_qzx_raw[:, :, 2] # Shape: (batch_size, latent_factor_num)        # Normalize mu
 
-        # Normalize mu to ensure it lies on the unit circle (S^1)
+        # Normalize mu to ensure it lies on the unit circle (S1)
         mu_normalized = F.normalize(mu_raw, p=2, dim=-1)
 
         # Apply softplus to kappa to ensure it is positive
@@ -202,7 +202,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
             # mu is already normalized per factor by _process_encoder_stats
             samples_qzx = processed_stats_qzx[:, :, :2].flatten(start_dim=1)
             # The following line is removed as mu is already normalized per factor
-            # samples_qzx = F.normalize(samples_qzx, p=2, dim=-1)  # Normalize the mean to ensure it's on S^1
+            # samples_qzx = F.normalize(samples_qzx, p=2, dim=-1)  # Normalize the mean to ensure it's on S1
 
         elif mode == 'sample':
             # Use the reparameterize method to get a sample (respecting self.training)
@@ -272,7 +272,7 @@ class Toroidal_VAE_Base(nn.Module, abc.ABC):
         # Sample angles uniformly from [0, 2*pi) for each factor
         angles = torch.rand(num_samples, self.latent_factor_num, device=device) * 2 * torch.pi
 
-        # Convert angles to points on the unit circle (S^1)
+        # Convert angles to points on the unit circle (S1)
         # z_factor = (cos(angle), sin(angle))
         z_unflattened = torch.stack([torch.cos(angles), torch.sin(angles)], dim=-1)
         # z_unflattened shape: (num_samples, latent_factor_num, 2)
