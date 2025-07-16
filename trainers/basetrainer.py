@@ -678,13 +678,6 @@ class BaseTrainer():
                     figsize=config.figure_size
                 )
                     
-            # Clear memory if configured
-            if config.clear_memory_after_viz:
-                import gc
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                    
         except Exception as e:
             print(f"Warning: Visualization failed with error: {e}")
             # Continue training even if visualization fails

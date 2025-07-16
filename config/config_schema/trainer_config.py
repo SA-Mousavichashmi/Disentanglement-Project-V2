@@ -125,9 +125,7 @@ class VisualizationConfig:
     save_at_training_end: bool = True  # Save visualizations when training completes
     
     # ================ Advanced Settings ================
-    interactive_plots: bool = False  # Enable interactive plots (for Jupyter environments)
     show_plots: bool = False  # Show plots during training (can slow down training)
-    clear_memory_after_viz: bool = True  # Clear visualization memory after saving
 
 
 @dataclass

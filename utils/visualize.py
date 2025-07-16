@@ -403,14 +403,10 @@ class Visualizer(BaseVisualizer):
                                    ref_img=None,
                                    reg_img_idx=None,
                                    figsize=(10, 3),
-                                   # Topology-specific parameters
                                    r1_max_traversal_type='probability',
                                    r1_max_traversal=0.99,
                                    s1_max_traversal_type='fraction',
                                    s1_max_traversal=1.0,
-                                   # Legacy parameters for backward compatibility
-                                   max_traversal_type=None,
-                                   max_traversal=None,
                                    **kwargs):
         """Plot traversals for all latent dimensions using appropriate methods per topology."""
         
@@ -440,18 +436,14 @@ class Visualizer(BaseVisualizer):
                 **params
             )
             all_traversals.append(traversal)
-        
         # Plot the grid
         fig = self._plot_traversal_grid(all_traversals, num_samples, figsize)
-        
         if self.is_save:
             if not self.save_dir:
                 raise ValueError("save_dir must be provided when is_save=True")
             plt.savefig(os.path.join(self.save_dir, 'all_latent_traversals.png'))
-            
         if self.is_plot:
             plt.show()
-            
         plt.close()
 
 

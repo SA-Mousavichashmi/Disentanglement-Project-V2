@@ -36,7 +36,7 @@ save_every_n_epochs: null  # Disabled by default
 save_at_training_end: true
 
 # ================ Advanced Settings ================
-interactive_plots: false  # For Jupyter environments
+## interactive_plots removed
 show_plots: false  # Avoid blocking training
 clear_memory_after_viz: true
 
