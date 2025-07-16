@@ -206,7 +206,7 @@ class DCI(BaseMetric):
         # }
 
         return {
-            'disentanglement': disentanglement,
-            'completeness': completeness,
-            'informativeness': informativeness_test_scores
+            'd': disentanglement,
+            'c': completeness,
+            'i': informativeness_test_scores
         }

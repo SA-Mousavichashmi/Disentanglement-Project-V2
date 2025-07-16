@@ -23,7 +23,7 @@ METRICS = [
     'sap_d',
     'dci',
     'modularity_d',
-    'reconstruction_error',
+    'rec_error',
     'kld'
 ]
 
@@ -40,7 +40,7 @@ def select_metric(name, **kwargs):
         return metrics.DCI(**kwargs)
     if name == 'modularity_d':
         return metrics.Modularityd(**kwargs)
-    if name == 'reconstruction_error':
+    if name == 'rec_error':
         return metrics.ReconstructionError(**kwargs)
     if name == 'kld':
         return metrics.KLD(**kwargs)
@@ -322,9 +322,9 @@ class MetricAggregator:
             dict: A dictionary containing the computed metrics.
         """
         # Separate different types of metrics
-        reconstruction_metric = next((m for m in self.metrics if m['name'] == 'reconstruction_error'), None)
+        reconstruction_metric = next((m for m in self.metrics if m['name'] == 'rec_error'), None)
         kld_metric = next((m for m in self.metrics if m['name'] == 'kld'), None)
-        other_metrics = [m for m in self.metrics if m['name'] not in ['reconstruction_error', 'kld']]
+        other_metrics = [m for m in self.metrics if m['name'] not in ['rec_error', 'kld']]
 
         results = {}
 
