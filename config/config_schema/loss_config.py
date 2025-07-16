@@ -39,6 +39,7 @@ class FactorVAEConfig(LossConfig):
     gamma: float = 10.0
     discr_lr: float = 1e-4
     discr_betas: tuple = (0.5, 0.9)
+    external_optimization: bool = False
 
 @dataclass
 class BetaTCVAEConfig(LossConfig):
@@ -47,8 +48,27 @@ class BetaTCVAEConfig(LossConfig):
     alpha: float = 1.0
     beta: float = 6.0
     gamma: float = 1.0
-    n_data: Optional[int] = None
+    n_data: int = MISSING
     is_mss: bool = True
+
+
+# DIP-VAE-I config
+@dataclass
+class DipVAEIConfig(LossConfig):
+    """Configuration for DIP-VAE-I loss."""
+    name: str = "dipvae-i"
+    lambda_od: float = 10.0  # Weight for off-diagonal covariance penalty
+    lambda_d: float = 100.0  # Weight for diagonal covariance penalty
+    beta: float = 1.0  # Weight of the KL term
+
+# DIP-VAE-II config
+@dataclass
+class DipVAEIIConfig(LossConfig):
+    """Configuration for DIP-VAE-II loss."""
+    name: str = "dipvae-ii"
+    lambda_od: float = 10.0  # Weight for off-diagonal covariance penalty
+    lambda_d: float = 100.0  # Weight for diagonal covariance penalty
+    beta: float = 1.0  # Weight of the KL term
 
 ########## S1 * .... * S1 latent topology ##########
 

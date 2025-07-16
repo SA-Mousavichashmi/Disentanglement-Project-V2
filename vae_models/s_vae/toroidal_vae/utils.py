@@ -88,14 +88,14 @@ def traverse_single_toroidal_latent(vae_model,
 
         with torch.no_grad():
             # Use the model's method to get deterministic latent representations
-            # This returns the mean (mu) values which are points on S^1 for each latent factor
+            # This returns the mean (mu) values which are points on S1 for each latent factor
             latent_repr = vae_model.get_representations(ref_img, is_deterministic=True)
             # latent_repr shape: (batch_size, latent_factor_num * 2)
             
-            # Reshape to (batch_size, latent_factor_num, 2) to separate each S^1 coordinate
+            # Reshape to (batch_size, latent_factor_num, 2) to separate each S1 coordinate
             latent_repr_reshaped = latent_repr.view(-1, vae_model.latent_factor_num, 2)
             
-            # Convert S^1 coordinates (cos(θ), sin(θ)) to angles θ using atan2
+            # Convert S1 coordinates (cos(θ), sin(θ)) to angles θ using atan2
             cos_vals = latent_repr_reshaped[:, :, 0]  # cos(θ) values
             sin_vals = latent_repr_reshaped[:, :, 1]  # sin(θ) values
             angles = torch.atan2(sin_vals, cos_vals)  # θ values in [-π, π]
