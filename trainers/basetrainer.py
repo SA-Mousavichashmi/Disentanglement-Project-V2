@@ -53,7 +53,9 @@ class BaseTrainer():
                  chkpt_step_type='iter',
                  chkpt_save_path=None,
                  chkpt_save_dir=None,
-                 chkpt_viz=False, 
+                 chkpt_viz=False,  # Deprecated - use visualization config instead
+                 # visualization args
+                 visualization_config=None,
                  ):
         """
         Initializes the BaseTrainer.
@@ -118,6 +120,13 @@ class BaseTrainer():
             Directory to save checkpoints. Exclusive with other save options. Defaults to None.
         chkpt_viz : bool, optional
             If True, saves visualizations (e.g., latent traversals, reconstructions) with checkpoints. Defaults to False.
+            DEPRECATED: Use visualization_config instead.
+            
+        Visualization Parameters
+        ------------------------
+        visualization_config : VisualizationConfig, optional
+            Configuration object for visualization settings. Controls reconstruction plots, latent traversals,
+            and other visualizations during training. Defaults to None (no visualizations).
         """
         self._validate_init_params(
             use_torch_compile=use_torch_compile,  # Renamed
@@ -128,7 +137,8 @@ class BaseTrainer():
             chkpt_save_path=chkpt_save_path,
             chkpt_save_dir=chkpt_save_dir,
             chkpt_every_n_steps=chkpt_every_n_steps,
-            chkpt_viz=chkpt_viz # Pass chkpt_viz here
+            chkpt_viz=chkpt_viz,  # Pass chkpt_viz here
+            visualization_config=visualization_config
         )
 
         if train_id is None:
@@ -182,7 +192,15 @@ class BaseTrainer():
         self.chkpt_save_dir = chkpt_save_dir
         self.chkpt_every_n_steps = chkpt_every_n_steps
         self.chkpt_step_type = chkpt_step_type 
-        self.chkpt_viz = chkpt_viz
+        self.chkpt_viz = chkpt_viz  # Deprecated
+        
+        # visualization parameters
+        self.visualization_config = visualization_config
+        self.visualizer = None  # Will be initialized when needed
+        
+        # Setup visualization if enabled
+        if self.visualization_config is not None and self.visualization_config.enabled:
+            self._setup_visualization()
 
         self.use_chkpt = return_chkpt or (chkpt_save_dir is not None) or (chkpt_save_path is not None)
         self.chkpt_list = []
@@ -232,7 +250,8 @@ class BaseTrainer():
         chkpt_save_path,
         chkpt_save_dir,
         chkpt_every_n_steps,
-        chkpt_viz # Add chkpt_viz here
+        chkpt_viz,  # Add chkpt_viz here
+        visualization_config
     ):
         """
         Validates the parameters passed to the BaseTrainer constructor.
@@ -273,6 +292,15 @@ class BaseTrainer():
         if chkpt_viz and chkpt_save_dir is None:
             raise ValueError("chkpt_viz is enabled, but no chkpt_save_dir is set. " \
                              "Please provide a directory to save visualizations.")
+                             
+        # Validate visualization config
+        if visualization_config is not None and visualization_config.enabled:
+            if (visualization_config.save_dir is None and 
+                chkpt_save_dir is None and 
+                not visualization_config.show_plots):
+                raise ValueError("Visualization is enabled but no save_dir is provided and " \
+                               "show_plots is False. Either provide a save_dir or enable show_plots.")
+        
 
     def train(self, step_unit, max_steps: int, dataloader=None):
         """
@@ -391,6 +419,10 @@ class BaseTrainer():
                             chkpt_train_losses_log=iter_out['to_log'],
                             chkpt_train_metrics_log=None # TODO: Add metrics logging
                         )
+                        
+                        # Save visualization if needed (for epoch-based training)
+                        if self._should_save_visualization(epoch_num, max_steps, 'epoch'):
+                            self._save_visualization()
                 
                 if self.use_train_logging and self.log_loss_interval_type == 'iter' and \
                     ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
@@ -409,6 +441,10 @@ class BaseTrainer():
                         chkpt_train_losses_log=iter_out['to_log'],
                         chkpt_train_metrics_log=None # TODO: Add metrics logging
                     )
+                    
+                    # Save visualization if needed (for iteration-based training)
+                    if self._should_save_visualization(it + 1, total_iterations, 'iter'):
+                        self._save_visualization()
 
                 if self.chkpt_step_type == 'epoch' and (not is_last_batch_full) and \
                      (it + 1) == total_iterations and self.use_chkpt:
@@ -421,6 +457,12 @@ class BaseTrainer():
                       
         
         self.model.eval()
+        
+        # Save visualization at training end if configured
+        if (self.visualization_config is not None and 
+            self.visualization_config.enabled and 
+            self.visualization_config.save_at_training_end):
+            self._save_visualization()
 
         return {'logs': {
                     'train_losses_log': self.train_losses_log,
@@ -544,6 +586,15 @@ class BaseTrainer():
             ) 
 
         if self.chkpt_viz and chkpt_save_dir is not None:
+            # Deprecated: use visualization_config instead
+            print("Warning: chkpt_viz is deprecated. Use visualization_config instead.")
+            self._save_visualization(chkpt_save_dir)
+            
+        # Save visualization with checkpoint if configured
+        if (self.visualization_config is not None and 
+            self.visualization_config.enabled and 
+            self.visualization_config.save_with_checkpoints and 
+            chkpt_save_dir is not None):
             self._save_visualization(chkpt_save_dir)
 
         if self.chkpt_save_dir is not None:
@@ -565,16 +616,103 @@ class BaseTrainer():
         else:
             del chkpt
     
-    def _save_visualization(self, dir):
-        visualizer = Visualizer(
-            vae_model=self.model,
-            dataset=self.dataloader.dataset,
-            is_plot=False,
-            save_dir=dir
-        )
-
-        visualizer.plot_all_latent_traversals()
-        visualizer.plot_random_reconstructions()
+    def _save_visualization(self, dir=None):
+        """
+        Save visualizations based on the visualization configuration.
+        
+        Args:
+            dir: Directory to save visualizations. If None, uses config save_dir.
+        """
+        if not self.visualization_config or not self.visualization_config.enabled:
+            return
+            
+        # Use provided directory or fall back to config directory
+        save_dir = dir if dir is not None else self.visualization_config.save_dir
+        if save_dir is None:
+            return
+            
+        # Ensure visualizer is initialized
+        if self.visualizer is None:
+            self._setup_visualization()
+            
+        if self.visualizer is None:
+            return
+            
+        # Update visualizer's save directory
+        self.visualizer.save_dir = save_dir
+        self.visualizer.is_save = True
+        
+        config = self.visualization_config
+        
+        try:
+            # Save reconstructions if enabled
+            if config.reconstructions:
+                if config.reconstruction_indices is not None:
+                    # Use specific indices
+                    self.visualizer.plot_reconstructions_sub_dataset(
+                        img_indices=config.reconstruction_indices,
+                        mode=config.reconstruction_mode,
+                        figsize=config.figure_size
+                    )
+                else:
+                    # Use random samples
+                    self.visualizer.plot_random_reconstructions(
+                        num_samples=config.num_reconstruction_samples,
+                        mode=config.reconstruction_mode,
+                        figsize=config.figure_size
+                    )
+            
+            # Save latent traversals if enabled
+            if config.latent_traversals:
+                model_type = self._detect_model_type()
+                
+                # Get model-specific settings
+                if model_type == "sn_vae":
+                    settings = config.sn_vae_settings
+                    self.visualizer.plot_all_latent_traversals(
+                        r1_max_traversal_type=settings.get("r1_traversal_range_type", "probability"),
+                        r1_max_traversal=settings.get("r1_traversal_range_value", 0.99),
+                        s1_max_traversal_type=settings.get("s1_traversal_range_type", "fraction"),
+                        s1_max_traversal=settings.get("s1_traversal_range_value", 1.0),
+                        num_samples=config.num_traversal_samples,
+                        use_ref_img=config.use_reference_image,
+                        ref_img=None,
+                        reg_img_idx=config.reference_image_index,
+                        figsize=config.figure_size
+                    )
+                elif model_type == "s_vae":
+                    settings = config.s_vae_settings
+                    self.visualizer.plot_all_latent_traversals(
+                        max_traversal_type=settings.get("traversal_range_type", "fraction"),
+                        max_traversal=settings.get("traversal_range_value", 1.0),
+                        num_samples=config.num_traversal_samples,
+                        use_ref_img=config.use_reference_image,
+                        ref_img=None,
+                        reg_img_idx=config.reference_image_index,
+                        figsize=config.figure_size
+                    )
+                else:  # n_vae
+                    settings = config.n_vae_settings
+                    self.visualizer.plot_all_latent_traversals(
+                        max_traversal_type=settings.get("traversal_range_type", "probability"),
+                        max_traversal=settings.get("traversal_range_value", 0.99),
+                        num_samples=config.num_traversal_samples,
+                        use_ref_img=config.use_reference_image,
+                        ref_img=None,
+                        reg_img_idx=config.reference_image_index,
+                        figsize=config.figure_size
+                    )
+                    
+            # Clear memory if configured
+            if config.clear_memory_after_viz:
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    
+        except Exception as e:
+            print(f"Warning: Visualization failed with error: {e}")
+            # Continue training even if visualization fails
     
     def _train_iteration(self, samples):
         """
@@ -634,4 +772,121 @@ class BaseTrainer():
         self.current_train_epoch = self.current_train_iter / len(self.dataloader)
 
         return {"loss": loss_val, "to_log": to_log}
+
+    def _setup_visualization(self):
+        """
+        Initialize the appropriate visualizer based on the model type and visualization config.
+        """
+        if not self.visualization_config or not self.visualization_config.enabled:
+            return
+            
+        # Import visualizers here to avoid circular imports
+        from utils.visualize import NVAEVisualizer, SVAEVisualizer, SNVAEVisualizer
+        
+        # Create visualization directory if specified and doesn't exist
+        viz_dir = self.visualization_config.save_dir
+        if viz_dir is None and self.chkpt_save_dir is not None:
+            # Auto-create visualization directory within checkpoint directory
+            viz_dir = os.path.join(self.chkpt_save_dir, "visualizations")
+        
+        if viz_dir is not None:
+            os.makedirs(viz_dir, exist_ok=True)
+            self.visualization_config.save_dir = viz_dir  # Update config with actual path
+        
+        # Determine the appropriate visualizer based on model type
+        model_type = self._detect_model_type()
+        
+        if model_type == "sn_vae":
+            self.visualizer = SNVAEVisualizer(
+                vae_model=self.model,
+                dataset=self.dataloader.dataset if self.dataloader else None,
+                is_plot=self.visualization_config.show_plots,
+                save_dir=viz_dir
+            )
+        elif model_type == "s_vae":
+            self.visualizer = SVAEVisualizer(
+                vae_model=self.model,
+                dataset=self.dataloader.dataset if self.dataloader else None,
+                is_plot=self.visualization_config.show_plots,
+                save_dir=viz_dir
+            )
+        else:  # Default to N-VAE (normal VAE)
+            self.visualizer = NVAEVisualizer(
+                vae_model=self.model,
+                dataset=self.dataloader.dataset if self.dataloader else None,
+                is_plot=self.visualization_config.show_plots,
+                save_dir=viz_dir
+            )
+    
+    def _detect_model_type(self):
+        """
+        Detect the type of VAE model to determine which visualizer to use.
+        
+        Returns:
+            str: One of "n_vae", "s_vae", or "sn_vae"
+        """
+        # Check for S-N-VAE (mixed topology) - has latent_factor_topologies
+        if hasattr(self.model, 'latent_factor_topologies'):
+            return "sn_vae"
+        
+        # Check for S-VAE (toroidal) - has latent_factor_num instead of latent_dim
+        if hasattr(self.model, 'latent_factor_num') and not hasattr(self.model, 'latent_dim'):
+            return "s_vae"
+        
+        # Default to N-VAE (normal VAE with Gaussian latent space)
+        return "n_vae"
+    
+    def _should_save_visualization(self, step, total_steps, step_type):
+        """
+        Determine if visualization should be saved based on configuration and current step.
+        
+        Args:
+            step: Current step number
+            total_steps: Total number of steps
+            step_type: Either "epoch" or "iter"
+            
+        Returns:
+            bool: True if visualization should be saved
+        """
+        if not self.visualization_config or not self.visualization_config.enabled:
+            return False
+            
+        config = self.visualization_config
+        
+        # Save at training end
+        if step == total_steps and config.save_at_training_end:
+            return True
+            
+        # Save with checkpoints
+        if config.save_with_checkpoints and self._should_save_checkpoint(step, total_steps, step_type):
+            return True
+            
+        # Save at epoch end (only if step_type is epoch)
+        if step_type == "epoch" and config.save_at_epoch_end:
+            return True
+            
+        # Save every N epochs (only if step_type is epoch)
+        if (step_type == "epoch" and 
+            config.save_every_n_epochs is not None and 
+            step % config.save_every_n_epochs == 0):
+            return True
+            
+        return False
+    
+    def _should_save_checkpoint(self, step, total_steps, step_type):
+        """Helper method to determine if checkpoint should be saved."""
+        if not self.use_chkpt:
+            return False
+            
+        # Always save at the end
+        if step == total_steps:
+            return True
+            
+        # Save every N steps if configured
+        if (self.chkpt_every_n_steps is not None and 
+            self.chkpt_step_type == step_type and 
+            step % self.chkpt_every_n_steps == 0):
+            return True
+            
+        return False
 

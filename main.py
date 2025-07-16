@@ -612,7 +612,9 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int,
         log_metrics_iter_interval=trainer_cfg.logging.metrics_iter_interval,
         prev_train_metrics_log=trainer_cfg.logging.prev_train_metrics_log,
         # Checkpointing
-        **checkpoint_kwargs
+        **checkpoint_kwargs,
+        # Visualization
+        visualization_config=trainer_cfg.visualization
     )
     
     # Start training

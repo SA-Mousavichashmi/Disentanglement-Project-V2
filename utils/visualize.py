@@ -356,11 +356,16 @@ class NVAEVisualizer(BaseVisualizer):
                                    num_samples=7,
                                    use_ref_img=True, 
                                    ref_img=None,  
+                                   reg_img_idx=None,
                                    figsize=(10, 3)
                                    ):
+        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
         if use_ref_img and ref_img is None:
-            random_idx = torch.randint(0, len(self.dataset), (1,)).item()
-            ref_img = self.dataset[random_idx][0]
+            if reg_img_idx is not None:
+                ref_img = self.dataset[reg_img_idx][0]
+            else:
+                random_idx = torch.randint(0, len(self.dataset), (1,)).item()
+                ref_img = self.dataset[random_idx][0]
 
         all_traversals = self.n_vae_utils.traverse_all_latents(
             vae_model=self.vae_model,
@@ -420,12 +425,17 @@ class SVAEVisualizer(BaseVisualizer):
                                    max_traversal_type='fraction', 
                                    num_samples=7,
                                    use_ref_img=True, 
-                                   ref_img=None,  
+                                   ref_img=None,
+                                   reg_img_idx=None,
                                    figsize=(10, 3)
                                    ):
+        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
         if use_ref_img and ref_img is None:
-            random_idx = torch.randint(0, len(self.dataset), (1,)).item()
-            ref_img = self.dataset[random_idx][0]
+            if reg_img_idx is not None:
+                ref_img = self.dataset[reg_img_idx][0]
+            else:
+                random_idx = torch.randint(0, len(self.dataset), (1,)).item()
+                ref_img = self.dataset[random_idx][0]
 
         all_traversals = self.s_vae_utils.traverse_all_toroidal_latents(
             vae_model=self.vae_model,
@@ -495,12 +505,17 @@ class SNVAEVisualizer(BaseVisualizer):
                                    s1_max_traversal=1.0,
                                    num_samples=7,
                                    use_ref_img=True, 
-                                   ref_img=None,  
+                                   ref_img=None,
+                                   reg_img_idx=None,  
                                    figsize=(10, 3)
                                    ):
+        # If use_ref_img is True and ref_img is not provided, use reg_img_idx if set, else random
         if use_ref_img and ref_img is None:
-            random_idx = torch.randint(0, len(self.dataset), (1,)).item()
-            ref_img = self.dataset[random_idx][0]
+            if reg_img_idx is not None:
+                ref_img = self.dataset[reg_img_idx][0]
+            else:
+                random_idx = torch.randint(0, len(self.dataset), (1,)).item()
+                ref_img = self.dataset[random_idx][0]
 
         all_traversals = self.sn_vae_utils.traverse_all_r1_s1_latents(
             vae_model=self.vae_model,

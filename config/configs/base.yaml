@@ -1,6 +1,7 @@
 defaults:
   - trainer/loss: null
   - trainer/dataset: null
+  - visualization: basic  # Default visualization config
   - _self_
 
 hydra:

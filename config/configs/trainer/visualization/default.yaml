@@ -1,0 +1,57 @@
+# Default visualization configuration
+# This provides basic visualization settings for most use cases
+
+# @package trainer.visualization
+_target_: config.config_schema.trainer_config.VisualizationConfig
+
+# ================ General Visualization Settings ================
+enabled: false  # Disabled by default to avoid slowing training
+save_dir: null  # Auto-generated based on experiment/checkpoint directory
+
+# ================ Reconstruction Visualizations ================
+reconstructions: true
+num_reconstruction_samples: 10
+reconstruction_mode: "mean"  # "mean" or "sample"
+reconstruction_indices: null  # Random indices if null
+
+# ================ Latent Traversal Visualizations ================
+latent_traversals: true
+num_traversal_samples: 15
+traversal_range_type: "fraction"  # Default for general use
+traversal_range_value: 1.0
+traverse_all_latents: true
+traverse_specific_latents: null  # All latents if null
+use_reference_image: true
+reference_image_index: null  # Random reference image if null
+
+# ================ Figure Settings ================
+figure_size: [12, 8]  # [width, height]
+dpi: 100
+format: "png"  # "png", "jpg", "pdf", "svg"
+
+# ================ Frequency and Timing ================
+save_with_checkpoints: true
+save_at_epoch_end: false  # Can be expensive
+save_every_n_epochs: null  # Disabled by default
+save_at_training_end: true
+
+# ================ Advanced Settings ================
+interactive_plots: false  # For Jupyter environments
+show_plots: false  # Avoid blocking training
+clear_memory_after_viz: true
+
+# ================ Model-Specific Settings ================
+s_vae_settings:
+  traversal_range_type: "fraction"
+  traversal_range_value: 1.0
+
+n_vae_settings:
+  traversal_range_type: "probability"
+  traversal_range_value: 0.99
+  use_ref_img_lat_std: false
+
+sn_vae_settings:
+  r1_traversal_range_type: "probability"
+  r1_traversal_range_value: 0.99
+  s1_traversal_range_type: "fraction"
+  s1_traversal_range_value: 1.0

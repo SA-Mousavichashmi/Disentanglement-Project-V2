@@ -84,6 +84,69 @@ class LoggingConfig:
 
 
 @dataclass
+class VisualizationConfig:
+    """Configuration for visualization during training and checkpointing."""
+    # ================ General Visualization Settings ================
+    enabled: bool = False  # Master enable/disable for all visualizations
+    save_dir: Optional[str] = None  # Directory to save visualizations (auto-created if None)
+    
+    # ================ Reconstruction Visualizations ================
+    reconstructions: bool = True  # Enable reconstruction visualizations
+    num_reconstruction_samples: int = 10  # Number of samples for reconstruction plots
+    reconstruction_mode: str = "mean"  # "mean" or "sample" for decoder output
+    reconstruction_indices: Optional[List[int]] = None  # Specific indices to reconstruct (random if None)
+    
+    # ================ Latent Traversal Visualizations ================
+    latent_traversals: bool = True  # Enable latent traversal visualizations
+    num_traversal_samples: int = 15  # Number of steps in each traversal
+    traversal_range_type: str = "fraction"  # "fraction", "probability", or "absolute"
+    traversal_range_value: float = 1.0  # Range value based on traversal_range_type
+    traverse_all_latents: bool = True  # Traverse all latent dimensions
+    traverse_specific_latents: Optional[List[int]] = None  # Specific latent indices to traverse
+    use_reference_image: bool = True  # Use reference image for traversal center
+    reference_image_index: Optional[int] = None  # Index of reference image (random if None)
+    
+    # ================ Figure Settings ================
+    figure_size: Tuple[int, int] = (12, 8)  # Default figure size (width, height)
+    dpi: int = 100  # Resolution for saved figures
+    format: str = "png"  # File format for saved figures ("png", "jpg", "pdf", "svg")
+    
+    # ================ Frequency and Timing ================
+    save_with_checkpoints: bool = True  # Save visualizations when checkpoints are created
+    save_at_epoch_end: bool = False  # Save visualizations at the end of each epoch
+    save_every_n_epochs: Optional[int] = None  # Save visualizations every N epochs
+    save_at_training_end: bool = True  # Save visualizations when training completes
+    
+    # ================ Advanced Settings ================
+    interactive_plots: bool = False  # Enable interactive plots (for Jupyter environments)
+    show_plots: bool = False  # Show plots during training (can slow down training)
+    clear_memory_after_viz: bool = True  # Clear visualization memory after saving
+    
+    # ================ Model-Specific Settings ================
+    # These will be used based on the model type being trained
+    # For S-VAE models (toroidal latent space)
+    s_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
+        "traversal_range_type": "fraction",
+        "traversal_range_value": 1.0
+    })
+    
+    # For N-VAE models (normal latent space)  
+    n_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
+        "traversal_range_type": "probability", 
+        "traversal_range_value": 0.99,
+        "use_ref_img_lat_std": False
+    })
+    
+    # For SN-VAE models (mixed latent space)
+    sn_vae_settings: Dict[str, Any] = field(default_factory=lambda: {
+        "r1_traversal_range_type": "probability",
+        "r1_traversal_range_value": 0.99,
+        "s1_traversal_range_type": "fraction", 
+        "s1_traversal_range_value": 1.0
+    })
+
+
+@dataclass
 class CheckpointConfig:
     """Configuration for checkpointing."""
     enabled: bool = False
@@ -97,7 +160,7 @@ class CheckpointConfig:
     save_path: Optional[str] = None  # Single file path
     save_dir: Optional[str] = None  # Directory for multiple checkpoints
     
-    # Visualization
+    # Visualization (deprecated - use VisualizationConfig instead)
     save_viz: bool = False  # Save visualizations with checkpoints
 
 
@@ -128,6 +191,9 @@ class TrainerConfig:
     
     # ================ Checkpointing ================
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
+    
+    # ================ Visualization ================
+    visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
     
     # ================ Reproducibility ================
     determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
