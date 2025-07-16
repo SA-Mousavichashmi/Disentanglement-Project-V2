@@ -79,6 +79,13 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             device=device
         )
 
+        # If using FactorVAE with group theory, ensure external optimization is enabled
+        if self.base_loss_name == 'factor_vae' and not self.base_loss_f.external_optimization:
+            raise ValueError(
+                "When using FactorVAE with group theory loss, the FactorVAE must be configured "
+                "with external_optimization=True to allow proper discriminator update scheduling."
+            )
+
         # Core parameters
         self.rec_dist = rec_dist
         self.device = device
@@ -178,7 +185,7 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         state = {}
         state['critic_state_dict'] = self.critic.state_dict() if self.critic is not None else None
         state['critic_optimizer_state_dict'] = self.critic_optimizer.state_dict() if self.critic_optimizer is not None else None
-        state['base_loss_state_dict'] = self.base_loss_state_dict
+        state['base_loss_state_dict'] = self.base_loss_f.state_dict()
         
         # Save scheduler states
         state['scheduler_states'] = {}
@@ -509,6 +516,9 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         elif self.base_loss_f.mode == 'optimizes_internally':
             raise NotImplementedError("This loss function is not compatible with 'optimizes_internally' mode for baseloss")
 
+        if self.base_loss_f.name == 'factorvae':
+             _, data_Bp = torch.chunk(data, 2, dim=0)
+
         # Get KL components
         kl_components_raw = self._compute_kl_components(data, model)
 
@@ -541,6 +551,11 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
             total_loss.backward()
             vae_optimizer.step()
 
+            if self.base_loss_f.name == 'factorvae':
+                # Update FactorVAE discriminator after VAE optimization
+                discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+                log_data.update(discr_result['to_log'])
+
             log_data['loss'] = total_loss.item()
             return {'loss': total_loss, 'to_log': log_data}
         
@@ -549,6 +564,11 @@ class BaseGroupTheoryLoss(BaseLoss, ABC):
         vae_optimizer.zero_grad()
         total_loss.backward()
         vae_optimizer.step()
+
+        if self.base_loss_f.name == 'factorvae':
+            # Update FactorVAE discriminator after VAE optimization
+            discr_result = self.base_loss_f.update_discriminator(data_Bp, model)
+            log_data.update(discr_result['to_log'])
 
         log_data['loss'] = total_loss.item()
         return {'loss': total_loss, 'to_log': log_data}
