@@ -126,12 +126,14 @@ class Cars3D(datasets.base.DisentangledDataset):
     def download(self):
         """Download the dataset."""
         save_path = os.path.join(self.root, 'cars3d.tar.gz')
-        os.makedirs(self.root)
-        subprocess.check_call([
-            "curl", "-L",
-            type(self).urls["train"], "--output", save_path
-        ])
 
+        if not os.path.exists(self.root):
+            os.makedirs(self.root)
+            subprocess.check_call([
+                "curl", "-L",
+                type(self).urls["train"], "--output", save_path
+            ])
+            
         with tarfile.open(save_path) as file:
             self.logger.info("Extracting Cars3D ...")
             file.extractall(self.root)
