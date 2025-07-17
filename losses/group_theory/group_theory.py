@@ -423,7 +423,7 @@ class Loss(BaseLoss):
                         model=model,
                     )
 
-                d_loss = self.gan_trainer.train_discriminator(data, fake_images)
+                d_loss = self.gan_trainer.train_discriminator(data, fake_images, weight=self.meaningful_weight)
                 d_losses[i] = d_loss
 
             # Log the average critic loss over the n_critic updates

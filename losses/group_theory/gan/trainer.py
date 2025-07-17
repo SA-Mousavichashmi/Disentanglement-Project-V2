@@ -92,16 +92,17 @@ class GANTrainer:
         else:
             raise ValueError(f"Unknown optimizer type: {self.d_optimizer_type}")
     
-    def train_discriminator(self, real_images: torch.Tensor, fake_images: torch.Tensor) -> float:
+    def train_discriminator(self, real_images: torch.Tensor, fake_images: torch.Tensor, weight: float = 1.0) -> float:
         """
         Train discriminator for one step (single-scale only).
         
         Args:
             real_images: Real images tensor
             fake_images: Fake/generated images tensor
+            weight: Weight to apply to loss before backward (default: 1.0)
         
         Returns:
-            float: Discriminator loss value
+            float: Discriminator loss value (unweighted)
         """
         self.discriminator_optimizer.zero_grad()
         real_output = self.discriminator(real_images)
@@ -113,9 +114,13 @@ class GANTrainer:
             fake_images=fake_images,
             discriminator=self.discriminator
         )
-        d_loss.backward()
+        # Store unweighted loss value for return
+        d_loss_value = d_loss.item()
+        # Apply weight before backward
+        weighted_d_loss = d_loss * weight
+        weighted_d_loss.backward()
         self.discriminator_optimizer.step()
-        return d_loss.item()
+        return d_loss_value
     
     def compute_generator_loss(self, fake_images: torch.Tensor) -> torch.Tensor:
         """
