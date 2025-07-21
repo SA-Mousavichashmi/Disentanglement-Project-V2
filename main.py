@@ -342,6 +342,7 @@ class ExperimentManager:
     def generate_experiment_summary(self):
         """Generate final experiment summary with statistics across all seeds and save as YAML."""
         import yaml
+        import re
         if not self.results_csv_path.exists():
             logger.warning("No results CSV file found for summary.")
             return
@@ -362,21 +363,30 @@ class ExperimentManager:
             'metrics': {}
         }
 
+        # Pattern to identify KLD dimension-wise metrics (e.g., kld_KL_0, kld_KL_1, etc.)
+        kld_dimwise_pattern = re.compile(r'kld_KL_\d+')
+
         # Add mean, std, min, max for each numeric metric
         for col in numeric_columns:
             if col not in ['seed', 'experiment_id', 'training_completed']:
-                mean_val = float(df[col].mean())
-                std_val = float(df[col].std())
-                
-                # If only one seed, std will be NaN; set to 0.0
-                if len(df) == 1:
-                    std_val = 0.0
-                
-                # Round float values to 4 decimal places
-                summary_data['metrics'][col] = {
-                    'mean': round(mean_val, 4),
-                    'std': round(std_val, 4),
-                }
+                # Check if this is a KLD dimension-wise metric
+                if kld_dimwise_pattern.match(col):
+                    # Skip KLD dimension-wise metrics entirely
+                    continue
+                else:
+                    # For all other metrics, calculate mean and std as usual
+                    mean_val = float(df[col].mean())
+                    std_val = float(df[col].std())
+                    
+                    # If only one seed, std will be NaN; set to 0.0
+                    if len(df) == 1:
+                        std_val = 0.0
+                    
+                    # Round float values to 4 decimal places
+                    summary_data['metrics'][col] = {
+                        'mean': round(mean_val, 4),
+                        'std': round(std_val, 4),
+                    }
 
         # Save summary as YAML
         summary_yaml_path = self.results_dir / "experiment_summary.yaml"
