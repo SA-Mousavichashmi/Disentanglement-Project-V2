@@ -470,10 +470,14 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         # Create seed-specific configuration
         seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
         
-        # Set up seed-specific checkpoint directory
-        seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
-        seed_cfg.trainer.checkpoint.enabled = True
-        seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
+        # Respect the original checkpoint enabled setting from config
+        checkpoint_enabled = cfg.trainer.checkpoint.enabled
+        seed_checkpoint_dir = None
+        
+        # Only set up seed-specific checkpoint directory if checkpointing is enabled
+        if checkpoint_enabled:
+            seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
+            seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
         
         try:
             # Run training for this seed
@@ -482,14 +486,15 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         except (Exception, KeyboardInterrupt) as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
 
-            # Clean up seed checkpoint directory if it exists
-            seed_checkpoint_path = Path(seed_checkpoint_dir)
-            if seed_checkpoint_path.exists():
-                try:
-                    shutil.rmtree(seed_checkpoint_path)
-                    logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
-                except Exception as cleanup_e:
-                    logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
+            # Clean up seed checkpoint directory if it exists and checkpointing was enabled
+            if checkpoint_enabled and seed_checkpoint_dir is not None:
+                seed_checkpoint_path = Path(seed_checkpoint_dir)
+                if seed_checkpoint_path.exists():
+                    try:
+                        shutil.rmtree(seed_checkpoint_path)
+                        logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
+                    except Exception as cleanup_e:
+                        logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
 
             logger.error("Experiment terminated due to training failure")
             # Clean up experiment logging before exiting
