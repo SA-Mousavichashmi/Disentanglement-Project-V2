@@ -49,9 +49,6 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         
     check_dims_freq : int, optional
         Frequency (in iterations) to check meaningful dimensions. Default: 200
-        
-    device : str, optional
-        Device to run computations on. Default: 'cuda'
     
     schedulers_kwargs : list of dict, optional
         List of dictionaries containing scheduler configurations for parameters like 'weight'.
@@ -74,7 +71,6 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
                  kl_threshold=30.0,
                  fst_iter=5000,
                  check_dims_freq=200,
-                 device='cuda',
                  schedulers_kwargs=None,
                  **kwargs):
         
@@ -93,13 +89,12 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         self.kl_threshold = kl_threshold
         self.fst_iter = fst_iter
         self.check_dims_freq = check_dims_freq
-        self.device = device
         
         # Initialize base loss function
         self.base_loss_f = select(
             name=self.base_loss_name,
             **self.base_loss_kwargs,
-            device=device
+            device='cuda'
         )
         
         # Loss function for group constraints
@@ -124,7 +119,6 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
             'kl_threshold': self.kl_threshold,
             'fst_iter': self.fst_iter,
             'check_dims_freq': self.check_dims_freq,
-            'device': self.device,
             'rec_dist': self.rec_dist,
         }
         

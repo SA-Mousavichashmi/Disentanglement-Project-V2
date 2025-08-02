@@ -15,7 +15,8 @@ from .base_vae import BaseVAE
 
 
 class Model(BaseVAE):
-    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
+    def __init__(self, img_size, latent_dim=10, encoder_output_dim=None, decoder_input_dim=None,
+                 decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -25,21 +26,27 @@ class Model(BaseVAE):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
+        encoder_output_dim : int, optional
+            Dimensionality of encoder output. If None, uses latent_dim.
+        decoder_input_dim : int, optional
+            Dimensionality of decoder input. If None, uses latent_dim.
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
         use_batchnorm : bool
             Whether to use batch normalization in encoder and decoder.
         """
         super(Model, self).__init__(img_size=img_size, latent_dim=latent_dim, 
+                                   encoder_output_dim=encoder_output_dim,
+                                   decoder_input_dim=decoder_input_dim,
                                    decoder_output_dist=decoder_output_dist,
                                    use_batchnorm=use_batchnorm, **kwargs)
         
         self.validate_img_size([[32, 32], [64, 64]])
 
         self.encoder = Encoder(
-            img_size, self.latent_dim, dist_nparams=self.dist_nparams, use_batchnorm=use_batchnorm)
+            img_size, self.encoder_output_dim, dist_nparams=self.dist_nparams, use_batchnorm=use_batchnorm)
         self.decoder = Decoder(
-            img_size, self.latent_dim, output_dist=decoder_output_dist, use_batchnorm=use_batchnorm)
+            img_size, self.decoder_output_dim, output_dist=decoder_output_dist, use_batchnorm=use_batchnorm)
         self.model_name = 'vae_chen_mlp'
         self.reset_parameters()
 
@@ -49,9 +56,14 @@ class Model(BaseVAE):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             'img_size': self.img_size,
             'latent_dim': self.latent_dim,
             'decoder_output_dist': self.decoder_output_dist,
             'use_batchnorm': self.use_batchnorm
         }
+        if self._encoder_output_dim is not None:
+            kwargs_dict['encoder_output_dim'] = self._encoder_output_dim
+        if self._decoder_input_dim is not None:
+            kwargs_dict['decoder_input_dim'] = self._decoder_input_dim
+        return kwargs_dict

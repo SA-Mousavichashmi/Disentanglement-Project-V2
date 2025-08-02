@@ -24,6 +24,8 @@ class VAEBaseConfig(ModelConfig):
 @dataclass
 class NVAEConfig(VAEBaseConfig):
     latent_dim: int = 10
+    encoder_output_dim: Optional[int] = None
+    decoder_input_dim: Optional[int] = None
 
 @dataclass
 class VAEConfig(NVAEConfig):

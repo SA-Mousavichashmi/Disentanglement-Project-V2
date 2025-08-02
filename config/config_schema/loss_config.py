@@ -121,3 +121,16 @@ class GroupTheoryConfig(LossConfig):
     comp_latent_select_threshold: float = 0.0
     base_loss_state_dict: Optional[Dict[str, Any]] = None
     warm_up_steps: int = 0
+
+@dataclass
+class GroupifiedVAEConfig(LossConfig):
+    """Configuration for Groupified Variational Autoencoder loss."""
+    name: str = "groupifiedvae"
+    base_loss_name: str = MISSING
+    base_loss_kwargs: Dict[str, Any] = field(default_factory=dict)
+    weight: float = 1.0
+    action_scale: float = 1.0
+    N: int = 10
+    kl_threshold: float = 30.0
+    fst_iter: int = 5000
+    check_dims_freq: int = 200

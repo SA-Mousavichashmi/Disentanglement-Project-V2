@@ -17,7 +17,8 @@ class BaseVAE(abc.ABC, nn.Module):
     Base VAE model that contains common functionality for all VAE models.
     """
     
-    def __init__(self, img_size, latent_dim=10, decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
+    def __init__(self, img_size, latent_dim=10, encoder_output_dim=None, decoder_input_dim=None, 
+                 decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
         """
         Base class which defines model and forward pass.
 
@@ -27,6 +28,10 @@ class BaseVAE(abc.ABC, nn.Module):
             Size of images. E.g. (1, 32, 32) or (3, 64, 64).
         latent_dim : int
             Dimensionality of latent space.
+        encoder_output_dim : int, optional
+            Dimensionality of encoder output. If None, uses latent_dim.
+        decoder_input_dim : int, optional
+            Dimensionality of decoder input. If None, uses latent_dim.
         decoder_output_dist : str
             Distribution type for decoder output. Default is 'bernoulli'.
         use_batchnorm : bool
@@ -35,6 +40,8 @@ class BaseVAE(abc.ABC, nn.Module):
         super(BaseVAE, self).__init__()
 
         self.latent_dim = latent_dim
+        self._encoder_output_dim = encoder_output_dim
+        self._decoder_input_dim = decoder_input_dim
         self.img_size = img_size
         self.num_pixels = self.img_size[1] * self.img_size[2]
         self.dist_nparams = 2
@@ -43,6 +50,16 @@ class BaseVAE(abc.ABC, nn.Module):
         self.decoder_output_dist = decoder_output_dist
         self.use_batchnorm = use_batchnorm
         self.latent_factor_topologies = ['R1'] * latent_dim
+    
+    @property
+    def encoder_output_dim(self):
+        """Returns the effective encoder output dimension, using encoder_output_dim if set, otherwise latent_dim."""
+        return self._encoder_output_dim if self._encoder_output_dim is not None else self.latent_dim
+    
+    @property
+    def decoder_output_dim(self):
+        """Returns the effective decoder input dimension, using decoder_input_dim if set, otherwise latent_dim."""
+        return self._decoder_input_dim if self._decoder_input_dim is not None else self.latent_dim
     
     @property
     @abc.abstractmethod
