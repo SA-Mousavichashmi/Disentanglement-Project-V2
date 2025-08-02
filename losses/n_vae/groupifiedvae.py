@@ -13,8 +13,6 @@ import itertools
 from collections import OrderedDict
 
 from .. import baseloss
-from ..reconstruction import reconstruction_loss
-from .kl_div import kl_normal_loss
 from .. import select
 
 
@@ -193,8 +191,8 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         cm_z = self.complexfy(model, mu)
         
         # Decode through model
-        x_recon = torch.sigmoid(model.decoder(cm_z))
-        
+        x_recon = model.decoder(cm_z) # Keep in mind I removed sigmoid activation here
+
         return cm_z, x_recon
 
     def backward_action(self, model, z, action_dim):
@@ -205,8 +203,8 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         cm_z = self.complexfy(model, mu)
         
         # Decode through model
-        x_recon = torch.sigmoid(model.decoder(cm_z))
-        
+        x_recon = model.decoder(cm_z) # Keep in mind I removed sigmoid activation here
+
         return cm_z, x_recon
 
     def action_order_v2(self, model, x, action_dim):
