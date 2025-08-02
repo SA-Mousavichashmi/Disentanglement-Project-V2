@@ -31,7 +31,8 @@ from config.config_schema.model_config import (
 )
 from config.config_schema.loss_config import (
     LossConfig, BetaVAEConfig, AnnealedVAEConfig, FactorVAEConfig, BetaTCVAEConfig,
-    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig
+    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig,
+    GroupifiedVAEConfig, DipVAEIConfig, DipVAEIIConfig
 )
 from config.config_schema.metric_config import MetricAggregatorConfig
 
@@ -690,7 +691,7 @@ def create_loss(cfg: LossConfig) -> torch.nn.Module:
     loss_kwargs = OmegaConf.to_container(cfg, resolve=True)
     
     # Special handling for group_theory loss
-    if cfg.name == "group_theory":
+    if cfg.name == "group_theory" or cfg.name == "groupifiedvae":
         # Extract base_loss configuration and convert it to the old format
         base_loss_config = loss_kwargs.pop('base_loss')
         loss_kwargs['base_loss_name'] = base_loss_config['name']
@@ -900,10 +901,13 @@ def register_configs():
     cs.store(group="loss", name="annealedvae", node=AnnealedVAEConfig)
     cs.store(group="loss", name="factorvae", node=FactorVAEConfig)
     cs.store(group="loss", name="betatcvae", node=BetaTCVAEConfig)
+    cs.store(group="loss", name="dipvae-i", node=DipVAEIConfig)
+    cs.store(group="loss", name="dipvae-ii", node=DipVAEIIConfig)
     cs.store(group="loss", name="beta_toroidal_vae", node=BetaToroidalVAEConfig)
     cs.store(group="loss", name="beta_s_n_vae", node=BetaSNVAEConfig)
     cs.store(group="loss", name="anneal_s_n_vae", node=AnnealSNVAEConfig)
     cs.store(group="loss", name="group_theory", node=GroupTheoryConfig)
+    cs.store(group="loss", name="groupifiedvae", node=GroupifiedVAEConfig)
 
     # Register dataset configs
     cs.store(group="dataset", name="cars3d", node=Cars3DConfig)
