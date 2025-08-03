@@ -2,7 +2,7 @@
 # Adds group-theory constraints on top of a base VAE loss
 
 defaults:
-  - trainer/loss/base_loss: betavae
+  - base_loss: betavae
 
 name: "groupifiedvae"
 
