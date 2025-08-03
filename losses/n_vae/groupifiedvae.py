@@ -204,19 +204,19 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
     def action_order_v2(self, model, x, action_dim):
         """Apply action order constraint (group property: g^-1 * g = identity)."""
         # Encode input
-        zx = model.encoder(x)
+        zx = model.get_representations(x, is_deterministic=True) # mean representation
         
         fcm = self.complexfy(model, zx)
         
         # Forward then backward action
         cm_z1, x1 = self.forward_action(model, zx, action_dim)
-        z1 = model.encoder(x1)
+        z1 = model.get_representations(x1, is_deterministic=True) # mean representation
         cm_z2 = self.complexfy(model, z1)
         fcm1, xr1 = self.backward_action(model, z1, action_dim)
         
         # Backward then forward action  
         cm_z3, x2 = self.backward_action(model, zx, action_dim)
-        z2 = model.encoder(x2)
+        z2 = model.get_representations(x2, is_deterministic=True) # mean representation
         cm_z4 = self.complexfy(model, z2)
         fcm2, xr2 = self.forward_action(model, z2, action_dim)
         
@@ -225,17 +225,17 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
     def abel_action(self, model, x, a, b):
         """Apply abelian group constraint (commutativity: a*b = b*a)."""
         # Encode input
-        zx = model.encoder(x)
+        zx = model.get_representations(x, is_deterministic=True) # mean representation
         
         # Apply actions a then b
         cm_z1, x1 = self.forward_action(model, zx, a)
-        z1 = model.encoder(x1)
+        z1 = model.get_representations(x1, is_deterministic=True) # mean representation
         cm_z2 = self.complexfy(model, z1)
         fcm1, xr1 = self.forward_action(model, z1, b)
         
         # Apply actions b then a
         cm_z3, x2 = self.forward_action(model, zx, b)
-        z2 = model.encoder(x2)
+        z2 = model.get_representations(x2, is_deterministic=True) # mean representation
         cm_z4 = self.complexfy(model, z2)
         fcm2, xr2 = self.forward_action(model, z2, a)
         
