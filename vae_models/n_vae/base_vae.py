@@ -57,7 +57,7 @@ class BaseVAE(abc.ABC, nn.Module):
         return self._encoder_output_dim if self._encoder_output_dim is not None else self.latent_dim
     
     @property
-    def decoder_output_dim(self):
+    def decoder_input_dim(self):
         """Returns the effective decoder input dimension, using decoder_input_dim if set, otherwise latent_dim."""
         return self._decoder_input_dim if self._decoder_input_dim is not None else self.latent_dim
     
