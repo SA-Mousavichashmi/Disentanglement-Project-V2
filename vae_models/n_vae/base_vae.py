@@ -66,9 +66,14 @@ class BaseVAE(abc.ABC, nn.Module):
     @property
     def decoder_input_dim(self):
         """Returns the effective decoder input dimension, accounting for complexification if enabled."""
-        base_dim = self._decoder_input_dim if self._decoder_input_dim is not None else self.latent_dim
-        # When using group complexification, the dimension is doubled (real + imaginary parts)
-        return base_dim * 2 if self.use_complexify_rep else base_dim
+
+        if self.use_complexify_rep:
+            # If using complexification, the input dimension is doubled (real + imaginary parts)
+            decoder_input_dim = self.latent_dim * 2
+        else:
+            decoder_input_dim = self._decoder_input_dim if self._decoder_input_dim is not None else self.latent_dim
+        
+        return decoder_input_dim
     
     @property
     @abc.abstractmethod
