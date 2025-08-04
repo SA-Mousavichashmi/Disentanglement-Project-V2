@@ -139,7 +139,7 @@ class BaseVAE(abc.ABC, nn.Module):
         Returns
         -------
         torch.Tensor
-            Complexified representation. Shape (batch_size, latent_dim * 2) if use_complexify_rep=True, else (batch_size, latent_dim)
+            Complexified representation. Shape (batch_size, latent_dim * 2)
         """
 
         # Apply trigonometric transformation with periodicity complexify_N
