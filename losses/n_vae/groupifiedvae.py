@@ -185,7 +185,7 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         cm_z = self.complexfy(model, mu)
         
         # Decode through model
-        x_recon = model.decoder(cm_z) # Keep in mind I removed sigmoid activation here
+        x_recon = model.decoder(cm_z)['reconstructions'] # Keep in mind I removed sigmoid activation here
 
         return cm_z, x_recon
 
@@ -197,7 +197,7 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         cm_z = self.complexfy(model, mu)
         
         # Decode through model
-        x_recon = model.decoder(cm_z) # Keep in mind I removed sigmoid activation here
+        x_recon = model.decoder(cm_z)['reconstructions'] # Keep in mind I removed sigmoid activation here
 
         return cm_z, x_recon
 
