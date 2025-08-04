@@ -16,7 +16,8 @@ from .base_vae import BaseVAE
 
 class Model(BaseVAE):
     def __init__(self, img_size, latent_dim=10, encoder_output_dim=None, decoder_input_dim=None,
-                 encoder_decay=0., decoder_decay=0., decoder_output_dist='bernoulli', use_batchnorm=False, **kwargs):
+                 encoder_decay=0., decoder_decay=0., decoder_output_dist='bernoulli', use_batchnorm=False,
+                 use_complexify_rep=False, complexify_N=10, **kwargs):
         """
         Class which defines model and forward pass.
 
@@ -43,7 +44,10 @@ class Model(BaseVAE):
                                    encoder_output_dim=encoder_output_dim,
                                    decoder_input_dim=decoder_input_dim,
                                    decoder_output_dist=decoder_output_dist,
-                                   use_batchnorm=use_batchnorm, **kwargs)
+                                   use_batchnorm=use_batchnorm,
+                                   use_complexify_rep=use_complexify_rep,
+                                   complexify_N=complexify_N,
+                                   **kwargs)
 
         self.validate_img_size([[64, 64]])
 
@@ -71,7 +75,9 @@ class Model(BaseVAE):
             'encoder_decay': getattr(self, 'encoder_decay', 0.),
             'decoder_decay': getattr(self, 'decoder_decay', 0.),
             'decoder_output_dist': self.decoder_output_dist,
-            'use_batchnorm': self.use_batchnorm
+            'use_batchnorm': self.use_batchnorm,
+            'use_complexify_rep': self.use_complexify_rep,
+            'complexify_N': self.complexify_N
         }
         if self._encoder_output_dim is not None:
             kwargs_dict['encoder_output_dim'] = self._encoder_output_dim

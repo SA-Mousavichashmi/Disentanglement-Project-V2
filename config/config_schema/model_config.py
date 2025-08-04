@@ -26,6 +26,8 @@ class NVAEConfig(VAEBaseConfig):
     latent_dim: int = 10
     encoder_output_dim: Optional[int] = None
     decoder_input_dim: Optional[int] = None
+    use_complexify_rep: bool = False
+    complexify_N: int = 10
 
 @dataclass
 class VAEConfig(NVAEConfig):
