@@ -285,17 +285,19 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
     def check_dims(self, model, x):
         """Check which dimensions are meaningful based on KL divergence threshold."""
         with torch.no_grad():
-            out = model.encoder(x).squeeze()
+            encoder_output = model.encoder(x)
+            stats_qzx = encoder_output['stats_qzx']
             
-            # Extract mean and logvar
-            latent_dim = model.latent_dim
+            # Extract mean and logvar from stats_qzx
+            # stats_qzx has shape (batch_size, latent_dim, 2) where last dim is [mean, logvar]
+            # latent_dim = model.latent_dim
             
-            mean = out[:, :latent_dim].detach().cpu().numpy()
-            logvar = out[:, latent_dim:].detach().cpu().numpy()
+            mean = stats_qzx[:, :, 0] # Extract mean
+            logvar = stats_qzx[:, :, 1] # Extract logvar
         
-        # Compute KL divergence for each dimension
-        kl = 0.5 * np.sum(np.square(mean) + np.exp(logvar) - logvar - 1, 0)
-        meaningful_dims = np.where(kl > self.kl_threshold)[0]
+        # Compute KL divergence for each dimension using torch
+        kl = 0.5 * torch.sum(torch.square(mean) + torch.exp(logvar) - logvar - 1, dim=0)
+        meaningful_dims = torch.where(kl > self.kl_threshold)[0]
         
         return meaningful_dims
 
