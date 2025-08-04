@@ -11,19 +11,13 @@ trainer:
     complexify_N: ${trainer.loss.N}  # Reference the N parameter from loss section
 
   loss:
-    name: "groupifiedvae"
-    rec_dist: "gaussian"
-    
-    ### Base loss configuration ###
-    base_loss_name: "betavae"
-    base_loss_kwargs:
-      beta: 4.0
-      rec_dist: "gaussian"
-    
     ### GroupifiedVAE specific settings ###
+    name: "groupifiedvae"
     weight: 1.0
     action_scale: 1.0
     N: 10  # Parameter for complex representation (periodicity)
     kl_threshold: 30.0
     fst_iter: 5000  # First iteration to start applying group constraints
     check_dims_freq: 200  # Frequency to check meaningful dimensions
+
+    rec_dist: "gaussian"
