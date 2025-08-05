@@ -46,6 +46,9 @@ def select(name, **kwargs):
         kwargs = dict(kwargs)
         kwargs['dip_type'] = 'ii'
         return Loss(**kwargs)
+    if name == 'groupifiedvae':
+        from losses.n_vae.groupifiedvae import GroupifiedVAELoss
+        return GroupifiedVAELoss(**kwargs)
     
     err = "Unknown loss.name = {}. Possible values: {}"
     raise ValueError(err.format(name, LOSS_LIST))

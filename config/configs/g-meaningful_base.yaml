@@ -1,6 +1,7 @@
 defaults:
   - base
   - trainer/loss/base_loss: null
+  - trainer/loss/meaningful_gan_config: wgan-gp
   - _self_
 
 # Only override or add configs that are different from base.yaml below
@@ -19,8 +20,6 @@ trainer:
     meaningful_weight: 1.0
     meaningful_component_order: 1
     meaningful_transformation_order: 1
-    meaningful_critic_gradient_penalty_weight: 10.0
-    meaningful_critic_lr: 1e-4
     meaningful_n_critic: 1
 
     ### overall settings ###

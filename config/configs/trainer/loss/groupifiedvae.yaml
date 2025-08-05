@@ -1,0 +1,20 @@
+# Groupified VAE loss configuration
+# Adds group-theory constraints on top of a base VAE loss
+
+defaults:
+  - base_loss: betavae
+
+name: "groupifiedvae"
+
+# Group constraint settings
+weight: 1.0            # Weight for group constraint term
+action_scale: 1.0       # Step size for group action in latent space
+N: 10                   # Periodicity used in complex representation (sin/cos)
+kl_threshold: 30.0      # Threshold to mark meaningful dims based on KL
+fst_iter: 5000          # Start applying group constraints after this many iters
+check_dims_freq: 200    # Re-check meaningful dims every this many iters
+
+# Reconstruction distribution for logging/compat
+rec_dist: "gaussian"
+log_kl_components: true
+

@@ -100,24 +100,55 @@ class AnnealSNVAEConfig(LossConfig):
 ########### Group Theory based loss ##########
 
 @dataclass
+class GANConfig:
+    """Configuration for GAN components used in group theory loss (g-meaningful loss).
+
+    This configuration class encapsulates all GAN-related parameters including:
+    - Loss function type and parameters
+    - Discriminator architecture and parameters  
+    - Optimizer type and parameters
+    """
+    loss_type: str = "wgan_gp"  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
+    loss_kwargs: Optional[Dict[str, Any]] = None
+    d_arch: str = "locatello"  # Options: "locatello", "spectral_norm"
+    d_kwargs: Optional[Dict[str, Any]] = None
+    d_optimizer_type: str = "adam"  # Options: "adam", "rmsprop", "sgd"
+    d_optimizer_kwargs: Optional[Dict[str, Any]] = None
+
+@dataclass
 class GroupTheoryConfig(LossConfig):
     """Configuration for Group Theory based loss."""
     name: str = "group_theory"
     base_loss: LossConfig = field(default_factory=BetaVAEConfig)
     rec_dist: str = "bernoulli"
     device: str = "cpu"
+    ## g-commutative loss parameters
     commutative_weight: float = 1.0
     commutative_component_order: int = 2
     commutative_comparison_dist: str = "gaussian"
     meaningful_weight: float = 1.0
     meaningful_component_order: int = 1
+    ## g-meaningful loss parameters
     meaningful_transformation_order: int = 1
-    meaningful_critic_gradient_penalty_weight: float = 10.0
-    meaningful_critic_lr: float = 1e-4
     meaningful_n_critic: int = 1
+    meaningful_gan_config: GANConfig = field(default_factory=GANConfig)
+    # general group theory parameters
     deterministic_rep: bool = True
     group_action_latent_range: float = 2.0
     group_action_latent_distribution: str = "uniform"
     comp_latent_select_threshold: float = 0.0
     base_loss_state_dict: Optional[Dict[str, Any]] = None
     warm_up_steps: int = 0
+
+@dataclass
+class GroupifiedVAEConfig(LossConfig):
+    """Configuration for Groupified Variational Autoencoder loss."""
+    name: str = "groupifiedvae"
+    base_loss_name: str = MISSING
+    base_loss_kwargs: Dict[str, Any] = field(default_factory=dict)
+    weight: float = 1.0
+    action_scale: float = 1.0
+    N: int = 10
+    kl_threshold: float = 30.0
+    fst_iter: int = 5000
+    check_dims_freq: int = 200
