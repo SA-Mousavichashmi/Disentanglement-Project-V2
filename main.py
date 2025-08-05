@@ -25,7 +25,6 @@ from config.config_schema.dataset_config import (
 )
 from config.config_schema.model_config import (
     ModelConfig, VAEConfig, VAEBurgessConfig, VAEChenMLPConfig, VAELocatelloConfig,
-    VAELocatelloSBDConfig, VAEMonteroSmallConfig, VAEMonteroLargeConfig,
     ToroidalVAEConfig, ToroidalVAEBurgessConfig, ToroidalVAELocatelloConfig,
     SNVAEBurgessConfig, SNVAELocatelloConfig
 )
@@ -887,9 +886,6 @@ def register_configs():
     cs.store(group="model", name="vae_burgess", node=VAEBurgessConfig)
     cs.store(group="model", name="vae_chen_mlp", node=VAEChenMLPConfig)
     cs.store(group="model", name="vae_locatello", node=VAELocatelloConfig)
-    cs.store(group="model", name="vae_locatello_sbd", node=VAELocatelloSBDConfig)
-    cs.store(group="model", name="vae_montero_small", node=VAEMonteroSmallConfig)
-    cs.store(group="model", name="vae_montero_large", node=VAEMonteroLargeConfig)
     cs.store(group="model", name="toroidal_vae", node=ToroidalVAEConfig)
     cs.store(group="model", name="toroidal_vae_burgess", node=ToroidalVAEBurgessConfig)
     cs.store(group="model", name="toroidal_vae_locatello", node=ToroidalVAELocatelloConfig)
