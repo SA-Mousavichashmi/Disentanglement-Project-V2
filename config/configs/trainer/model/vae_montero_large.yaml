@@ -1,9 +1,9 @@
-# VAE model configuration (Locatello et al.) 
-# Architecture used in the disentanglement_lib benchmark
+# VAE model configuration (Montero Large)
+# Large CNN architecture for 64x64 images
 
-name: "vae_locatello"
-encoder_name: "locatello"
-decoder_name: "locatello"
+name: "vae_montero_large"
+encoder_name: "montero_large"
+decoder_name: "montero_large"
 latent_dim: 10
 decoder_output_dist: "bernoulli"
 use_batchnorm: false

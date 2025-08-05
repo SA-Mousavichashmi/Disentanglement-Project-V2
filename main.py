@@ -25,13 +25,13 @@ from config.config_schema.dataset_config import (
 )
 from config.config_schema.model_config import (
     ModelConfig, VAEConfig, VAEBurgessConfig, VAEChenMLPConfig, VAELocatelloConfig,
-    VAELocatelloSBDConfig, VAEMonteroSmallConfig, VAEMonteroLargeConfig,
     ToroidalVAEConfig, ToroidalVAEBurgessConfig, ToroidalVAELocatelloConfig,
     SNVAEBurgessConfig, SNVAELocatelloConfig
 )
 from config.config_schema.loss_config import (
     LossConfig, BetaVAEConfig, AnnealedVAEConfig, FactorVAEConfig, BetaTCVAEConfig,
-    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig
+    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig,
+    GroupifiedVAEConfig, DipVAEIConfig, DipVAEIIConfig
 )
 from config.config_schema.metric_config import MetricAggregatorConfig
 
@@ -342,6 +342,7 @@ class ExperimentManager:
     def generate_experiment_summary(self):
         """Generate final experiment summary with statistics across all seeds and save as YAML."""
         import yaml
+        import re
         if not self.results_csv_path.exists():
             logger.warning("No results CSV file found for summary.")
             return
@@ -362,21 +363,30 @@ class ExperimentManager:
             'metrics': {}
         }
 
+        # Pattern to identify KLD dimension-wise metrics (e.g., kld_KL_0, kld_KL_1, etc.)
+        kld_dimwise_pattern = re.compile(r'kld_KL_\d+')
+
         # Add mean, std, min, max for each numeric metric
         for col in numeric_columns:
             if col not in ['seed', 'experiment_id', 'training_completed']:
-                mean_val = float(df[col].mean())
-                std_val = float(df[col].std())
-                
-                # If only one seed, std will be NaN; set to 0.0
-                if len(df) == 1:
-                    std_val = 0.0
-                
-                # Round float values to 4 decimal places
-                summary_data['metrics'][col] = {
-                    'mean': round(mean_val, 4),
-                    'std': round(std_val, 4),
-                }
+                # Check if this is a KLD dimension-wise metric
+                if kld_dimwise_pattern.match(col):
+                    # Skip KLD dimension-wise metrics entirely
+                    continue
+                else:
+                    # For all other metrics, calculate mean and std as usual
+                    mean_val = float(df[col].mean())
+                    std_val = float(df[col].std())
+                    
+                    # If only one seed, std will be NaN; set to 0.0
+                    if len(df) == 1:
+                        std_val = 0.0
+                    
+                    # Round float values to 4 decimal places
+                    summary_data['metrics'][col] = {
+                        'mean': round(mean_val, 4),
+                        'std': round(std_val, 4),
+                    }
 
         # Save summary as YAML
         summary_yaml_path = self.results_dir / "experiment_summary.yaml"
@@ -470,10 +480,14 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         # Create seed-specific configuration
         seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
         
-        # Set up seed-specific checkpoint directory
-        seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
-        seed_cfg.trainer.checkpoint.enabled = True
-        seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
+        # Respect the original checkpoint enabled setting from config
+        checkpoint_enabled = cfg.trainer.checkpoint.enabled
+        seed_checkpoint_dir = None
+        
+        # Only set up seed-specific checkpoint directory if checkpointing is enabled
+        if checkpoint_enabled:
+            seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
+            seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
         
         try:
             # Run training for this seed
@@ -482,14 +496,15 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         except (Exception, KeyboardInterrupt) as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
 
-            # Clean up seed checkpoint directory if it exists
-            seed_checkpoint_path = Path(seed_checkpoint_dir)
-            if seed_checkpoint_path.exists():
-                try:
-                    shutil.rmtree(seed_checkpoint_path)
-                    logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
-                except Exception as cleanup_e:
-                    logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
+            # Clean up seed checkpoint directory if it exists and checkpointing was enabled
+            if checkpoint_enabled and seed_checkpoint_dir is not None:
+                seed_checkpoint_path = Path(seed_checkpoint_dir)
+                if seed_checkpoint_path.exists():
+                    try:
+                        shutil.rmtree(seed_checkpoint_path)
+                        logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
+                    except Exception as cleanup_e:
+                        logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
 
             logger.error("Experiment terminated due to training failure")
             # Clean up experiment logging before exiting
@@ -675,7 +690,7 @@ def create_loss(cfg: LossConfig, img_size: tuple) -> torch.nn.Module:
     loss_kwargs = OmegaConf.to_container(cfg, resolve=True)
     
     # Special handling for group_theory loss
-    if cfg.name == "group_theory":
+    if cfg.name == "group_theory" or cfg.name == "groupifiedvae":
         # Extract base_loss configuration and convert it to the old format
         base_loss_config = loss_kwargs.pop('base_loss')
         loss_kwargs['base_loss_name'] = base_loss_config['name']
@@ -872,9 +887,6 @@ def register_configs():
     cs.store(group="model", name="vae_burgess", node=VAEBurgessConfig)
     cs.store(group="model", name="vae_chen_mlp", node=VAEChenMLPConfig)
     cs.store(group="model", name="vae_locatello", node=VAELocatelloConfig)
-    cs.store(group="model", name="vae_locatello_sbd", node=VAELocatelloSBDConfig)
-    cs.store(group="model", name="vae_montero_small", node=VAEMonteroSmallConfig)
-    cs.store(group="model", name="vae_montero_large", node=VAEMonteroLargeConfig)
     cs.store(group="model", name="toroidal_vae", node=ToroidalVAEConfig)
     cs.store(group="model", name="toroidal_vae_burgess", node=ToroidalVAEBurgessConfig)
     cs.store(group="model", name="toroidal_vae_locatello", node=ToroidalVAELocatelloConfig)
@@ -886,10 +898,13 @@ def register_configs():
     cs.store(group="loss", name="annealedvae", node=AnnealedVAEConfig)
     cs.store(group="loss", name="factorvae", node=FactorVAEConfig)
     cs.store(group="loss", name="betatcvae", node=BetaTCVAEConfig)
+    cs.store(group="loss", name="dipvae-i", node=DipVAEIConfig)
+    cs.store(group="loss", name="dipvae-ii", node=DipVAEIIConfig)
     cs.store(group="loss", name="beta_toroidal_vae", node=BetaToroidalVAEConfig)
     cs.store(group="loss", name="beta_s_n_vae", node=BetaSNVAEConfig)
     cs.store(group="loss", name="anneal_s_n_vae", node=AnnealSNVAEConfig)
     cs.store(group="loss", name="group_theory", node=GroupTheoryConfig)
+    cs.store(group="loss", name="groupifiedvae", node=GroupifiedVAEConfig)
 
     # Register dataset configs
     cs.store(group="dataset", name="cars3d", node=Cars3DConfig)

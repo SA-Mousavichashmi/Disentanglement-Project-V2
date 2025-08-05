@@ -1,9 +1,9 @@
-# VAE model configuration (Locatello et al.) 
-# Architecture used in the disentanglement_lib benchmark
+# VAE model configuration (Locatello SBD)
+# Locatello architecture with Spatial Broadcast Decoder
 
-name: "vae_locatello"
+name: "vae_locatello_sbd"
 encoder_name: "locatello"
-decoder_name: "locatello"
+decoder_name: "sbd"
 latent_dim: 10
 decoder_output_dist: "bernoulli"
 use_batchnorm: false
