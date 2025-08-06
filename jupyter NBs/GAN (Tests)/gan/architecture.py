@@ -5,6 +5,7 @@
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.nn.utils import spectral_norm
 
 
@@ -95,14 +96,14 @@ class Generator(nn.Module):
         batch_size = z.size(0)
         
         # Fully connected layers with LeakyReLU activations
-        x = torch.leaky_relu(self.bn_lin1(self.lin1(z)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.lin2(x), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn_lin1(self.lin1(z)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.lin2(x), negative_slope=self.negative_slope)
         x = x.view(batch_size, *self.reshape)
         
         # Transposed convolutional layers with LeakyReLU activations
-        x = torch.leaky_relu(self.bn1(self.convT1(x)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.bn2(self.convT2(x)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.bn3(self.convT3(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn1(self.convT1(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn2(self.convT2(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn3(self.convT3(x)), negative_slope=self.negative_slope)
         
         # Final layer with Tanh activation to output images in [-1, 1]
         x = torch.tanh(self.convT4(x))
@@ -211,14 +212,14 @@ class Discriminator(nn.Module):
         batch_size = x.size(0)
         
         # Convolutional layers with LeakyReLU activations
-        x = torch.leaky_relu(self.bn1(self.conv1(x)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.bn2(self.conv2(x)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.bn3(self.conv3(x)), negative_slope=self.negative_slope)
-        x = torch.leaky_relu(self.bn4(self.conv4(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn1(self.conv1(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn2(self.conv2(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn3(self.conv3(x)), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.bn4(self.conv4(x)), negative_slope=self.negative_slope)
         
         # Fully connected layers with LeakyReLU activation
         x = x.view((batch_size, -1))
-        x = torch.leaky_relu(self.lin(x), negative_slope=self.negative_slope)
+        x = F.leaky_relu(self.lin(x), negative_slope=self.negative_slope)
         
         # Final output (no activation for flexibility with different losses)
         x = self.output(x)
