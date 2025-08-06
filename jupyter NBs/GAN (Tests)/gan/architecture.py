@@ -12,7 +12,7 @@ from torch.nn.utils import spectral_norm
 class Generator(nn.Module):
     """Generator network based on Locatello decoder architecture with LeakyReLU activations."""
     
-    def __init__(self, latent_dim=100, img_size=(3, 64, 64), use_batchnorm=True, negative_slope=0.2):
+    def __init__(self, latent_dim=100, img_size=(3, 64, 64), use_batchnorm=True, negative_slope=0):
         """
         Initialize the Generator.
         
@@ -106,8 +106,11 @@ class Generator(nn.Module):
         x = F.leaky_relu(self.bn3(self.convT3(x)), negative_slope=self.negative_slope)
         
         # Final layer with Tanh activation to output images in [-1, 1]
-        x = torch.tanh(self.convT4(x))
-        
+        # x = torch.tanh(self.convT4(x))
+
+        # Final layer using sigmoid activation to output images in [0, 1]
+        x = torch.sigmoid(self.convT4(x))
+
         return x
 
 
