@@ -29,7 +29,9 @@ class GANTrainer:
                  loss_kwargs=None,
                  device='cuda',
                  n_critic=1,
-                 clip_value=None):
+                 clip_value=None,
+                 progress_interval=100
+                 ): 
         """
         Initialize GAN trainer.
         
@@ -53,11 +55,14 @@ class GANTrainer:
             Number of discriminator updates per generator update.
         clip_value : float, optional
             Value to clip discriminator weights (for WGAN).
+        progress_interval : int
+            Interval to update progress bar in train_epoch.
         """
         self.device = device
         self.n_critic = n_critic
         self.clip_value = clip_value
         self.loss_type = loss_type
+        self.progress_interval = progress_interval  # <-- set instance variable
         
         # Initialize networks
         if generator is None or discriminator is None:
@@ -173,11 +178,12 @@ class GANTrainer:
                 g_loss = self.train_generator(batch_size)
                 g_losses.append(g_loss)
             
-            # Update progress bar
-            pbar.set_postfix({
-                'D_loss': f'{np.mean(d_losses[-10:]):.4f}',
-                'G_loss': f'{np.mean(g_losses[-10:]):.4f}' if g_losses else 'N/A'
-            })
+            # Update progress bar only every self.progress_interval steps
+            if i % self.progress_interval == 0 or i == len(dataloader) - 1:
+                pbar.set_postfix({
+                    'D_loss': f'{np.mean(d_losses[-10:]):.4f}',
+                    'G_loss': f'{np.mean(g_losses[-10:]):.4f}' if g_losses else 'N/A'
+                })
         
         # Record epoch losses
         self.history['d_loss'].append(np.mean(d_losses))
