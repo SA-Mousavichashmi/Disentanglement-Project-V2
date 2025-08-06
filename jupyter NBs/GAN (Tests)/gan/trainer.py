@@ -215,7 +215,7 @@ class GANTrainer:
             self.current_epoch = epoch
             
             # Train for one epoch
-            d_loss, g_loss = self.train_epoch(dataloader, epoch)
+            d_loss, g_loss = self.train_epoch(dataloader, epoch + 1)
             
             print(f"Epoch [{epoch+1}/{epochs}] - D_loss: {d_loss:.4f}, G_loss: {g_loss:.4f}")
         
@@ -265,8 +265,14 @@ class GANTrainer:
         fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
         axes = np.array(axes).reshape(-1)
         for i in range(n_samples):
-            img = samples[i].permute(1, 2, 0).numpy()
-            axes[i].imshow(img)
+            img = samples[i]
+            # Check if grayscale (single channel)
+            if img.shape[0] == 1:
+                img = img.squeeze(0).numpy()
+                axes[i].imshow(img, cmap='gray')
+            else:
+                img = img.permute(1, 2, 0).numpy()
+                axes[i].imshow(img)
             axes[i].axis('off')
         # Hide unused axes
         for j in range(n_samples, len(axes)):
