@@ -21,19 +21,13 @@ class GANTrainer:
     """Trainer for GAN models supporting various loss functions and architectures."""
     
     def __init__(self, 
-                 generator=None,
-                 discriminator=None,
+                 generator,
+                 discriminator,
+                 g_optimizer,
+                 d_optimizer,
                  loss_type='vanilla',
                  loss_kwargs=None,
-                 g_optimizer=None,
-                 d_optimizer=None,
-                 g_lr=2e-4,
-                 d_lr=2e-4,
-                 beta1=0.5,
-                 beta2=0.999,
                  device='cuda',
-                 latent_dim=10,
-                 img_size=(3, 64, 64),
                  n_critic=1,
                  clip_value=None):
         """
@@ -41,56 +35,35 @@ class GANTrainer:
         
         Parameters
         ----------
-        generator : torch.nn.Module, optional
-            Generator network. If None, will create default generator.
-        discriminator : torch.nn.Module, optional  
-            Discriminator network. If None, will create default discriminator.
+        generator : torch.nn.Module
+            Generator network.
+        discriminator : torch.nn.Module  
+            Discriminator network.
         loss_type : str
             Type of loss function ('vanilla', 'lpgan', 'sngan', 'wgan').
         loss_kwargs : dict, optional
             Additional arguments for loss function.
-        g_optimizer : torch.optim.Optimizer, optional
-            Generator optimizer. If None, will create Adam optimizer.
-        d_optimizer : torch.optim.Optimizer, optional
-            Discriminator optimizer. If None, will create Adam optimizer.
-        g_lr : float
-            Generator learning rate.
-        d_lr : float
-            Discriminator learning rate.
-        beta1 : float
-            Beta1 parameter for Adam optimizer.
-        beta2 : float
-            Beta2 parameter for Adam optimizer.
+        g_optimizer : torch.optim.Optimizer
+            Generator optimizer (must be provided).
+        d_optimizer : torch.optim.Optimizer
+            Discriminator optimizer (must be provided).
         device : str
             Device to train on.
-        latent_dim : int
-            Dimensionality of latent space.
-        img_size : tuple
-            Size of images.
         n_critic : int
             Number of discriminator updates per generator update.
         clip_value : float, optional
             Value to clip discriminator weights (for WGAN).
         """
         self.device = device
-        self.latent_dim = latent_dim
-        self.img_size = img_size
         self.n_critic = n_critic
         self.clip_value = clip_value
         self.loss_type = loss_type
         
         # Initialize networks
-        if generator is None:
-            self.generator = Generator(latent_dim=latent_dim, img_size=img_size)
-        else:
-            self.generator = generator
-        
-        if discriminator is None:
-            # Use spectral norm for SN-GAN
-            use_spectral_norm = (loss_type.lower() == 'sngan')
-            self.discriminator = Discriminator(img_size=img_size, use_spectral_norm=use_spectral_norm)
-        else:
-            self.discriminator = discriminator
+        if generator is None or discriminator is None:
+            raise ValueError("Generator and Discriminator must be provided. Predefined models are no longer used.")
+        self.generator = generator
+        self.discriminator = discriminator
         
         # Move to device
         self.generator.to(device)
@@ -102,20 +75,17 @@ class GANTrainer:
         loss_kwargs['device'] = device
         self.loss_fn = get_loss(loss_type, **loss_kwargs)
         
-        # Initialize optimizers
-        if g_optimizer is None:
-            self.g_optimizer = optim.Adam(self.generator.parameters(), lr=g_lr, betas=(beta1, beta2))
-        else:
-            self.g_optimizer = g_optimizer
-            
-        if d_optimizer is None:
-            self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=d_lr, betas=(beta1, beta2))
-        else:
-            self.d_optimizer = d_optimizer
+        # Optimizers must be provided externally
+        if g_optimizer is None or d_optimizer is None:
+            raise ValueError("g_optimizer and d_optimizer must be provided externally.")
+        self.g_optimizer = g_optimizer
+        self.d_optimizer = d_optimizer
         
         # Training history
         self.history = defaultdict(list)
         self.current_epoch = 0
+        
+        self.latent_dim = self.generator.latent_dim
     
     def generate_noise(self, batch_size):
         """Generate random noise for generator input."""
@@ -302,7 +272,7 @@ class GANTrainer:
             plt.show()
         plt.close()
 
-def create_trainer(generator_config=None, discriminator_config=None, trainer_config=None):
+def create_trainer(generator_config=None, discriminator_config=None, trainer_config=None, g_optimizer=None, d_optimizer=None):
     """
     Factory function to create a GAN trainer with specified configurations.
     
@@ -314,6 +284,10 @@ def create_trainer(generator_config=None, discriminator_config=None, trainer_con
         Configuration for discriminator.
     trainer_config : dict, optional
         Configuration for trainer.
+    g_optimizer : torch.optim.Optimizer
+        Generator optimizer (must be provided).
+    d_optimizer : torch.optim.Optimizer
+        Discriminator optimizer (must be provided).
         
     Returns
     -------
@@ -335,6 +309,8 @@ def create_trainer(generator_config=None, discriminator_config=None, trainer_con
     trainer = GANTrainer(
         generator=generator,
         discriminator=discriminator,
+        g_optimizer=g_optimizer,
+        d_optimizer=d_optimizer,
         **trainer_config
     )
     
