@@ -283,7 +283,7 @@ class GANTrainer:
         print("Training completed!")
         return np.mean(d_losses), np.mean(g_losses) if g_losses else 0.0
     
-    def train(self, dataloader, epochs=None, total_iterations=None, log_interval=None):
+    def train(self, dataloader, epochs=None, total_iterations=None, log_interval=500):
         """
         Train the GAN.
         
