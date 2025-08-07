@@ -192,7 +192,98 @@ class GANTrainer:
         
         return np.mean(d_losses), np.mean(g_losses) if g_losses else 0.0
     
-    def train(self, dataloader, epochs):
+    def train_iterations(self, dataloader, total_iterations, log_interval=None):
+        """
+        Train the GAN for a specified number of iterations.
+        
+        Parameters
+        ----------
+        dataloader : DataLoader
+            Training data loader.
+        total_iterations : int
+            Total number of iterations to train.
+        log_interval : int, optional
+            Interval to log losses (default: len(dataloader), i.e., every epoch equivalent).
+        """
+        if log_interval is None:
+            log_interval = len(dataloader)
+            
+        print(f"Starting training for {total_iterations} iterations...")
+        print(f"Loss type: {self.loss_type}")
+        print(f"Device: {self.device}")
+        print(f"Log interval: {log_interval} iterations")
+        
+        self.generator.train()
+        self.discriminator.train()
+        
+        # Create iterator over dataloader
+        data_iter = iter(dataloader)
+        
+        # Track losses for logging
+        d_losses = []
+        g_losses = []
+        
+        # Track losses for history (logged every log_interval)
+        d_losses_epoch = []
+        g_losses_epoch = []
+        
+        pbar = tqdm(range(total_iterations), desc='Training Iterations')
+        
+        for iteration in pbar:
+            # Get next batch, reset iterator if exhausted
+            try:
+                real_images, _ = next(data_iter)
+            except StopIteration:
+                # Reset the iterator when dataloader is exhausted
+                data_iter = iter(dataloader)
+                real_images, _ = next(data_iter)
+                
+            real_images = real_images.to(self.device)
+            batch_size = real_images.size(0)
+            
+            # Update current epoch for compatibility
+            self.current_epoch = iteration // len(dataloader)
+            
+            # Train discriminator
+            d_loss = self.train_discriminator(real_images)
+            d_losses.append(d_loss)
+            d_losses_epoch.append(d_loss)
+            
+            # Train generator (every n_critic steps)
+            if iteration % self.n_critic == 0:
+                g_loss = self.train_generator(batch_size)
+                g_losses.append(g_loss)
+                g_losses_epoch.append(g_loss)
+            
+            # Update progress bar only every self.progress_interval steps
+            if iteration % self.progress_interval == 0 or iteration == total_iterations - 1:
+                pbar.set_postfix({
+                    'D_loss': f'{np.mean(d_losses[-10:]):.4f}',
+                    'G_loss': f'{np.mean(g_losses[-10:]):.4f}' if g_losses else 'N/A',
+                    'Epoch': f'{iteration // len(dataloader):.1f}'
+                })
+            
+            # Log losses every log_interval iterations
+            if (iteration + 1) % log_interval == 0:
+                # Record losses to history
+                self.history['d_loss'].append(np.mean(d_losses_epoch))
+                if g_losses_epoch:
+                    self.history['g_loss'].append(np.mean(g_losses_epoch))
+                
+                # Reset epoch loss tracking
+                d_losses_epoch = []
+                g_losses_epoch = []
+        
+        # Record final losses if there are remaining losses
+        if d_losses_epoch:
+            self.history['d_loss'].append(np.mean(d_losses_epoch))
+        if g_losses_epoch:
+            self.history['g_loss'].append(np.mean(g_losses_epoch))
+        
+        print("Training completed!")
+        return np.mean(d_losses), np.mean(g_losses) if g_losses else 0.0
+    
+    def train(self, dataloader, epochs=None, total_iterations=None, log_interval=None):
         """
         Train the GAN.
         
@@ -200,26 +291,31 @@ class GANTrainer:
         ----------
         dataloader : DataLoader
             Training data loader.
-        epochs : int
-            Number of epochs to train.
-        save_dir : str, optional
-            Directory to save checkpoints and samples.
-        sample_interval : int
-            Interval to generate and save sample images.
+        epochs : int, optional
+            Number of epochs to train. Either epochs or total_iterations must be specified.
+        total_iterations : int, optional
+            Total number of iterations to train. Either epochs or total_iterations must be specified.
+        log_interval : int, optional
+            Interval to log losses when using total_iterations. If None and using epochs,
+            logs every epoch. If None and using total_iterations, logs every len(dataloader) iterations.
         """
-        print(f"Starting training for {epochs} epochs...")
-        print(f"Loss type: {self.loss_type}")
-        print(f"Device: {self.device}")
+        if epochs is not None and total_iterations is not None:
+            raise ValueError("Specify either epochs or total_iterations, not both")
         
-        for epoch in range(epochs):
-            self.current_epoch = epoch
-            
-            # Train for one epoch
-            d_loss, g_loss = self.train_epoch(dataloader, epoch + 1)
-            
-            print(f"Epoch [{epoch+1}/{epochs}] - D_loss: {d_loss:.4f}, G_loss: {g_loss:.4f}")
+        if epochs is None and total_iterations is None:
+            raise ValueError("Must specify either epochs or total_iterations")
         
-        print("Training completed!")
+        if epochs is not None:
+            # Convert epochs to iterations
+            total_iterations = epochs * len(dataloader)
+            if log_interval is None:
+                log_interval = len(dataloader)  # Log every epoch
+            
+            print(f"Training for {epochs} epochs ({total_iterations} iterations)...")
+            return self.train_iterations(dataloader, total_iterations, log_interval)
+        else:
+            # Train directly by iterations
+            return self.train_iterations(dataloader, total_iterations, log_interval)
     
     def plot_losses(self, save_path=None):
         """Plot training losses."""
