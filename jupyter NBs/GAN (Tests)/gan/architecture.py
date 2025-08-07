@@ -12,7 +12,7 @@ from torch.nn.utils import spectral_norm
 class Generator(nn.Module):
     """Generator network based on Locatello decoder architecture with LeakyReLU activations."""
     
-    def __init__(self, latent_dim=10, img_size=(3, 64, 64), use_batchnorm=True, negative_slope=0):
+    def __init__(self, latent_dim=10, img_size=(3, 64, 64), use_batchnorm=True, negative_slope=0, output_activation='sigmoid'):
         """
         Initialize the Generator.
         
@@ -26,6 +26,8 @@ class Generator(nn.Module):
             Whether to use batch normalization layers.
         negative_slope : float
             Negative slope for LeakyReLU activation.
+        output_activation : str
+            Activation function for the output layer. Options: 'sigmoid', 'tanh'.
         """
         super(Generator, self).__init__()
         
@@ -33,6 +35,11 @@ class Generator(nn.Module):
         self.img_size = img_size
         self.use_batchnorm = use_batchnorm
         self.negative_slope = negative_slope
+        self.output_activation = output_activation
+        
+        # Validate output_activation
+        if self.output_activation not in ['sigmoid', 'tanh']:
+            raise ValueError(f"Invalid output_activation: {self.output_activation}. Options are 'sigmoid' or 'tanh'.")
         
         # Layer parameters
         kernel_size = 4
@@ -105,19 +112,20 @@ class Generator(nn.Module):
         x = F.leaky_relu(self.bn2(self.convT2(x)), negative_slope=self.negative_slope)
         x = F.leaky_relu(self.bn3(self.convT3(x)), negative_slope=self.negative_slope)
         
-        # Final layer with Tanh activation to output images in [-1, 1]
-        # x = torch.tanh(self.convT4(x))
-
-        # Final layer using sigmoid activation to output images in [0, 1]
-        x = torch.sigmoid(self.convT4(x))
-
+        # Final layer with configurable activation
+        x = self.convT4(x)
+        if self.output_activation == 'tanh':
+            x = torch.tanh(x)
+        elif self.output_activation == 'sigmoid':
+            x = torch.sigmoid(x)
+        
         return x
 
 
 class Discriminator(nn.Module):
     """Discriminator network based on Locatello encoder architecture with optional spectral normalization."""
     
-    def __init__(self, img_size=(3, 64, 64), use_batchnorm=False, use_spectral_norm=False, negative_slope=0.2):
+    def __init__(self, img_size=(3, 64, 64), use_batchnorm=False, use_spectral_norm=False, negative_slope=0.1):
         """
         Initialize the Discriminator.
         

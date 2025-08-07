@@ -303,6 +303,62 @@ class WGANGPLoss(BaseLoss):
         return -torch.mean(fake_output)
 
 
+class LSGANLoss(BaseLoss):
+    """Least Squares GAN loss using mean squared error."""
+    
+    def __init__(self, device='cuda', a=0.0, b=1.0, c=1.0):
+        """
+        Initialize LSGAN loss.
+        
+        Parameters
+        ----------
+        device : str
+            Device to run computations on.
+        a : float
+            Target value for fake data in discriminator loss (typically 0).
+        b : float
+            Target value for fake data in generator loss (typically 1).
+        c : float
+            Target value for real data in discriminator loss (typically 1).
+        """
+        super().__init__(device)
+        self.a = a  # fake label for discriminator
+        self.b = b  # fake label for generator (what generator wants discriminator to output)
+        self.c = c  # real label for discriminator
+        self.criterion = nn.MSELoss()
+    
+    def discriminator_loss(self, real_output, fake_output, **kwargs):
+        """
+        Compute LSGAN discriminator loss.
+        
+        Discriminator loss: 0.5 * [(D(x) - c)^2 + (D(G(z)) - a)^2]
+        where c is the target for real data and a is the target for fake data.
+        """
+        batch_size = real_output.size(0)
+        
+        # Target labels
+        real_targets = torch.full((batch_size, 1), self.c, device=self.device)
+        fake_targets = torch.full((batch_size, 1), self.a, device=self.device)
+        
+        # Losses
+        real_loss = self.criterion(real_output, real_targets)
+        fake_loss = self.criterion(fake_output, fake_targets)
+        
+        return 0.5 * (real_loss + fake_loss)
+    
+    def generator_loss(self, fake_output, **kwargs):
+        """
+        Compute LSGAN generator loss.
+        
+        Generator loss: 0.5 * (D(G(z)) - b)^2
+        where b is what the generator wants the discriminator to output for fake data.
+        """
+        batch_size = fake_output.size(0)
+        target_labels = torch.full((batch_size, 1), self.b, device=self.device)
+        
+        return 0.5 * self.criterion(fake_output, target_labels)
+
+
 def get_loss(loss_type, **kwargs):
     """
     Factory function to get loss based on type.
@@ -329,9 +385,11 @@ def get_loss(loss_type, **kwargs):
         return SNGANLoss(**kwargs)
     elif loss_type == 'wgan':
         return WGANGPLoss(**kwargs)
+    elif loss_type == 'lsgan':
+        return LSGANLoss(**kwargs)
     else:
         raise ValueError(f"Unknown loss type: {loss_type}. "
-                        f"Available types: ['vanilla', 'lpgan', 'sngan', 'wgan']")
+                        f"Available types: ['vanilla', 'lpgan', 'sngan', 'wgan', 'lsgan']")
 
 
 # Utility functions for loss computation
