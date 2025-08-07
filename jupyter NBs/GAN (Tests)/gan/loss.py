@@ -366,7 +366,7 @@ def get_loss(loss_type, **kwargs):
     Parameters
     ----------
     loss_type : str
-        Type of loss ('vanilla', 'lpgan', 'sngan', 'wgan').
+        Type of loss ('vanilla', 'lpgan', 'sngan', 'wgan-gp').
     **kwargs
         Additional arguments for loss initialization.
         
@@ -383,13 +383,13 @@ def get_loss(loss_type, **kwargs):
         return LPGANLoss(**kwargs)
     elif loss_type == 'sngan':
         return SNGANLoss(**kwargs)
-    elif loss_type == 'wgan':
+    elif loss_type == 'wgan-gp':
         return WGANGPLoss(**kwargs)
     elif loss_type == 'lsgan':
         return LSGANLoss(**kwargs)
     else:
         raise ValueError(f"Unknown loss type: {loss_type}. "
-                        f"Available types: ['vanilla', 'lpgan', 'sngan', 'wgan', 'lsgan']")
+                        f"Available types: ['vanilla', 'lpgan', 'sngan', 'wgan-gp', 'lsgan']")
 
 
 # Utility functions for loss computation
