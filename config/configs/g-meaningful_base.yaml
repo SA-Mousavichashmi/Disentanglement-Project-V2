@@ -38,4 +38,5 @@ trainer:
           param_name: meaningful_weight
           initial_value: 0.0  # Start with no meaningful loss
           final_value: 10     # End with full meaningful loss
+          start_step: 0       # Start scheduling immediately
           total_steps: 300000
