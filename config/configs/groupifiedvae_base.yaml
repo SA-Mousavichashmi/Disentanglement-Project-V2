@@ -21,3 +21,13 @@ trainer:
     check_dims_freq: 200  # Frequency to check meaningful dimensions
 
     rec_dist: "gaussian"
+
+    ### scheduler settings ###
+    schedulers_kwargs:
+      - name: linear
+        kwargs:
+          param_name: weight
+          initial_value: 0.0  # Start with no groupified loss
+          final_value: 10    # End with full groupified loss
+          start_step: ${trainer.loss.fst_iter}     # Start scheduling immediately
+          total_steps: 300000
