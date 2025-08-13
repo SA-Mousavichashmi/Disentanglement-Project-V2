@@ -18,7 +18,7 @@ trainer:
     N: 10  # Parameter for complex representation (periodicity)
     kl_threshold: 30.0
     fst_iter: 5000  # First iteration to start applying group constraints
-    check_dims_freq: 200  # Frequency to check meaningful dimensions
+    check_dims_freq: 1  # Frequency to check meaningful dimensions
 
     rec_dist: "gaussian"
 
