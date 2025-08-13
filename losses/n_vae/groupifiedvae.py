@@ -334,12 +334,12 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         
         # Compute base loss
         if self.base_loss_f.mode == "post_forward":
-            base_loss_result = self.base_loss_f(data, reconstructions, stats_qzx, **kwargs)
+            base_loss_result = self.base_loss_f(data, reconstructions, stats_qzx, is_train=model.training, **kwargs)
             base_loss = base_loss_result['loss']
             base_log_data = base_loss_result.get('to_log', {})
         else:
             # For other modes, we need to call differently
-            base_loss_result = self.base_loss_f(data, model, optimizer, **kwargs)
+            base_loss_result = self.base_loss_f(data, model, optimizer, is_train=model.training, **kwargs)
             base_loss = base_loss_result['loss'] 
             base_log_data = base_loss_result.get('to_log', {})
         
