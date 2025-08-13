@@ -167,7 +167,7 @@ class ExperimentManager:
         dataset_name = self.experiment_config.trainer.dataset.name
         
         # For group theory losses, include the base loss name
-        if loss_name == "group_theory":
+        if loss_name in ["group_theory", "groupifiedvae"]:
             base_loss_name = self.experiment_config.trainer.loss.base_loss.name
             loss_name = f"{loss_name}_{base_loss_name}"
         
