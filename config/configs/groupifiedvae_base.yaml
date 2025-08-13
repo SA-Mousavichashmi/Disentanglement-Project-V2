@@ -20,6 +20,11 @@ trainer:
     fst_iter: 5000  # First iteration to start applying group constraints
     check_dims_freq: 1  # Frequency to check meaningful dimensions
 
+    ### Sampling settings ###
+    use_sampling: false  # Enable/disable sampling for constraint calculations
+    abel_sample_size: 1  # Number of dimension pairs to sample for abelian constraints
+    order_sample_size: 1  # Number of dimensions to sample for order constraints
+
     rec_dist: "gaussian"
 
     ### scheduler settings ###

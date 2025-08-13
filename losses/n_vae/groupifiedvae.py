@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import itertools
+import random
 from collections import OrderedDict
 
 from .. import baseloss
@@ -50,6 +51,15 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
     check_dims_freq : int, optional
         Frequency (in iterations) to check meaningful dimensions. Default: 200
     
+    use_sampling : bool, optional
+        Whether to use sampling for constraint calculations. Default: False
+        
+    abel_sample_size : int, optional
+        Number of dimension pairs to sample for abelian constraints. Default: 5
+        
+    order_sample_size : int, optional
+        Number of dimensions to sample for order constraints. Default: 3
+    
     schedulers_kwargs : list of dict, optional
         List of dictionaries containing scheduler configurations for parameters like 'weight'.
 
@@ -71,6 +81,9 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
                  kl_threshold=30.0,
                  fst_iter=5000,
                  check_dims_freq=200,
+                 use_sampling=False,
+                 abel_sample_size=1,
+                 order_sample_size=1,
                  schedulers_kwargs=None,
                  **kwargs):
         
@@ -89,6 +102,9 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
         self.kl_threshold = kl_threshold
         self.fst_iter = fst_iter
         self.check_dims_freq = check_dims_freq
+        self.use_sampling = use_sampling
+        self.abel_sample_size = abel_sample_size
+        self.order_sample_size = order_sample_size
         
         # Initialize base loss function
         self.base_loss_f = select(
@@ -119,6 +135,9 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
             'kl_threshold': self.kl_threshold,
             'fst_iter': self.fst_iter,
             'check_dims_freq': self.check_dims_freq,
+            'use_sampling': self.use_sampling,
+            'abel_sample_size': self.abel_sample_size,
+            'order_sample_size': self.order_sample_size,
             'rec_dist': self.rec_dist,
         }
         
@@ -264,17 +283,33 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
 
     def group_constrains(self, model, x, mean_dims):
         """Compute total group constraints (abelian + order)."""
-        # Abelian constraints for all pairs of meaningful dimensions
+        # Abelian constraints for pairs of meaningful dimensions
+        all_pairs = list(itertools.combinations(mean_dims, 2))
+        
+        if self.use_sampling and len(all_pairs) > self.abel_sample_size:
+            # Sample pairs for abelian constraints
+            sampled_pairs = random.sample(all_pairs, self.abel_sample_size)
+        else:
+            # Use all pairs if sampling is disabled or sample size is larger than available pairs
+            sampled_pairs = all_pairs
+        
         abloss = 0
-        for j, com in enumerate(itertools.combinations(mean_dims, 2)):
+        for j, com in enumerate(sampled_pairs):
             if j == 0:
                 abloss = self.constrain_abel(model, x, com[0], com[1], mean_dims)
             else:
                 abloss += self.constrain_abel(model, x, com[0], com[1], mean_dims)
         
-        # Order constraints for all meaningful dimensions
+        # Order constraints for meaningful dimensions
+        if self.use_sampling and len(mean_dims) > self.order_sample_size:
+            # Sample dimensions for order constraints
+            sampled_dims = random.sample(mean_dims, self.order_sample_size)
+        else:
+            # Use all dimensions if sampling is disabled or sample size is larger than available dims
+            sampled_dims = mean_dims
+        
         orloss = 0
-        for i, key in enumerate(mean_dims):
+        for i, key in enumerate(sampled_dims):
             if i == 0:
                 orloss = self.constrain_order(model, x, key, mean_dims)
             else:
