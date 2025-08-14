@@ -67,8 +67,10 @@ class Loss(BaseLoss):
                     f"but found unexpected schedulers for: {list(invalid_schedulers)}"
                 )
             
-            commutative_weight = self.schedulers['commutative_weight'].initial_value
-            meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+            if 'commutative_weight' in self.schedulers:
+                self.commutative_weight = self.schedulers['commutative_weight'].get_value()
+            if 'meaningful_weight' in self.schedulers:
+                self.meaningful_weight = self.schedulers['meaningful_weight'].get_value()
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs

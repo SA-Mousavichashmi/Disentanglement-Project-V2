@@ -49,7 +49,7 @@ class Loss(baseloss.BaseLoss):
                 raise ValueError(f"Invalid scheduler configuration. Beta-VAE expects exactly one scheduler for 'beta', "
                                  f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
             
-            beta = self.schedulers['beta'].get_value()
+            self.beta = self.schedulers['beta'].get_value()
     
         self.log_kl_components = log_kl_components
 
