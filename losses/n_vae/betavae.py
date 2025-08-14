@@ -36,18 +36,21 @@ class Loss(baseloss.BaseLoss):
         a constrained variational framework." (2016).
     """
 
-    def __init__(self, beta=1.0, log_kl_components=False, schedulers_kwargs=None, **kwargs):
-        super().__init__(mode="post_forward", schedulers_kwargs=schedulers_kwargs, **kwargs)
+    def __init__(self, beta=1.0, log_kl_components=False, **kwargs):
+
+        ##### parameters that is compatible for scheduling #####
+        self.beta = beta
+
+        super().__init__(mode="post_forward", **kwargs)
         
         # Initialize schedulers using base class method
         if self.schedulers:
-            if len(self.schedulers) > 1:
-                raise ValueError("Beta-VAE supports only one scheduler for 'beta'.")
+            if not (len(self.schedulers) == 1 and 'beta' in self.schedulers):
+                raise ValueError(f"Invalid scheduler configuration. Beta-VAE expects exactly one scheduler for 'beta', "
+                                 f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
             
-            if 'beta' in self.schedulers:
-                beta = self.schedulers['beta'].initial_value
-        
-        self.beta = beta
+            beta = self.schedulers['beta'].initial_value
+    
         self.log_kl_components = log_kl_components
 
     @property

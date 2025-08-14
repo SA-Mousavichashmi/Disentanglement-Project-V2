@@ -45,19 +45,30 @@ class Loss(BaseLoss):
                  schedulers_kwargs=None,
                  **kwargs
                  ):
-        # Initialize schedulers using base class method
         
+        ##### parameters that is compatible for scheduling #####
+        self.commutative_weight = commutative_weight
+        self.meaningful_weight = meaningful_weight
+
         super(Loss, self).__init__(mode="optimizes_internally", 
                                    rec_dist=rec_dist, 
                                    schedulers_kwargs=schedulers_kwargs, 
                                    **kwargs)
         
         if self.schedulers: 
-            # Set initial values from schedulers if they exist
-            if 'commutative_weight' in self.schedulers:
-                commutative_weight = self.schedulers['commutative_weight'].initial_value
-            if 'meaningful_weight' in self.schedulers:
-                meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+            # Validate scheduler configuration
+            allowed_schedulers = {'commutative_weight', 'meaningful_weight'}
+            provided_schedulers = set(self.schedulers.keys())
+            
+            if not provided_schedulers.issubset(allowed_schedulers):
+                invalid_schedulers = provided_schedulers - allowed_schedulers
+                raise ValueError(
+                    f"Invalid scheduler configuration. Group Theory loss only supports schedulers for {list(allowed_schedulers)}, "
+                    f"but found unexpected schedulers for: {list(invalid_schedulers)}"
+                )
+            
+            commutative_weight = self.schedulers['commutative_weight'].initial_value
+            meaningful_weight = self.schedulers['meaningful_weight'].initial_value
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
@@ -78,8 +89,6 @@ class Loss(BaseLoss):
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
         self.deterministic_rep = deterministic_rep        # Store the weights
-        self.commutative_weight = commutative_weight
-        self.meaningful_weight = meaningful_weight
         self.group_action_latent_range = group_action_latent_range
         self.group_action_latent_distribution = group_action_latent_distribution
 
@@ -168,9 +177,10 @@ class Loss(BaseLoss):
         state['base_loss_state_dict'] = self.base_loss_f.state_dict() 
         
         # Save scheduler states
-        state['scheduler_states'] = {}
-        for param_name, scheduler in self.schedulers.items():
-            state['scheduler_states'][param_name] = scheduler.state_dict()
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
                 
         return state
 
@@ -184,9 +194,10 @@ class Loss(BaseLoss):
         self.base_loss_f.load_state_dict(self.base_loss_state_dict)
         
         # Load scheduler states
-        if 'scheduler_states' in state_dict:
+        if 'scheduler_states' in state_dict and self.schedulers:
             for param_name, scheduler_state in state_dict['scheduler_states'].items():
-                self.schedulers[param_name].load_state_dict(scheduler_state)
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
     def _group_action_commutative_loss(self, data, model, kl_components):
         """

@@ -43,9 +43,22 @@ class Loss(baseloss.BaseLoss):
         external_optimization=False,
         **kwargs,
     ):
+        
+        ### parameters that is compatible for scheduling #####
+        self.gamma = gamma
+
         # Set mode based on whether external optimization is used
         mode = "pre_forward" if external_optimization else "optimizes_internally"
         super().__init__(mode=mode, **kwargs)
+        
+        # Initialize schedulers using base class method
+        if self.schedulers:
+            if not (len(self.schedulers) == 1 and 'gamma' in self.schedulers):
+                raise ValueError(f"Invalid scheduler configuration. FactorVAE expects exactly one scheduler for 'gamma', "
+                                 f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
+            
+            gamma = self.schedulers['gamma'].initial_value
+            
         self.device = device
         self.gamma = gamma
         self.external_optimization = external_optimization
@@ -62,7 +75,7 @@ class Loss(baseloss.BaseLoss):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             "gamma": self.gamma,
             "discr_lr": self.optimizer_d.param_groups[0]["lr"],
             "discr_betas": self.optimizer_d.param_groups[0]["betas"],
@@ -70,6 +83,19 @@ class Loss(baseloss.BaseLoss):
             "external_optimization": self.external_optimization,
             "rec_dist": self.rec_dist,
         }
+        
+        # Add scheduler configurations
+        if self.schedulers:
+            schedulers_kwargs = []
+            for param_name, scheduler in self.schedulers.items():
+                schedulers_kwargs.append({
+                    'name': scheduler.name,
+                    'param_name': param_name,
+                    'kwargs': {**scheduler.kwargs}
+                })
+            kwargs_dict['schedulers_kwargs'] = schedulers_kwargs
+        
+        return kwargs_dict
 
     # ------------ separate methods for VAE loss and discriminator update --------
     def compute_vae_loss(self, data_B, model):
@@ -211,14 +237,28 @@ class Loss(baseloss.BaseLoss):
 
     # ------------ checkpoint helpers -------------------------------------------
     def state_dict(self):
-        return {
+        state = {
             "discriminator": self.discriminator.state_dict(),
             "optimizer_d": self.optimizer_d.state_dict(),
         }
+        
+        # Save scheduler states
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
+        
+        return state
 
     def load_state_dict(self, state):
         self.discriminator.load_state_dict(state["discriminator"])
         self.optimizer_d.load_state_dict(state["optimizer_d"])
+        
+        # Load scheduler states
+        if 'scheduler_states' in state and self.schedulers:
+            for param_name, scheduler_state in state['scheduler_states'].items():
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
 class FactorDiscriminator(nn.Module):
 
