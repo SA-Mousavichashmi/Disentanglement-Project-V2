@@ -97,7 +97,7 @@ class GroupifiedVAELoss(baseloss.BaseLoss):
                     f"Invalid scheduler configuration. GroupifiedVAE expects exactly one scheduler for the 'weight' parameter, "
                     f"but found {len(self.schedulers)} for: {provided_schedulers}"
                 )
-            weight = self.schedulers['weight'].initial_value
+            weight = self.schedulers['weight'].get_value()
         
         self.base_loss_name = base_loss_name
         self.base_loss_kwargs = base_loss_kwargs

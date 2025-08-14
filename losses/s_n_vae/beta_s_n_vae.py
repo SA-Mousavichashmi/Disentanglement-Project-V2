@@ -40,7 +40,7 @@ class BetaSNVAELoss(baseloss.BaseLoss):
                 raise ValueError(f"Invalid scheduler configuration. Beta-S-N-VAE expects exactly one scheduler for 'beta', "
                                  f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
             
-            beta = self.schedulers['beta'].initial_value
+            beta = self.schedulers['beta'].get_value()
             
         self.beta = beta
         if latent_factor_topologies is None:

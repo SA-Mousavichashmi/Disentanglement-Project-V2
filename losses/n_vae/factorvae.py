@@ -57,7 +57,7 @@ class Loss(baseloss.BaseLoss):
                 raise ValueError(f"Invalid scheduler configuration. FactorVAE expects exactly one scheduler for 'gamma', "
                                  f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
             
-            gamma = self.schedulers['gamma'].initial_value
+            gamma = self.schedulers['gamma'].get_value()
             
         self.device = device
         self.gamma = gamma

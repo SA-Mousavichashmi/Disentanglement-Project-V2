@@ -62,7 +62,7 @@ class AnnealSNVAELoss(baseloss.BaseLoss):
                 raise ValueError(f"Invalid scheduler configuration. Annealed-S-N-VAE expects exactly one scheduler for 'gamma', "
                                  f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
             
-            gamma = self.schedulers['gamma'].initial_value
+            gamma = self.schedulers['gamma'].get_value()
         
         self.n_train_steps = 0
         self.gamma = gamma

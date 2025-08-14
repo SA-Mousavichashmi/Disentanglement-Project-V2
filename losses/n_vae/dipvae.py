@@ -70,12 +70,9 @@ class Loss(baseloss.BaseLoss):
                     f"but found unexpected schedulers for: {list(invalid_schedulers)}"
                 )
 
-            if 'lambda_od' in self.schedulers:
-                lambda_od = self.schedulers['lambda_od'].initial_value
-            if 'lambda_d' in self.schedulers:
-                lambda_d = self.schedulers['lambda_d'].initial_value
-            if 'beta' in self.schedulers:
-                beta = self.schedulers['beta'].initial_value
+            lambda_od = self.schedulers['lambda_od'].get_value()
+            lambda_d = self.schedulers['lambda_d'].get_value()
+            beta = self.schedulers['beta'].get_value()
 
         self.dip_type   = dip_type
         self.log_kl_components = log_kl_components
