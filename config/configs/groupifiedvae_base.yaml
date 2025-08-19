@@ -18,6 +18,22 @@ trainer:
     N: 10  # Parameter for complex representation (periodicity)
     kl_threshold: 30.0
     fst_iter: 5000  # First iteration to start applying group constraints
-    check_dims_freq: 200  # Frequency to check meaningful dimensions
+    check_dims_freq: 1  # Frequency to check meaningful dimensions
+
+    ### Sampling settings ###
+    use_sampling: false  # Enable/disable sampling for constraint calculations
+    abel_sample_size: 1  # Number of dimension pairs to sample for abelian constraints
+    order_sample_size: 1  # Number of dimensions to sample for order constraints
 
     rec_dist: "gaussian"
+
+    ### scheduler settings ###
+    schedulers_kwargs:
+      - name: linear
+        kwargs:
+          param_name: weight
+          initial_value: 0.0  # Start with no groupified loss
+          final_value: 10    # End with full groupified loss
+          before_start_value: 0  # Value to use before start_step
+          start_step: ${trainer.loss.fst_iter}     # Start scheduling immediately
+          total_steps: 300000

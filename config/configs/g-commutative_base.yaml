@@ -1,7 +1,6 @@
 defaults:
   - base
   - trainer/loss/base_loss: null
-  - trainer/loss/meaningful_gan_config: wgan-gp
   - _self_
 
 # Only override or add configs that are different from base.yaml below
@@ -12,14 +11,19 @@ trainer:
     device: "cuda"
 
     ### commutative settings ###
-    commutative_weight: 0
+    commutative_weight: 1.0
     commutative_component_order: 2
     commutative_comparison_dist: "gaussian"
 
     ### meaningful settings ###
-    meaningful_weight: 1.0
+    meaningful_weight: 0
     meaningful_component_order: 1
     meaningful_transformation_order: 1
+    meaningful_critic_gradient_penalty_weight: 10.0
+    meaningful_critic_lr: 1e-4
+    meaningful_critic_betas: [0.9, 0.999]  # Adam optimizer beta1, beta2 parameters
+    meaningful_critic_eps: 1e-8  # Adam optimizer epsilon for numerical stability
+    meaningful_critic_weight_decay: 0.0  # Adam optimizer L2 penalty
     meaningful_n_critic: 1
 
     ### overall settings ###
@@ -34,9 +38,9 @@ trainer:
     schedulers_kwargs:
       - name: linear
         kwargs:
-          param_name: meaningful_weight
-          initial_value: 0.0  # Start with no meaningful loss
-          final_value: 10     # End with full meaningful loss
+          param_name: commutative_weight
+          initial_value: 0.0  # Start with no commutative loss
+          final_value: 10     # End with full commutative loss
           before_start_value: 0
-          start_step: ${trainer.loss.warm_up_steps} # Start scheduling immediately
+          start_step: ${trainer.loss.warm_up_steps}       # Start scheduling immediately
           total_steps: 300000

@@ -187,3 +187,8 @@ dummy (tests).ipynb
 checkpoints/
 
 back_up/
+
+# Experiment outputs
+# Folders commonly created by training/experiments; use the project's canonical name
+# (configured default: see `config/config_schema/trainer_config.py` -> `results_dir`)
+experiments/

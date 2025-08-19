@@ -5,12 +5,14 @@ from typing import Any, Dict, Union
 class BaseHyperparameterScheduler(abc.ABC):
     """Base class for hyperparameter schedulers."""
     
-    def __init__(self, param_name: str, initial_value: float, start_step: int = 0, **kwargs):
+    def __init__(self, param_name: str, initial_value: float, start_step: int = 0, 
+                 before_start_value: float = None, **kwargs):
         if start_step < 0:
             raise ValueError("start_step must be non-negative")
         self.param_name = param_name
         self.initial_value = initial_value
         self.start_step = start_step
+        self.before_start_value = before_start_value
         self.current_step = 0
         self.current_value = initial_value
     
@@ -66,14 +68,15 @@ class LinearScheduler(BaseHyperparameterScheduler):
             'param_name': self.param_name,
             'initial_value': self.initial_value,
             'final_value': self.final_value,
+            'before_start_value': self.before_start_value,
             'start_step': self.start_step,
-            'total_steps': self.total_steps
+            'total_steps': self.total_steps,
         }
     
     def step(self) -> float:
         if self.current_step < self.start_step:
             self.current_step += 1
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps
@@ -89,7 +92,7 @@ class LinearScheduler(BaseHyperparameterScheduler):
     
     def get_value(self) -> float:
         if self.current_step < self.start_step:
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps
@@ -118,13 +121,14 @@ class ExponentialScheduler(BaseHyperparameterScheduler):
             'param_name': self.param_name,
             'initial_value': self.initial_value,
             'start_step': self.start_step,
-            'decay_rate': self.decay_rate
+            'decay_rate': self.decay_rate,
+            'before_start_value': self.before_start_value
         }
     
     def step(self) -> float:
         if self.current_step < self.start_step:
             self.current_step += 1
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         self.current_value = self.initial_value * (self.decay_rate ** adjusted_step)
@@ -133,7 +137,7 @@ class ExponentialScheduler(BaseHyperparameterScheduler):
     
     def get_value(self) -> float:
         if self.current_step < self.start_step:
-            return self.current_value
+            return self.before_start_value
         adjusted_step = self.current_step - self.start_step
         return self.initial_value * (self.decay_rate ** adjusted_step)
 
@@ -158,14 +162,15 @@ class CosineScheduler(BaseHyperparameterScheduler):
             'param_name': self.param_name,
             'initial_value': self.initial_value,
             'final_value': self.final_value,
+            'before_start_value': self.before_start_value,
             'start_step': self.start_step,
-            'total_steps': self.total_steps
+            'total_steps': self.total_steps,
         }
     
     def step(self) -> float:
         if self.current_step < self.start_step:
             self.current_step += 1
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps
@@ -182,7 +187,7 @@ class CosineScheduler(BaseHyperparameterScheduler):
     
     def get_value(self) -> float:
         if self.current_step < self.start_step:
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps
@@ -218,16 +223,17 @@ class CyclicalAnnealingScheduler(BaseHyperparameterScheduler):
             'param_name': self.param_name,
             'initial_value': self.initial_value,
             'final_value': self.final_value,
+            'before_start_value': self.before_start_value,
             'start_step': self.start_step,
             'total_steps': self.total_steps,
             'n_cycle': self.n_cycle,
-            'ratio': self.ratio
+            'ratio': self.ratio,
         }
     
     def step(self) -> float:
         if self.current_step < self.start_step:
             self.current_step += 1
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps
@@ -250,7 +256,7 @@ class CyclicalAnnealingScheduler(BaseHyperparameterScheduler):
     
     def get_value(self) -> float:
         if self.current_step < self.start_step:
-            return self.current_value
+            return self.before_start_value
             
         adjusted_step = self.current_step - self.start_step
         adjusted_total_steps = self.total_steps

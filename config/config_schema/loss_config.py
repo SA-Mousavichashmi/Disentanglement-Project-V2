@@ -152,3 +152,6 @@ class GroupifiedVAEConfig(LossConfig):
     kl_threshold: float = 30.0
     fst_iter: int = 5000
     check_dims_freq: int = 200
+    use_sampling: bool = False
+    abel_sample_size: int = 1
+    order_sample_size: int = 1
