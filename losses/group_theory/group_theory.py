@@ -40,6 +40,9 @@ class Loss(BaseLoss):
                  group_action_latent_range=1,
                  group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
+                 meaningful_critic_betas=(0.9, 0.999),
+                 meaningful_critic_eps=1e-8,
+                 meaningful_critic_weight_decay=0.0,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
@@ -109,6 +112,9 @@ class Loss(BaseLoss):
         self.meaningful_transformation_order = meaningful_transformation_order
         self.meaningful_critic_gradient_penalty_weight = meaningful_critic_gradient_penalty_weight
         self.meaningful_critic_lr = meaningful_critic_lr
+        self.meaningful_critic_betas = meaningful_critic_betas
+        self.meaningful_critic_eps = meaningful_critic_eps
+        self.meaningful_critic_weight_decay = meaningful_critic_weight_decay
         self.meaningful_n_critic = meaningful_n_critic
 
         # will be initialized in the first call to find the number of input channels
@@ -149,6 +155,9 @@ class Loss(BaseLoss):
             'meaningful_transformation_order': self.meaningful_transformation_order,
             'meaningful_critic_gradient_penalty_weight': self.meaningful_critic_gradient_penalty_weight,
             'meaningful_critic_lr': self.meaningful_critic_lr,
+            'meaningful_critic_betas': self.meaningful_critic_betas,
+            'meaningful_critic_eps': self.meaningful_critic_eps,
+            'meaningful_critic_weight_decay': self.meaningful_critic_weight_decay,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
             'group_action_latent_range': self.group_action_latent_range,
@@ -424,7 +433,13 @@ class Loss(BaseLoss):
             if  self.critic is None:
                 input_channels_num = data.shape[1]
                 self.critic = Critic(input_channels_num=input_channels_num).to(self.device)
-                self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.meaningful_critic_lr)
+                self.critic_optimizer = torch.optim.Adam(
+                    self.critic.parameters(), 
+                    lr=self.meaningful_critic_lr,
+                    betas=self.meaningful_critic_betas,
+                    eps=self.meaningful_critic_eps,
+                    weight_decay=self.meaningful_critic_weight_decay
+                )
 
             #################################################################
             # 1) Multiple critic (discriminator) updates first

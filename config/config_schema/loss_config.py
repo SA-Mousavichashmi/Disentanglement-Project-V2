@@ -114,6 +114,9 @@ class GroupTheoryConfig(LossConfig):
     meaningful_transformation_order: int = 1
     meaningful_critic_gradient_penalty_weight: float = 10.0
     meaningful_critic_lr: float = 1e-4
+    meaningful_critic_betas: tuple = (0.9, 0.999)  # Adam optimizer beta1, beta2 parameters
+    meaningful_critic_eps: float = 1e-8  # Adam optimizer epsilon for numerical stability
+    meaningful_critic_weight_decay: float = 0.0  # Adam optimizer L2 penalty
     meaningful_n_critic: int = 1
     deterministic_rep: bool = True
     group_action_latent_range: float = 2.0

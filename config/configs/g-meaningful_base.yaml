@@ -21,6 +21,9 @@ trainer:
     meaningful_transformation_order: 1
     meaningful_critic_gradient_penalty_weight: 10.0
     meaningful_critic_lr: 1e-4
+    meaningful_critic_betas: [0.9, 0.999]  # Adam optimizer beta1, beta2 parameters
+    meaningful_critic_eps: 1e-8  # Adam optimizer epsilon for numerical stability
+    meaningful_critic_weight_decay: 0.0  # Adam optimizer L2 penalty
     meaningful_n_critic: 1
 
     ### overall settings ###
