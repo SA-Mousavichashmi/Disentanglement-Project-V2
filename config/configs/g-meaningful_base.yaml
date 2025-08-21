@@ -32,14 +32,14 @@ trainer:
     group_action_latent_distribution: "uniform"
     comp_latent_select_threshold: 0.1
     base_loss_state_dict: null
-    warm_up_steps: 0
+    warm_up_steps: 5000
 
     ### scheduler settings ###
     schedulers_kwargs:
       - name: linear
         kwargs:
           param_name: meaningful_weight
-          initial_value: 0.0  # Start with no meaningful loss
+          initial_value: 0.05  # Start with no meaningful loss
           final_value: 10     # End with full meaningful loss
           before_start_value: 0
           start_step: ${trainer.loss.warm_up_steps} # Start scheduling immediately
