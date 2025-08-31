@@ -61,13 +61,23 @@ class ExperimentManager:
         self.experiment_config = experiment_config  # This is the full ExperimentConfig
         self.experiment_id = experiment_config.experiment_id or self._generate_experiment_id()
         
+        # Get dataset and loss names for hierarchy
+        dataset_name = self.experiment_config.trainer.dataset.name
+        loss_name = self._get_loss_directory_name()
+        
         # Ensure the base experiments directory exists
         base_experiments_dir = Path(experiment_config.results_dir)
         base_experiments_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Base experiments directory: {base_experiments_dir.absolute()}")
         
-        # Create the specific experiment directory
-        self.results_dir = base_experiments_dir / self.experiment_id
+        # Create the hierarchical experiment directory: experiments/dataset/loss/experiment_id
+        dataset_dir = base_experiments_dir / dataset_name
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        
+        loss_dir = dataset_dir / loss_name
+        loss_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.results_dir = loss_dir / self.experiment_id
         self.results_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Experiment directory created: {self.results_dir.absolute()}")
         
@@ -131,8 +141,9 @@ class ExperimentManager:
         # Log experiment initialization info (will go to both console and file)
         logger.info(f"Dual logging enabled - Console + File: {self.log_file_path}")
         logger.info(f"Experiment ID: {self.experiment_id}")
-        logger.info(f"Base experiment directory: {self.results_dir.parent}")
-        logger.info(f"Experiment directory: {self.results_dir}")
+        logger.info(f"Dataset: {self.experiment_config.trainer.dataset.name}")
+        logger.info(f"Loss: {self._get_loss_directory_name()}")
+        logger.info(f"Hierarchical experiment directory: {self.results_dir}")
         logger.info(f"Number of seeds: {len(self.experiment_config.seeds)}")
         logger.info(f"Seeds: {self.experiment_config.seeds}")
         logger.info(f"Resume enabled: {self.experiment_config.resume}")
@@ -172,6 +183,17 @@ class ExperimentManager:
             loss_name = f"{loss_name}_{base_loss_name}"
         
         return f"{loss_name}_{dataset_name}_{model_name}_{timestamp}"
+    
+    def _get_loss_directory_name(self) -> str:
+        """Get the loss directory name, handling group theory losses."""
+        loss_name = self.experiment_config.trainer.loss.name
+        
+        # For group theory losses, use the base loss name as the directory
+        if loss_name in ["group_theory", "groupifiedvae"]:
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            return base_loss_name
+        
+        return loss_name
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
         """Save the experiment configuration with improved formatting and spacing."""
