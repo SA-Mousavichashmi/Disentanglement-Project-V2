@@ -43,4 +43,4 @@ trainer:
           final_value: 10     # End with full meaningful loss
           before_start_value: 0
           start_step: ${trainer.loss.warm_up_steps} # Start scheduling immediately
-          total_steps: 25000
+          total_steps: 255000

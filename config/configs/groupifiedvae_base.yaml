@@ -36,4 +36,4 @@ trainer:
           final_value: 10    # End with full groupified loss
           before_start_value: 0  # Value to use before start_step
           start_step: ${trainer.loss.fst_iter}     # Start scheduling immediately
-          total_steps: 250000
+          total_steps: 255000
