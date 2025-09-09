@@ -70,12 +70,31 @@ class ExperimentManager:
         base_experiments_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Base experiments directory: {base_experiments_dir.absolute()}")
         
-        # Create the hierarchical experiment directory: experiments/dataset/loss/experiment_id
+        # Create the hierarchical experiment directory
         dataset_dir = base_experiments_dir / dataset_name
         dataset_dir.mkdir(parents=True, exist_ok=True)
         
-        loss_dir = dataset_dir / loss_name
-        loss_dir.mkdir(parents=True, exist_ok=True)
+        # Handle group theory losses with special directory structure
+        if self.experiment_config.trainer.loss.name in ["group_theory", "groupifiedvae"]:
+            # Get the base loss name for group theory losses
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            
+            # Create base_loss directory first
+            base_loss_dir = dataset_dir / base_loss_name
+            base_loss_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Then create group_theory subdirectory inside base_loss
+            group_theory_dir = base_loss_dir / "group_theory"
+            group_theory_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Finally create the specific loss type directory inside group_theory
+            loss_dir = group_theory_dir / loss_name
+            loss_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Group theory loss directory structure: {dataset_name}/{base_loss_name}/group_theory/{loss_name}")
+        else:
+            # For non-group theory losses, use the original structure: dataset/loss
+            loss_dir = dataset_dir / loss_name
+            loss_dir.mkdir(parents=True, exist_ok=True)
         
         self.results_dir = loss_dir / self.experiment_id
         self.results_dir.mkdir(parents=True, exist_ok=True)
@@ -142,7 +161,17 @@ class ExperimentManager:
         logger.info(f"Dual logging enabled - Console + File: {self.log_file_path}")
         logger.info(f"Experiment ID: {self.experiment_id}")
         logger.info(f"Dataset: {self.experiment_config.trainer.dataset.name}")
-        logger.info(f"Loss: {self._get_loss_directory_name()}")
+        
+        # Enhanced logging for group theory losses
+        if self.experiment_config.trainer.loss.name in ["group_theory", "groupifiedvae"]:
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            logger.info(f"Loss Type: {self.experiment_config.trainer.loss.name}")
+            logger.info(f"Base Loss: {base_loss_name}")
+            logger.info(f"Group Theory Variant: {self._get_loss_directory_name()}")
+            logger.info(f"Directory Structure: {self.experiment_config.trainer.dataset.name}/{base_loss_name}/group_theory/{self._get_loss_directory_name()}")
+        else:
+            logger.info(f"Loss: {self._get_loss_directory_name()}")
+        
         logger.info(f"Hierarchical experiment directory: {self.results_dir}")
         logger.info(f"Number of seeds: {len(self.experiment_config.seeds)}")
         logger.info(f"Seeds: {self.experiment_config.seeds}")
@@ -177,10 +206,12 @@ class ExperimentManager:
         loss_name = self.experiment_config.trainer.loss.name
         dataset_name = self.experiment_config.trainer.dataset.name
         
-        # For group theory losses, include the base loss name
+        # For group theory losses, use the specific group theory variant name and base loss
         if loss_name in ["group_theory", "groupifiedvae"]:
             base_loss_name = self.experiment_config.trainer.loss.base_loss.name
-            loss_name = f"{loss_name}_{base_loss_name}"
+            group_theory_variant = self._get_group_theory_loss_type()
+            # Use the group theory variant name directly (e.g., g-meaningful, g-commutative)
+            loss_name = f"{group_theory_variant}_{base_loss_name}"
         
         return f"{loss_name}_{dataset_name}_{model_name}_{timestamp}"
     
@@ -188,12 +219,59 @@ class ExperimentManager:
         """Get the loss directory name, handling group theory losses."""
         loss_name = self.experiment_config.trainer.loss.name
         
-        # For group theory losses, use the base loss name as the directory
+        # For group theory losses, determine the specific type
         if loss_name in ["group_theory", "groupifiedvae"]:
-            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
-            return base_loss_name
+            return self._get_group_theory_loss_type()
         
         return loss_name
+    
+    def _get_group_theory_loss_type(self) -> str:
+        """Determine the specific group theory loss type based on weights and schedulers."""
+        loss_config = self.experiment_config.trainer.loss
+        loss_name = loss_config.name
+        
+        # Handle groupifiedvae as its own distinct type
+        if loss_name == "groupifiedvae":
+            return "groupifiedvae"
+        
+        # For group_theory losses, check meaningful and commutative weights/schedulers
+        if loss_name == "group_theory":
+            # Get meaningful and commutative weights
+            meaningful_weight = getattr(loss_config, 'meaningful_weight', 0)
+            commutative_weight = getattr(loss_config, 'commutative_weight', 0)
+            
+            # Check if schedulers are configured for meaningful and/or commutative weights
+            has_meaningful_scheduler = False
+            has_commutative_scheduler = False
+            
+            schedulers_kwargs = getattr(loss_config, 'schedulers_kwargs', [])
+            if schedulers_kwargs:
+                for scheduler in schedulers_kwargs:
+                    if hasattr(scheduler, 'kwargs') and hasattr(scheduler.kwargs, 'param_name'):
+                        param_name = scheduler.kwargs.param_name
+                        if param_name == 'meaningful_weight':
+                            has_meaningful_scheduler = True
+                        elif param_name == 'commutative_weight':
+                            has_commutative_scheduler = True
+            
+            # Determine loss type based on weights and/or schedulers
+            is_meaningful = meaningful_weight > 0 or has_meaningful_scheduler
+            is_commutative = commutative_weight > 0 or has_commutative_scheduler
+            
+            if is_meaningful and is_commutative:
+                return "g-commutative-meaningful"
+            elif is_meaningful and not is_commutative:
+                return "g-meaningful"
+            elif is_commutative and not is_meaningful:
+                return "g-commutative"
+            else:
+                # For other group theory configurations, use the base loss name
+                base_loss_name = loss_config.base_loss.name
+                return base_loss_name
+        
+        # Fallback for unknown group theory loss types
+        base_loss_name = loss_config.base_loss.name
+        return base_loss_name
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
         """Save the experiment configuration with improved formatting and spacing."""
