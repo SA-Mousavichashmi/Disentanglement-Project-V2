@@ -92,9 +92,13 @@ class ExperimentManager:
             loss_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Group theory loss directory structure: {dataset_name}/{base_loss_name}/group_theory/{loss_name}")
         else:
-            # For non-group theory losses, use the original structure: dataset/loss
-            loss_dir = dataset_dir / loss_name
+            # For non-group theory losses, use the base structure: dataset/base/loss
+            base_dir = dataset_dir / "base"
+            base_dir.mkdir(parents=True, exist_ok=True)
+            
+            loss_dir = base_dir / loss_name
             loss_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Base loss directory structure: {dataset_name}/base/{loss_name}")
         
         self.results_dir = loss_dir / self.experiment_id
         self.results_dir.mkdir(parents=True, exist_ok=True)
