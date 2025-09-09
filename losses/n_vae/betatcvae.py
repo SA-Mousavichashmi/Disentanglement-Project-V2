@@ -48,7 +48,20 @@ class Loss(baseloss.BaseLoss):
     """
 
     def __init__(self, n_data, alpha=1., gamma=1., beta=6., log_kl_components=False, is_mss=True, **kwargs):
+
+        ##### parameters that is compatible for scheduling #####
+        self.gamma = gamma
+
         super().__init__(mode="post_forward", **kwargs)
+        
+        # Initialize schedulers using base class method
+        if self.schedulers:
+            if not (len(self.schedulers) == 1 and 'gamma' in self.schedulers):
+                raise ValueError(f"Invalid scheduler configuration. Beta-TCVAE expects exactly one scheduler for 'gamma', "
+                                 f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
+            
+            gamma = self.schedulers['gamma'].get_value()
+            
         self._name = 'betatcvae'
         self.n_data = n_data
         self.alpha = alpha
@@ -64,7 +77,7 @@ class Loss(baseloss.BaseLoss):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             'n_data': self.n_data,
             'alpha': self.alpha,
             'beta': self.beta,
@@ -73,13 +86,40 @@ class Loss(baseloss.BaseLoss):
             'log_kl_components': self.log_kl_components,
             'rec_dist': self.rec_dist,
         }
+        
+        # Add scheduler configurations
+        if self.schedulers:
+            schedulers_kwargs = []
+            for param_name, scheduler in self.schedulers.items():
+                schedulers_kwargs.append({
+                    'name': scheduler.name,
+                    'param_name': param_name,
+                    'kwargs': {**scheduler.kwargs}
+                })
+            kwargs_dict['schedulers_kwargs'] = schedulers_kwargs
+        
+        return kwargs_dict
     
     def state_dict(self):
-        # Beta TCVAE does not have any internal state to save.
-        return None
+        state = {}
+        
+        # Save scheduler states
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
+        
+        return state if state else None
 
     def load_state_dict(self, state_dict):
-        return
+        if state_dict is None:
+            return
+            
+        # Load scheduler states
+        if 'scheduler_states' in state_dict and self.schedulers:
+            for param_name, scheduler_state in state_dict['scheduler_states'].items():
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
     def __call__(self, data, reconstructions, stats_qzx, samples_qzx, is_train, **kwargs):
         if isinstance(stats_qzx, torch.Tensor):
