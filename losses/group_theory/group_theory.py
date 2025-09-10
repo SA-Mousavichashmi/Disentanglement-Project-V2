@@ -38,9 +38,6 @@ class Loss(BaseLoss):
                  group_action_latent_range=2,
                  group_action_latent_distribution='uniform',
                  comp_latent_select_threshold=0,
-                 meaningful_critic_betas=(0.9, 0.999),
-                 meaningful_critic_eps=1e-8,
-                 meaningful_critic_weight_decay=0.0,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
