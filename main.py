@@ -25,13 +25,13 @@ from config.config_schema.dataset_config import (
 )
 from config.config_schema.model_config import (
     ModelConfig, VAEConfig, VAEBurgessConfig, VAEChenMLPConfig, VAELocatelloConfig,
-    VAELocatelloSBDConfig, VAEMonteroSmallConfig, VAEMonteroLargeConfig,
     ToroidalVAEConfig, ToroidalVAEBurgessConfig, ToroidalVAELocatelloConfig,
     SNVAEBurgessConfig, SNVAELocatelloConfig
 )
 from config.config_schema.loss_config import (
     LossConfig, BetaVAEConfig, AnnealedVAEConfig, FactorVAEConfig, BetaTCVAEConfig,
-    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig
+    BetaToroidalVAEConfig, BetaSNVAEConfig, AnnealSNVAEConfig, GroupTheoryConfig,
+    GroupifiedVAEConfig, DipVAEIConfig, DipVAEIIConfig
 )
 from config.config_schema.metric_config import MetricAggregatorConfig
 
@@ -61,13 +61,46 @@ class ExperimentManager:
         self.experiment_config = experiment_config  # This is the full ExperimentConfig
         self.experiment_id = experiment_config.experiment_id or self._generate_experiment_id()
         
+        # Get dataset and loss names for hierarchy
+        dataset_name = self.experiment_config.trainer.dataset.name
+        loss_name = self._get_loss_directory_name()
+        
         # Ensure the base experiments directory exists
         base_experiments_dir = Path(experiment_config.results_dir)
         base_experiments_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Base experiments directory: {base_experiments_dir.absolute()}")
         
-        # Create the specific experiment directory
-        self.results_dir = base_experiments_dir / self.experiment_id
+        # Create the hierarchical experiment directory
+        dataset_dir = base_experiments_dir / dataset_name
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Handle group theory losses with special directory structure
+        if self.experiment_config.trainer.loss.name in ["group_theory", "groupifiedvae"]:
+            # Get the base loss name for group theory losses
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            
+            # Create base_loss directory first
+            base_loss_dir = dataset_dir / base_loss_name
+            base_loss_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Then create group_theory subdirectory inside base_loss
+            group_theory_dir = base_loss_dir / "group_theory"
+            group_theory_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Finally create the specific loss type directory inside group_theory
+            loss_dir = group_theory_dir / loss_name
+            loss_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Group theory loss directory structure: {dataset_name}/{base_loss_name}/group_theory/{loss_name}")
+        else:
+            # For non-group theory losses, use the base structure: dataset/loss/base
+            loss_type_dir = dataset_dir / loss_name
+            loss_type_dir.mkdir(parents=True, exist_ok=True)
+            
+            loss_dir = loss_type_dir / "base"
+            loss_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Base loss directory structure: {dataset_name}/{loss_name}/base")
+        
+        self.results_dir = loss_dir / self.experiment_id
         self.results_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Experiment directory created: {self.results_dir.absolute()}")
         
@@ -131,8 +164,19 @@ class ExperimentManager:
         # Log experiment initialization info (will go to both console and file)
         logger.info(f"Dual logging enabled - Console + File: {self.log_file_path}")
         logger.info(f"Experiment ID: {self.experiment_id}")
-        logger.info(f"Base experiment directory: {self.results_dir.parent}")
-        logger.info(f"Experiment directory: {self.results_dir}")
+        logger.info(f"Dataset: {self.experiment_config.trainer.dataset.name}")
+        
+        # Enhanced logging for group theory losses
+        if self.experiment_config.trainer.loss.name in ["group_theory", "groupifiedvae"]:
+            base_loss_name = self.experiment_config.trainer.loss.base_loss.name
+            logger.info(f"Loss Type: {self.experiment_config.trainer.loss.name}")
+            logger.info(f"Base Loss: {base_loss_name}")
+            logger.info(f"Group Theory Variant: {self._get_loss_directory_name()}")
+            logger.info(f"Directory Structure: {self.experiment_config.trainer.dataset.name}/{base_loss_name}/group_theory/{self._get_loss_directory_name()}")
+        else:
+            logger.info(f"Loss: {self._get_loss_directory_name()}")
+        
+        logger.info(f"Hierarchical experiment directory: {self.results_dir}")
         logger.info(f"Number of seeds: {len(self.experiment_config.seeds)}")
         logger.info(f"Seeds: {self.experiment_config.seeds}")
         logger.info(f"Resume enabled: {self.experiment_config.resume}")
@@ -166,12 +210,72 @@ class ExperimentManager:
         loss_name = self.experiment_config.trainer.loss.name
         dataset_name = self.experiment_config.trainer.dataset.name
         
-        # For group theory losses, include the base loss name
-        if loss_name == "group_theory":
+        # For group theory losses, use the specific group theory variant name and base loss
+        if loss_name in ["group_theory", "groupifiedvae"]:
             base_loss_name = self.experiment_config.trainer.loss.base_loss.name
-            loss_name = f"{loss_name}_{base_loss_name}"
+            group_theory_variant = self._get_group_theory_loss_type()
+            # Use the group theory variant name directly (e.g., g-meaningful, g-commutative)
+            loss_name = f"{group_theory_variant}_{base_loss_name}"
         
         return f"{loss_name}_{dataset_name}_{model_name}_{timestamp}"
+    
+    def _get_loss_directory_name(self) -> str:
+        """Get the loss directory name, handling group theory losses."""
+        loss_name = self.experiment_config.trainer.loss.name
+        
+        # For group theory losses, determine the specific type
+        if loss_name in ["group_theory", "groupifiedvae"]:
+            return self._get_group_theory_loss_type()
+        
+        return loss_name
+    
+    def _get_group_theory_loss_type(self) -> str:
+        """Determine the specific group theory loss type based on weights and schedulers."""
+        loss_config = self.experiment_config.trainer.loss
+        loss_name = loss_config.name
+        
+        # Handle groupifiedvae as its own distinct type
+        if loss_name == "groupifiedvae":
+            return "groupifiedvae"
+        
+        # For group_theory losses, check meaningful and commutative weights/schedulers
+        if loss_name == "group_theory":
+            # Get meaningful and commutative weights
+            meaningful_weight = getattr(loss_config, 'meaningful_weight', 0)
+            commutative_weight = getattr(loss_config, 'commutative_weight', 0)
+            
+            # Check if schedulers are configured for meaningful and/or commutative weights
+            has_meaningful_scheduler = False
+            has_commutative_scheduler = False
+            
+            schedulers_kwargs = getattr(loss_config, 'schedulers_kwargs', [])
+            if schedulers_kwargs:
+                for scheduler in schedulers_kwargs:
+                    if hasattr(scheduler, 'kwargs') and hasattr(scheduler.kwargs, 'param_name'):
+                        param_name = scheduler.kwargs.param_name
+                        if param_name == 'meaningful_weight':
+                            has_meaningful_scheduler = True
+                        elif param_name == 'commutative_weight':
+                            has_commutative_scheduler = True
+            
+            # Determine loss type based on weights and/or schedulers
+            is_meaningful = meaningful_weight > 0 or has_meaningful_scheduler
+            is_commutative = commutative_weight > 0 or has_commutative_scheduler
+            
+            if is_meaningful and is_commutative:
+                return "g-commutative-meaningful"
+            elif is_meaningful and not is_commutative:
+                return "g-meaningful"
+            elif is_commutative and not is_meaningful:
+                return "g-commutative"
+            else:
+                # For other group theory configurations, use the base loss name
+                base_loss_name = loss_config.base_loss.name
+                return base_loss_name
+        
+        # Fallback for unknown group theory loss types
+        base_loss_name = loss_config.base_loss.name
+        return base_loss_name
 
     def _save_experiment_config(self): # TODO: Consider adding dataset and device info to saved config
         """Save the experiment configuration with improved formatting and spacing."""
@@ -342,6 +446,7 @@ class ExperimentManager:
     def generate_experiment_summary(self):
         """Generate final experiment summary with statistics across all seeds and save as YAML."""
         import yaml
+        import re
         if not self.results_csv_path.exists():
             logger.warning("No results CSV file found for summary.")
             return
@@ -362,21 +467,30 @@ class ExperimentManager:
             'metrics': {}
         }
 
+        # Pattern to identify KLD dimension-wise metrics (e.g., kld_KL_0, kld_KL_1, etc.)
+        kld_dimwise_pattern = re.compile(r'kld_KL_\d+')
+
         # Add mean, std, min, max for each numeric metric
         for col in numeric_columns:
             if col not in ['seed', 'experiment_id', 'training_completed']:
-                mean_val = float(df[col].mean())
-                std_val = float(df[col].std())
-                
-                # If only one seed, std will be NaN; set to 0.0
-                if len(df) == 1:
-                    std_val = 0.0
-                
-                # Round float values to 4 decimal places
-                summary_data['metrics'][col] = {
-                    'mean': round(mean_val, 4),
-                    'std': round(std_val, 4),
-                }
+                # Check if this is a KLD dimension-wise metric
+                if kld_dimwise_pattern.match(col):
+                    # Skip KLD dimension-wise metrics entirely
+                    continue
+                else:
+                    # For all other metrics, calculate mean and std as usual
+                    mean_val = float(df[col].mean())
+                    std_val = float(df[col].std())
+                    
+                    # If only one seed, std will be NaN; set to 0.0
+                    if len(df) == 1:
+                        std_val = 0.0
+                    
+                    # Round float values to 4 decimal places
+                    summary_data['metrics'][col] = {
+                        'mean': round(mean_val, 4),
+                        'std': round(std_val, 4),
+                    }
 
         # Save summary as YAML
         summary_yaml_path = self.results_dir / "experiment_summary.yaml"
@@ -470,10 +584,14 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         # Create seed-specific configuration
         seed_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
         
-        # Set up seed-specific checkpoint directory
-        seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
-        seed_cfg.trainer.checkpoint.enabled = True
-        seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
+        # Respect the original checkpoint enabled setting from config
+        checkpoint_enabled = cfg.trainer.checkpoint.enabled
+        seed_checkpoint_dir = None
+        
+        # Only set up seed-specific checkpoint directory if checkpointing is enabled
+        if checkpoint_enabled:
+            seed_checkpoint_dir = exp_manager.get_checkpoint_path(seed)
+            seed_cfg.trainer.checkpoint.save_dir = seed_checkpoint_dir
         
         try:
             # Run training for this seed
@@ -482,14 +600,15 @@ def run_experiment(cfg: ExperimentConfig) -> Dict[str, Any]:
         except (Exception, KeyboardInterrupt) as e:
             logger.error(f"Training failed for seed {seed}: {str(e)}")
 
-            # Clean up seed checkpoint directory if it exists
-            seed_checkpoint_path = Path(seed_checkpoint_dir)
-            if seed_checkpoint_path.exists():
-                try:
-                    shutil.rmtree(seed_checkpoint_path)
-                    logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
-                except Exception as cleanup_e:
-                    logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
+            # Clean up seed checkpoint directory if it exists and checkpointing was enabled
+            if checkpoint_enabled and seed_checkpoint_dir is not None:
+                seed_checkpoint_path = Path(seed_checkpoint_dir)
+                if seed_checkpoint_path.exists():
+                    try:
+                        shutil.rmtree(seed_checkpoint_path)
+                        logger.info(f"Cleaned up checkpoint directory for seed {seed}: {seed_checkpoint_path}")
+                    except Exception as cleanup_e:
+                        logger.warning(f"Failed to clean up checkpoint directory for seed {seed}: {cleanup_e}")
 
             logger.error("Experiment terminated due to training failure")
             # Clean up experiment logging before exiting
@@ -677,7 +796,7 @@ def create_loss(cfg: LossConfig) -> torch.nn.Module:
     loss_kwargs = OmegaConf.to_container(cfg, resolve=True)
     
     # Special handling for group_theory loss
-    if cfg.name == "group_theory":
+    if cfg.name == "group_theory" or cfg.name == "groupifiedvae":
         # Extract base_loss configuration and convert it to the old format
         base_loss_config = loss_kwargs.pop('base_loss')
         loss_kwargs['base_loss_name'] = base_loss_config['name']
@@ -873,9 +992,6 @@ def register_configs():
     cs.store(group="model", name="vae_burgess", node=VAEBurgessConfig)
     cs.store(group="model", name="vae_chen_mlp", node=VAEChenMLPConfig)
     cs.store(group="model", name="vae_locatello", node=VAELocatelloConfig)
-    cs.store(group="model", name="vae_locatello_sbd", node=VAELocatelloSBDConfig)
-    cs.store(group="model", name="vae_montero_small", node=VAEMonteroSmallConfig)
-    cs.store(group="model", name="vae_montero_large", node=VAEMonteroLargeConfig)
     cs.store(group="model", name="toroidal_vae", node=ToroidalVAEConfig)
     cs.store(group="model", name="toroidal_vae_burgess", node=ToroidalVAEBurgessConfig)
     cs.store(group="model", name="toroidal_vae_locatello", node=ToroidalVAELocatelloConfig)
@@ -887,10 +1003,13 @@ def register_configs():
     cs.store(group="loss", name="annealedvae", node=AnnealedVAEConfig)
     cs.store(group="loss", name="factorvae", node=FactorVAEConfig)
     cs.store(group="loss", name="betatcvae", node=BetaTCVAEConfig)
+    cs.store(group="loss", name="dipvae-i", node=DipVAEIConfig)
+    cs.store(group="loss", name="dipvae-ii", node=DipVAEIIConfig)
     cs.store(group="loss", name="beta_toroidal_vae", node=BetaToroidalVAEConfig)
     cs.store(group="loss", name="beta_s_n_vae", node=BetaSNVAEConfig)
     cs.store(group="loss", name="anneal_s_n_vae", node=AnnealSNVAEConfig)
     cs.store(group="loss", name="group_theory", node=GroupTheoryConfig)
+    cs.store(group="loss", name="groupifiedvae", node=GroupifiedVAEConfig)
 
     # Register dataset configs
     cs.store(group="dataset", name="cars3d", node=Cars3DConfig)

@@ -44,30 +44,40 @@ class Loss(baseloss.BaseLoss):
         lambda_od=10.0,
         lambda_d=100.0,
         beta=1.0,
-        schedulers_kwargs=None,
         log_kl_components=False,
         **kwargs,
     ):
-        super().__init__(mode="post_forward",
-                         schedulers_kwargs=schedulers_kwargs,
-                         **kwargs)
+
+        ### parameters that is compatible for scheduling #####
+        self.lambda_od = lambda_od
+        self.lambda_d = lambda_d
+        self.beta = beta
+
+        super().__init__(mode="post_forward", **kwargs)
 
         if dip_type not in ("i", "ii"):
             raise ValueError("dip_type must be 'i' or 'ii'.")
 
         # expose λ’s and β to the scheduler mechanism ------------------------
         if self.schedulers:
+            allowed_schedulers = {'lambda_od', 'lambda_d', 'beta'}
+            provided_schedulers = set(self.schedulers.keys())
+
+            if not provided_schedulers.issubset(allowed_schedulers):
+                invalid_schedulers = provided_schedulers - allowed_schedulers
+                raise ValueError(
+                    f"Invalid scheduler configuration. DIP-VAE only supports schedulers for {list(allowed_schedulers)}, "
+                    f"but found unexpected schedulers for: {list(invalid_schedulers)}"
+                )
+
             if 'lambda_od' in self.schedulers:
-                lambda_od = self.schedulers['lambda_od'].initial_value
+                self.lambda_od = self.schedulers['lambda_od'].get_value()
             if 'lambda_d' in self.schedulers:
-                lambda_d = self.schedulers['lambda_d'].initial_value
+                self.lambda_d = self.schedulers['lambda_d'].get_value()
             if 'beta' in self.schedulers:
-                beta = self.schedulers['beta'].initial_value
+                self.beta = self.schedulers['beta'].get_value()
 
         self.dip_type   = dip_type
-        self.lambda_od  = lambda_od
-        self.lambda_d   = lambda_d
-        self.beta       = beta
         self.log_kl_components = log_kl_components
 
     # --------------------------------------------------------------------- #

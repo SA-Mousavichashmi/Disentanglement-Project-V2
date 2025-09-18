@@ -28,6 +28,8 @@ trainer:
     latent_dim: 10
     decoder_output_dist: "bernoulli"
     use_batchnorm: false
+    use_complexify_rep: false
+    complexify_N: 10
 
   dataloader:
     batch_size: 64

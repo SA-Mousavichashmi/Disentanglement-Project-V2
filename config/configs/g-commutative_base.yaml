@@ -11,12 +11,12 @@ trainer:
     device: "cuda"
 
     ### commutative settings ###
-    commutative_weight: 0
+    commutative_weight: 1.0
     commutative_component_order: 2
     commutative_comparison_dist: "gaussian"
 
     ### meaningful settings ###
-    meaningful_weight: 1.0
+    meaningful_weight: 0
     meaningful_component_order: 1
     meaningful_transformation_order: 1
     meaningful_critic_gradient_penalty_weight: 10.0
@@ -38,9 +38,9 @@ trainer:
     schedulers_kwargs:
       - name: linear
         kwargs:
-          param_name: meaningful_weight
-          initial_value: 0.05  # Start with no meaningful loss
-          final_value: 10     # End with full meaningful loss
+          param_name: commutative_weight
+          initial_value: 0.05  # Start with no commutative loss
+          final_value: 10     # End with full commutative loss
           before_start_value: 0
-          start_step: ${trainer.loss.warm_up_steps} # Start scheduling immediately
+          start_step: ${trainer.loss.warm_up_steps}       # Start scheduling immediately
           total_steps: 255000

@@ -11,9 +11,6 @@ MODEL_LIST = [
     'vae_burgess', 
     'vae_chen_mlp', 
     'vae_locatello', 
-    'vae_locatello_sbd',
-    'vae_montero_small', 
-    'vae_montero_large',
     # S-VAE models
     'toroidal_vae',
     'toroidal_vae_burgess',
@@ -36,15 +33,6 @@ def select(name, **kwargs):
         return Model(**kwargs)
     if name == 'vae_locatello':
         from .n_vae.vae_locatello import Model
-        return Model(**kwargs)
-    if name == 'vae_locatello_sbd':
-        from .n_vae.vae_locatello_sbd import Model
-        return Model(**kwargs)
-    if name == 'vae_montero_small':
-        from .n_vae.vae_montero_small import Model
-        return Model(**kwargs)
-    if name == 'vae_montero_large':
-        from .n_vae.vae_montero_large import Model
         return Model(**kwargs)
     if name == 'vae': # Assuming 'vae' refers to vae_locatello in n_vae
         from .n_vae.vae_locatello import Model

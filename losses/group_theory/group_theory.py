@@ -40,24 +40,40 @@ class Loss(BaseLoss):
                  group_action_latent_range=1,
                  group_action_latent_distribution='normal',
                  comp_latent_select_threshold=0,
+                 meaningful_critic_betas=(0.9, 0.999),
+                 meaningful_critic_eps=1e-8,
+                 meaningful_critic_weight_decay=0.0,
                  warm_up_steps=0,  # Add this parameter
                  # schedulers kwargs
                  schedulers_kwargs=None,
                  **kwargs
                  ):
-        # Initialize schedulers using base class method
         
+        ##### parameters that is compatible for scheduling #####
+        self.commutative_weight = commutative_weight
+        self.meaningful_weight = meaningful_weight
+
         super(Loss, self).__init__(mode="optimizes_internally", 
                                    rec_dist=rec_dist, 
                                    schedulers_kwargs=schedulers_kwargs, 
                                    **kwargs)
         
         if self.schedulers: 
-            # Set initial values from schedulers if they exist
+            # Validate scheduler configuration
+            allowed_schedulers = {'commutative_weight', 'meaningful_weight'}
+            provided_schedulers = set(self.schedulers.keys())
+            
+            if not provided_schedulers.issubset(allowed_schedulers):
+                invalid_schedulers = provided_schedulers - allowed_schedulers
+                raise ValueError(
+                    f"Invalid scheduler configuration. Group Theory loss only supports schedulers for {list(allowed_schedulers)}, "
+                    f"but found unexpected schedulers for: {list(invalid_schedulers)}"
+                )
+            
             if 'commutative_weight' in self.schedulers:
-                commutative_weight = self.schedulers['commutative_weight'].initial_value
+                self.commutative_weight = self.schedulers['commutative_weight'].get_value()
             if 'meaningful_weight' in self.schedulers:
-                meaningful_weight = self.schedulers['meaningful_weight'].initial_value
+                self.meaningful_weight = self.schedulers['meaningful_weight'].get_value()
 
         self.base_loss_name = base_loss_name # Base loss function for the model (like beta-vae, factor-vae, etc.)
         self.base_loss_kwargs = base_loss_kwargs # Base loss function kwargs
@@ -78,8 +94,6 @@ class Loss(BaseLoss):
         self.rec_dist = rec_dist # for reconstruction loss type (especially for Identity loss)
         self.device = device
         self.deterministic_rep = deterministic_rep        # Store the weights
-        self.commutative_weight = commutative_weight
-        self.meaningful_weight = meaningful_weight
         self.group_action_latent_range = group_action_latent_range
         self.group_action_latent_distribution = group_action_latent_distribution
 
@@ -98,6 +112,9 @@ class Loss(BaseLoss):
         self.meaningful_transformation_order = meaningful_transformation_order
         self.meaningful_critic_gradient_penalty_weight = meaningful_critic_gradient_penalty_weight
         self.meaningful_critic_lr = meaningful_critic_lr
+        self.meaningful_critic_betas = meaningful_critic_betas
+        self.meaningful_critic_eps = meaningful_critic_eps
+        self.meaningful_critic_weight_decay = meaningful_critic_weight_decay
         self.meaningful_n_critic = meaningful_n_critic
 
         # will be initialized in the first call to find the number of input channels
@@ -138,6 +155,9 @@ class Loss(BaseLoss):
             'meaningful_transformation_order': self.meaningful_transformation_order,
             'meaningful_critic_gradient_penalty_weight': self.meaningful_critic_gradient_penalty_weight,
             'meaningful_critic_lr': self.meaningful_critic_lr,
+            'meaningful_critic_betas': self.meaningful_critic_betas,
+            'meaningful_critic_eps': self.meaningful_critic_eps,
+            'meaningful_critic_weight_decay': self.meaningful_critic_weight_decay,
             'meaningful_n_critic': self.meaningful_n_critic,
             'deterministic_rep': self.deterministic_rep,
             'group_action_latent_range': self.group_action_latent_range,
@@ -168,9 +188,10 @@ class Loss(BaseLoss):
         state['base_loss_state_dict'] = self.base_loss_f.state_dict() 
         
         # Save scheduler states
-        state['scheduler_states'] = {}
-        for param_name, scheduler in self.schedulers.items():
-            state['scheduler_states'][param_name] = scheduler.state_dict()
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
                 
         return state
 
@@ -184,9 +205,10 @@ class Loss(BaseLoss):
         self.base_loss_f.load_state_dict(self.base_loss_state_dict)
         
         # Load scheduler states
-        if 'scheduler_states' in state_dict:
+        if 'scheduler_states' in state_dict and self.schedulers:
             for param_name, scheduler_state in state_dict['scheduler_states'].items():
-                self.schedulers[param_name].load_state_dict(scheduler_state)
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
     def _group_action_commutative_loss(self, data, model, kl_components):
         """
@@ -411,7 +433,13 @@ class Loss(BaseLoss):
             if  self.critic is None:
                 input_channels_num = data.shape[1]
                 self.critic = Critic(input_channels_num=input_channels_num).to(self.device)
-                self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.meaningful_critic_lr)
+                self.critic_optimizer = torch.optim.Adam(
+                    self.critic.parameters(), 
+                    lr=self.meaningful_critic_lr,
+                    betas=self.meaningful_critic_betas,
+                    eps=self.meaningful_critic_eps,
+                    weight_decay=self.meaningful_critic_weight_decay
+                )
 
             #################################################################
             # 1) Multiple critic (discriminator) updates first

@@ -24,6 +24,10 @@ class VAEBaseConfig(ModelConfig):
 @dataclass
 class NVAEConfig(VAEBaseConfig):
     latent_dim: int = 10
+    encoder_output_dim: Optional[int] = None
+    decoder_input_dim: Optional[int] = None
+    use_complexify_rep: bool = False
+    complexify_N: int = 10
 
 @dataclass
 class VAEConfig(NVAEConfig):
@@ -50,24 +54,6 @@ class VAELocatelloConfig(NVAEConfig):
     decoder_name: str = "locatello"
     encoder_decay: float = 0.0
     decoder_decay: float = 0.0
-
-@dataclass
-class VAELocatelloSBDConfig(NVAEConfig):
-    name: str = "vae_locatello_sbd"
-    encoder_name: str = "locatello_sbd"
-    decoder_name: str = "locatello_sbd"
-
-@dataclass
-class VAEMonteroSmallConfig(NVAEConfig):
-    name: str = "vae_montero_small"
-    encoder_name: str = "montero_small"
-    decoder_name: str = "montero_small"
-
-@dataclass
-class VAEMonteroLargeConfig(NVAEConfig):
-    name: str = "vae_montero_large"
-    encoder_name: str = "montero_large"
-    decoder_name: str = "montero_large"
 
 # ------------------- S-VAE Models -------------------
 

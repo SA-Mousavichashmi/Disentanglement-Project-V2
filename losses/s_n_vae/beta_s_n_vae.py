@@ -29,7 +29,19 @@ class BetaSNVAELoss(baseloss.BaseLoss):
     """
 
     def __init__(self, beta=1.0, latent_factor_topologies=None, log_kl_components=False, **kwargs):
+        ##### parameters that is compatible for scheduling #####
+        self.beta = beta
+        
         super().__init__(mode="post_forward", **kwargs)
+        
+        # Initialize schedulers using base class method
+        if self.schedulers:
+            if not (len(self.schedulers) == 1 and 'beta' in self.schedulers):
+                raise ValueError(f"Invalid scheduler configuration. Beta-S-N-VAE expects exactly one scheduler for 'beta', "
+                                 f"but found {len(self.schedulers)} for: {list(self.schedulers.keys())}")
+            
+            beta = self.schedulers['beta'].get_value()
+            
         self.beta = beta
         if latent_factor_topologies is None:
             raise ValueError("latent_factor_topologies must be provided.")
@@ -42,20 +54,46 @@ class BetaSNVAELoss(baseloss.BaseLoss):
 
     @property
     def kwargs(self):
-        return {
+        kwargs_dict = {
             'beta': self.beta,
             'latent_factor_topologies': self.latent_factor_topologies,
             'log_kl_components': self.log_kl_components,
             'rec_dist': getattr(self, 'rec_dist', None),
         }
+        
+        # Add scheduler configurations
+        if self.schedulers:
+            schedulers_kwargs = []
+            for param_name, scheduler in self.schedulers.items():
+                schedulers_kwargs.append({
+                    'name': scheduler.name,
+                    'param_name': param_name,
+                    'kwargs': {**scheduler.kwargs}
+                })
+            kwargs_dict['schedulers_kwargs'] = schedulers_kwargs
+        
+        return kwargs_dict
     
     def state_dict(self):
-    # No state to save for this loss function beyond what BaseLoss handles
-        return 
+        state = {}
+        
+        # Save scheduler states
+        if self.schedulers:
+            state['scheduler_states'] = {}
+            for param_name, scheduler in self.schedulers.items():
+                state['scheduler_states'][param_name] = scheduler.state_dict()
+        
+        return state if state else None
 
     def load_state_dict(self, state_dict):
-    # No state to load for this loss function beyond what BaseLoss handles
-        return
+        if state_dict is None:
+            return
+            
+        # Load scheduler states
+        if 'scheduler_states' in state_dict and self.schedulers:
+            for param_name, scheduler_state in state_dict['scheduler_states'].items():
+                if param_name in self.schedulers:
+                    self.schedulers[param_name].load_state_dict(scheduler_state)
 
     def __call__(self, data, reconstructions, stats_qzx, is_train, **kwargs):
         # stats_qzx has shape (batch_size, total_encoder_params)
