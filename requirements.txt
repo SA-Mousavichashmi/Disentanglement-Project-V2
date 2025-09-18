@@ -9,6 +9,7 @@ scipy
 matplotlib
 joblib
 pyyaml
+papermill
 torchdata
 pandas
 git+https://github.com/nicola-decao/power_spherical.git#egg=power_spherical
