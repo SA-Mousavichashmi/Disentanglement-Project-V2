@@ -686,7 +686,7 @@ def run_training_session(trainer_cfg: TrainerConfig, train_id: str, seed: int,
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
     # Create loss
-    loss = create_loss(trainer_cfg.loss)
+    loss = create_loss(trainer_cfg.loss, img_size)
     
     # Create optimizer
     optimizer = create_optimizer(trainer_cfg.optimizer, model)
@@ -788,7 +788,7 @@ def create_model(cfg: ModelConfig, img_size: tuple) -> torch.nn.Module:
     return vae_models.select(**model_kwargs)
 
 
-def create_loss(cfg: LossConfig) -> torch.nn.Module:
+def create_loss(cfg: LossConfig, img_size: tuple) -> torch.nn.Module:
     """Create loss function from configuration."""
     logger.info(f"Creating {cfg.name} loss")
     
@@ -801,6 +801,7 @@ def create_loss(cfg: LossConfig) -> torch.nn.Module:
         base_loss_config = loss_kwargs.pop('base_loss')
         loss_kwargs['base_loss_name'] = base_loss_config['name']
         loss_kwargs['base_loss_kwargs'] = {k: v for k, v in base_loss_config.items() if k != 'name'}
+        loss_kwargs['img_size'] = img_size
     
     return losses.select(**loss_kwargs)
 

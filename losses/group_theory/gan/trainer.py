@@ -1,0 +1,205 @@
+"""
+Refactored GAN Trainer for Group Theory Implementation.
+This module provides a flexible, extensible GAN training system with registry-based
+architecture and loss selection.
+"""
+
+import torch
+import torch.nn as nn
+from typing import Dict, Optional, Any, Union, List, Tuple
+from .losses import select_gan_loss
+from .discrim_archs import select_discriminator
+
+
+class GANTrainer:
+    """
+    Unified GAN trainer that handles different architectures and losses.
+    
+    This class provides a flexible interface for training GANs with various
+    architectures and loss functions. It supports:
+    - Multiple loss functions (WGAN-GP, Hinge, BCE, LSGAN, etc.)
+    - Multiple architectures (Locatello, Spectral Norm, etc.)
+    """
+    
+    def __init__(self, 
+                 img_size: Tuple[int, int, int],  # (channels, height, width)
+                 device: torch.device,
+                 loss_type: str = "wgan_gp",
+                 loss_kwargs: Optional[Dict] = None,
+                 d_arch: str = "locatello",
+                 d_kwargs: Optional[Dict] = None,
+                 d_optimizer_type: str = "adam",
+                 d_optimizer_kwargs: Optional[Dict] = None):
+        """
+        Initialize GAN trainer.
+        
+        Args:
+            img_size: Tuple of (channels, height, width) for input images
+            device: Device to place the discriminator on
+            loss_type: Type of GAN loss (e.g., "wgan_gp", "hinge", "bce")
+            d_arch: Type of discriminator architecture (e.g., "locatello", "spectral_norm")
+            loss_kwargs: Additional kwargs for loss function
+            d_kwargs: Additional kwargs for architecture
+            d_optimizer_type: Type of optimizer for discriminator
+            d_optimizer_kwargs: Additional kwargs for optimizer
+        """
+        self.img_size = img_size
+        self.device = device
+        self.loss_type = loss_type
+        self.d_arch = d_arch
+        self.loss_kwargs = loss_kwargs or {}
+        self.d_kwargs = d_kwargs or {}
+        self.d_optimizer_type = d_optimizer_type
+        # ensure learning rate is provided in d_optimizer_kwargs
+        self.d_optimizer_kwargs = d_optimizer_kwargs or {}
+        assert 'lr' in self.d_optimizer_kwargs, "d_optimizer_kwargs must include 'lr'"
+        
+        # Initialize loss function
+        self.loss_fn = select_gan_loss(loss_type, **self.loss_kwargs)
+        
+        # Initialize discriminator and optimizer
+        self._initialize_discriminator()
+        
+    def _initialize_discriminator(self):
+        """
+        Private method to initialize discriminator and optimizer.
+        """
+        input_channels = self.img_size[0]
+        
+        # Create discriminator
+        self.discriminator = select_discriminator(
+            architecture_type=self.d_arch,
+            input_channels=input_channels,
+            **self.d_kwargs
+        ).to(self.device)
+        
+        # Create optimizer
+        if self.d_optimizer_type.lower() == "adam":
+            self.discriminator_optimizer = torch.optim.Adam(
+                self.discriminator.parameters(), 
+                **self.d_optimizer_kwargs
+            )
+        elif self.d_optimizer_type.lower() == "rmsprop":
+            self.discriminator_optimizer = torch.optim.RMSprop(
+                self.discriminator.parameters(), 
+                **self.d_optimizer_kwargs
+            )
+        elif self.d_optimizer_type.lower() == "sgd":
+            self.discriminator_optimizer = torch.optim.SGD(
+                self.discriminator.parameters(), 
+                **self.d_optimizer_kwargs
+            )
+        else:
+            raise ValueError(f"Unknown optimizer type: {self.d_optimizer_type}")
+    
+    def train_discriminator(self, real_images: torch.Tensor, fake_images: torch.Tensor, weight: float = 1.0) -> float:
+        """
+        Train discriminator for one step (single-scale only).
+        
+        Args:
+            real_images: Real images tensor
+            fake_images: Fake/generated images tensor
+            weight: Weight to apply to loss before backward (default: 1.0)
+        
+        Returns:
+            float: Discriminator loss value (unweighted)
+        """
+        self.discriminator_optimizer.zero_grad()
+        real_output = self.discriminator(real_images)
+        fake_output = self.discriminator(fake_images.detach())
+        d_loss = self.loss_fn.discriminator_loss(
+            real_output=real_output,
+            fake_output=fake_output,
+            real_images=real_images,
+            fake_images=fake_images,
+            discriminator=self.discriminator
+        )
+        # Store unweighted loss value for return
+        d_loss_value = d_loss.item()
+        # Apply weight before backward
+        weighted_d_loss = d_loss * weight
+        weighted_d_loss.backward()
+        self.discriminator_optimizer.step()
+        return d_loss_value
+    
+    def compute_generator_loss(self, fake_images: torch.Tensor) -> torch.Tensor:
+        """
+        Compute generator loss (single-scale only).
+        
+        Args:
+            fake_images: Generated/fake images tensor
+        
+        Returns:
+            torch.Tensor: Generator loss
+        """
+        fake_output = self.discriminator(fake_images)
+        return self.loss_fn.generator_loss(fake_output)
+    
+    def set_training_mode(self, mode: bool = True):
+        """Set training mode for discriminator."""
+        self.discriminator.train(mode)
+    
+    def freeze_discriminator(self):
+        """Freeze discriminator parameters."""
+        for param in self.discriminator.parameters():
+            param.requires_grad_(False)
+    
+    def unfreeze_discriminator(self):
+        """Unfreeze discriminator parameters."""
+        for param in self.discriminator.parameters():
+            param.requires_grad_(True)
+    
+    def get_discriminator_output(self, images: torch.Tensor) -> Union[torch.Tensor, List[torch.Tensor]]:
+        """
+        Get discriminator output without training.
+        
+        Args:
+            images: Input images
+            
+        Returns:
+            Discriminator output(s)
+        """
+        with torch.no_grad():
+            return self.discriminator(images)
+    
+    def state_dict(self) -> Dict:
+        """Get state dict for saving."""
+        state = {
+            'img_size': self.img_size,
+            'loss_type': self.loss_type,
+            'd_arch': self.d_arch,
+            'loss_kwargs': self.loss_kwargs,
+            'd_kwargs': self.d_kwargs,
+            'd_optimizer_type': self.d_optimizer_type,
+            'd_optimizer_kwargs': self.d_optimizer_kwargs,
+            'discriminator_state_dict': self.discriminator.state_dict(),
+            'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
+        }
+        return state
+    
+    def load_state_dict(self, state_dict: Dict):
+        """Load state dict."""
+        # Update configuration
+        self.img_size = state_dict.get('img_size', self.img_size)
+        self.loss_type = state_dict.get('loss_type', self.loss_type)
+        self.d_arch = state_dict.get('d_arch', self.d_arch)
+        self.d_kwargs = state_dict.get('d_kwargs', self.d_kwargs)
+        self.loss_kwargs = state_dict.get('loss_kwargs', self.loss_kwargs)
+        self.d_optimizer_type = state_dict.get('d_optimizer_type', self.d_optimizer_type)
+        self.d_optimizer_kwargs = state_dict.get('d_optimizer_kwargs', self.d_optimizer_kwargs)
+        
+        # Recreate loss function
+        self.loss_fn = select_gan_loss(self.loss_type, **self.loss_kwargs)
+        
+        # Recreate discriminator and optimizer
+        self._initialize_discriminator()
+        
+        # Load states
+        if state_dict.get('discriminator_state_dict') is not None:
+            self.discriminator.load_state_dict(state_dict['discriminator_state_dict'])
+        if state_dict.get('discriminator_optimizer_state_dict') is not None:
+            self.discriminator_optimizer.load_state_dict(state_dict['discriminator_optimizer_state_dict'])
+        
+    def __repr__(self) -> str:
+        return (f"GANTrainer(img_size={self.img_size}, loss_type='{self.loss_type}', "
+                f"d_arch='{self.d_arch}', device={self.device})")

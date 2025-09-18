@@ -100,24 +100,39 @@ class AnnealSNVAEConfig(LossConfig):
 ########### Group Theory based loss ##########
 
 @dataclass
+class GANConfig:
+    """Configuration for GAN components used in group theory loss (g-meaningful loss).
+
+    This configuration class encapsulates all GAN-related parameters including:
+    - Loss function type and parameters
+    - Discriminator architecture and parameters  
+    - Optimizer type and parameters
+    """
+    loss_type: str = "wgan_gp"  # Options: "wgan_gp", "hinge", "bce", "lsgan", "wgan"
+    loss_kwargs: Optional[Dict[str, Any]] = None
+    d_arch: str = "locatello"  # Options: "locatello", "spectral_norm"
+    d_kwargs: Optional[Dict[str, Any]] = None
+    d_optimizer_type: str = "adam"  # Options: "adam", "rmsprop", "sgd"
+    d_optimizer_kwargs: Optional[Dict[str, Any]] = None
+
+@dataclass
 class GroupTheoryConfig(LossConfig):
     """Configuration for Group Theory based loss."""
     name: str = "group_theory"
     base_loss: LossConfig = field(default_factory=BetaVAEConfig)
     rec_dist: str = "bernoulli"
     device: str = "cpu"
+    ## g-commutative loss parameters
     commutative_weight: float = 1.0
     commutative_component_order: int = 2
     commutative_comparison_dist: str = "gaussian"
     meaningful_weight: float = 1.0
     meaningful_component_order: int = 1
+    ## g-meaningful loss parameters
     meaningful_transformation_order: int = 1
-    meaningful_critic_gradient_penalty_weight: float = 10.0
-    meaningful_critic_lr: float = 1e-4
-    meaningful_critic_betas: tuple = (0.9, 0.999)  # Adam optimizer beta1, beta2 parameters
-    meaningful_critic_eps: float = 1e-8  # Adam optimizer epsilon for numerical stability
-    meaningful_critic_weight_decay: float = 0.0  # Adam optimizer L2 penalty
     meaningful_n_critic: int = 1
+    meaningful_gan_config: GANConfig = field(default_factory=GANConfig)
+    # general group theory parameters
     deterministic_rep: bool = True
     group_action_latent_range: float = 2.0
     group_action_latent_distribution: str = "uniform"
