@@ -1,0 +1,35 @@
+# Test configuration for mixed topology ['R1', 'R1', 'S1'] with beta-VAE loss
+defaults:
+  - base  # inherit from base.yaml
+  - trainer/model: s_n_vae_mixed
+  - trainer/loss: beta_s_n_vae_mixed
+  - trainer/dataset: shapes3d
+
+# Override settings for quick testing
+experiment_id: "mixed_topology_test"
+seeds: [42]  # Single seed for testing
+
+trainer:
+  step_unit: "epoch"
+  max_steps: 2  # Just 2 epochs for testing
+  
+  # Enable visualization for testing
+  visualization:
+    enabled: true
+    reconstructions: true
+    latent_traversals: true
+    num_reconstruction_samples: 5
+    num_traversal_samples: 7
+    save_with_checkpoints: true
+    save_at_training_end: true
+    show_plots: false  # Don't block training
+    r1_traversal_type: "probability"
+    r1_traversal_range: 0.99
+    s1_traversal_type: "fraction" 
+    s1_traversal_range: 1.0
+    
+  dataset:
+    name: "shapes3d"
+    root: "data/shapes3d/"
+    selected_factors: "all"
+    subset: 0.01  # Use only 1% of data for quick testing

@@ -1,0 +1,11 @@
+# S-N-VAE model configuration for mixed topology
+# Supports configurable latent factor topologies like ['R1', 'R1', 'S1']
+
+name: "s_n_vae_locatello"
+encoder_name: "locatello"
+decoder_name: "locatello"
+latent_factor_topologies: ['R1', 'R1', 'S1']  # Example: 2 normal + 1 spherical factors
+decoder_output_dist: "bernoulli"
+use_batchnorm: false
+encoder_decay: 0.0
+decoder_decay: 0.0

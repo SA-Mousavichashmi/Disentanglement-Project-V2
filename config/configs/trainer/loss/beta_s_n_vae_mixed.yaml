@@ -1,0 +1,8 @@
+# Beta-S-N-VAE loss configuration for mixed topology models
+# Equivalent to beta-VAE but supports mixed R1/S1 topologies
+
+name: "beta_s_n_vae"
+beta: 16
+rec_dist: "gaussian"
+latent_factor_topologies: ['R1', 'R1', 'S1']  # Must match model topology
+log_kl_components: true
