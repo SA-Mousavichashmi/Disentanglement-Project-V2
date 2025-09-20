@@ -384,13 +384,15 @@ class BaseTrainer():
                             pass  # TODO: Add metrics logging here
 
                     if self.chkpt_step_type == 'epoch':                        # <--- gate here
-                        self._save_checkpoint_if_needed(
-                            step=epoch_num,
-                            total_steps=max_steps,
-                            dataloader=self.dataloader,
-                            chkpt_train_losses_log=iter_out['to_log'],
-                            chkpt_train_metrics_log=None # TODO: Add metrics logging
-                        )
+                        # Only save checkpoint after epochs if every_n_steps is not None
+                        if self.chkpt_every_n_steps is not None:
+                            self._save_checkpoint_if_needed(
+                                step=epoch_num,
+                                total_steps=max_steps,
+                                dataloader=self.dataloader,
+                                chkpt_train_losses_log=iter_out['to_log'],
+                                chkpt_train_metrics_log=None # TODO: Add metrics logging
+                            )
                 
                 if self.use_train_logging and self.log_loss_interval_type == 'iter' and \
                     ((it + 1) % self.log_loss_iter_interval == 0 or (it + 1) == total_iterations):
@@ -410,14 +412,21 @@ class BaseTrainer():
                         chkpt_train_metrics_log=None # TODO: Add metrics logging
                     )
 
-                if self.chkpt_step_type == 'epoch' and (not is_last_batch_full) and \
-                     (it + 1) == total_iterations and self.use_chkpt:
-                    
-                    self._save_checkpoint(
-                        dataloader=self.dataloader,
-                        chkpt_train_losses_log=iter_out['to_log'],
-                        chkpt_train_metrics_log=None # TODO: Add metrics logging
-                    )
+                elif self.chkpt_step_type == 'epoch' and (it + 1) == total_iterations and self.use_chkpt:
+                    # For epoch-based checkpointing, always save at end when every_n_steps is None
+                    # or use the original logic for periodic checkpointing
+                    if self.chkpt_every_n_steps is None:
+                        self._save_checkpoint(
+                            dataloader=self.dataloader,
+                            chkpt_train_losses_log=iter_out['to_log'],
+                            chkpt_train_metrics_log=None # TODO: Add metrics logging
+                        )
+                    elif (not is_last_batch_full):
+                        self._save_checkpoint(
+                            dataloader=self.dataloader,
+                            chkpt_train_losses_log=iter_out['to_log'],
+                            chkpt_train_metrics_log=None # TODO: Add metrics logging
+                        )
                       
         
         self.model.eval()
