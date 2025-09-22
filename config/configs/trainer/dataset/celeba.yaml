@@ -1,0 +1,6 @@
+# Dataset configuration for CelebA
+# Configured for training on the CelebA dataset
+
+name: "celeba"
+root: "data/celeba/"
+subset: 1.0
