@@ -104,9 +104,14 @@ class ExperimentManager:
         self.results_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Experiment directory created: {self.results_dir.absolute()}")
         
-        # Create subdirectories
-        self.checkpoints_dir = self.results_dir / "checkpoints"
-        self.checkpoints_dir.mkdir(exist_ok=True)
+        # Create checkpoint directory only if checkpointing is enabled
+        if self.experiment_config.trainer.checkpoint.enabled:
+            self.checkpoints_dir = self.results_dir / "checkpoints"
+            self.checkpoints_dir.mkdir(exist_ok=True)
+            logger.info(f"Checkpoint directory created: {self.checkpoints_dir.absolute()}")
+        else:
+            self.checkpoints_dir = None
+            logger.info("Checkpointing disabled - no checkpoint directory created")
         
         # File paths
         self.results_csv_path = self.results_dir / "experiment_results.csv"
@@ -504,7 +509,26 @@ class ExperimentManager:
     
     def get_checkpoint_path(self, seed: int) -> str:
         """Get checkpoint path for a specific seed."""
-        return str(self.checkpoints_dir / f"seed_{seed}")
+        checkpoint_config = self.experiment_config.trainer.checkpoint
+        
+        # If checkpointing is not enabled, return None
+        if not checkpoint_config.enabled:
+            return None
+        
+        # If save_dir is specified, use it
+        if checkpoint_config.save_dir is not None:
+            checkpoint_base = Path(checkpoint_config.save_dir)
+        # If save_path is specified, use its parent directory
+        elif checkpoint_config.save_path is not None:
+            checkpoint_base = Path(checkpoint_config.save_path).parent
+        # If both save_dir and save_path are null, use experiment directory with checkpoints subfolder
+        else:
+            checkpoint_base = self.checkpoints_dir
+            
+        # Create seed-specific subdirectory
+        seed_checkpoint_dir = checkpoint_base / f"seed_{seed}"
+        seed_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        return str(seed_checkpoint_dir)
     
     def get_log_file_path(self) -> str:
         """Get the path to the experiment log file."""
