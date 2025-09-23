@@ -134,8 +134,19 @@ class CelebA(torch.utils.data.Dataset):
         save_path = os.path.join(self.root, 'celeba.zip')
         os.makedirs(self.root, exist_ok=True)
         
-        # Check if zip file already exists
-        if not os.path.exists(save_path):
+        # Check if zip file already exists and is valid
+        valid_zip = False
+        if os.path.exists(save_path):
+            try:
+                with zipfile.ZipFile(save_path, 'r') as zf:
+                    zf.testzip()  # Test if zip file is valid
+                valid_zip = True
+                self.logger.info("Valid CelebA zip file already exists, skipping download.")
+            except (zipfile.BadZipFile, zipfile.LargeZipFile):
+                self.logger.warning("Existing zip file is corrupted, will re-download.")
+                os.remove(save_path)
+        
+        if not valid_zip:
             if gdown is None:
                 raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
             
@@ -143,16 +154,33 @@ class CelebA(torch.utils.data.Dataset):
             # Extract file ID from the Google Drive URL
             file_id = "0B7EVK8r0v71pZjFTYXZWM3FlRnM"
             try:
-                gdown.download(id=file_id, output=save_path, quiet=False)
+                success = gdown.download(id=file_id, output=save_path, quiet=False)
+                if not success:
+                    raise RuntimeError("gdown.download returned False - download failed")
+                
+                # Verify the downloaded file is a valid zip
+                with zipfile.ZipFile(save_path, 'r') as zf:
+                    zf.testzip()
+                self.logger.info("Download successful and zip file validated.")
+                
             except Exception as e:
                 self.logger.error(f"Failed to download CelebA dataset: {e}")
+                # Clean up corrupted file
+                if os.path.exists(save_path):
+                    os.remove(save_path)
                 raise
-        else:
-            self.logger.info("CelebA zip file already exists, skipping download.")
 
-        with zipfile.ZipFile(save_path) as zf:
-            self.logger.info("Extracting CelebA ...")
-            zf.extractall(self.root)
+        # Extract the zip file
+        try:
+            with zipfile.ZipFile(save_path) as zf:
+                self.logger.info("Extracting CelebA ...")
+                zf.extractall(self.root)
+        except zipfile.BadZipFile as e:
+            self.logger.error(f"Downloaded file is not a valid zip file: {e}")
+            # Clean up corrupted file and raise error
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            raise
 
         # Keep the zip file for future use; do not delete it
         # os.remove(save_path)
@@ -174,15 +202,42 @@ class CelebA(torch.utils.data.Dataset):
             self.crop_faces = False
             return
         
+        # Check if landmarks file already exists and is valid
+        if os.path.exists(landmarks_path):
+            try:
+                # Try to read a few lines to validate the file
+                with open(landmarks_path, 'r') as f:
+                    lines = f.readlines()[:5]
+                    if len(lines) > 0 and not all(line.strip().startswith('<') for line in lines):
+                        self.logger.info("Valid landmarks file already exists, skipping download.")
+                        return
+            except Exception:
+                self.logger.warning("Existing landmarks file is corrupted, will re-download.")
+                os.remove(landmarks_path)
+        
         # Extract file ID from the Google Drive URL
         file_id = "0B7EVK8r0v71pd0FJY3Blby1HUTQ"
         
         self.logger.info("Downloading face landmarks with gdown...")
         try:
-            gdown.download(id=file_id, output=landmarks_path, quiet=False)
+            success = gdown.download(id=file_id, output=landmarks_path, quiet=False)
+            if not success:
+                raise RuntimeError("gdown.download returned False - download failed")
+                
+            # Validate the downloaded file
+            with open(landmarks_path, 'r') as f:
+                first_line = f.readline().strip()
+                if first_line.startswith('<') or 'error' in first_line.lower():
+                    raise RuntimeError("Downloaded file appears to be an error page, not the landmarks file")
+                    
+            self.logger.info("Landmarks download successful and file validated.")
+            
         except Exception as e:
             self.logger.error(f"Failed to download landmarks: {e}. Face cropping will be disabled.")
             self.crop_faces = False
+            # Clean up corrupted file
+            if os.path.exists(landmarks_path):
+                os.remove(landmarks_path)
             return
         
         if not os.path.exists(landmarks_path):
