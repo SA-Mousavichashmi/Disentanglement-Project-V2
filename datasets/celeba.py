@@ -155,7 +155,7 @@ class CelebA(torch.utils.data.Dataset):
             # Use direct download URL for large files
             url = self.urls["train"]
             try:
-                success = gdown.download(url=url, output=save_path, quiet=False, confirm=True)
+                success = gdown.download(url=url, output=save_path, quiet=False, fuzzy=True)
                 if not success:
                     raise RuntimeError("gdown.download returned False - download failed")
                 
@@ -228,7 +228,7 @@ class CelebA(torch.utils.data.Dataset):
         
         self.logger.info("Downloading face landmarks with gdown...")
         try:
-            success = gdown.download(url=url, output=landmarks_path, quiet=False, confirm=True)
+            success = gdown.download(url=url, output=landmarks_path, quiet=False, fuzzy=True)
             if not success:
                 raise RuntimeError("gdown.download returned False - download failed")
                 
