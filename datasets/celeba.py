@@ -156,23 +156,18 @@ class CelebA(torch.utils.data.Dataset):
         """Download face landmark annotations."""
         landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
         
-        # Use gdown to download from Google Drive
+        # Always use curl to download from Google Drive
+        self.logger.info("Attempting direct download of face landmarks with curl...")
         try:
-            import gdown
-            gdown.download(type(self).urls["landmarks"], landmarks_path, quiet=False)
-        except ImportError:
-            # Fallback to curl with Google Drive download 
-            self.logger.warning("gdown not found. Attempting direct download...")
-            try:
-                subprocess.check_call([
-                    "curl", "-L", 
-                    "https://drive.google.com/uc?export=download&id=0B7EVK8r0v71pd0FJY3Blby1HUTQ",
-                    "--output", landmarks_path
-                ])
-            except subprocess.CalledProcessError:
-                self.logger.error("Failed to download landmarks. Face cropping will be disabled.")
-                self.crop_faces = False
-                return
+            subprocess.check_call([
+                "curl", "-L",
+                "https://drive.google.com/uc?export=download&id=0B7EVK8r0v71pd0FJY3Blby1HUTQ",
+                "--output", landmarks_path
+            ])
+        except subprocess.CalledProcessError:
+            self.logger.error("Failed to download landmarks. Face cropping will be disabled.")
+            self.crop_faces = False
+            return
         
         if not os.path.exists(landmarks_path):
             self.logger.error("Landmarks file not found after download. Face cropping will be disabled.")
