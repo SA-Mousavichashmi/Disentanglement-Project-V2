@@ -17,6 +17,11 @@ import skimage.io
 import torch
 import torchvision
 
+try:
+    import gdown
+except ImportError:
+    gdown = None
+
 import datasets
 
 class CelebA(torch.utils.data.Dataset):
@@ -131,9 +136,17 @@ class CelebA(torch.utils.data.Dataset):
         
         # Check if zip file already exists
         if not os.path.exists(save_path):
+            if gdown is None:
+                raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
+            
             self.logger.info("Downloading CelebA dataset...")
-            subprocess.check_call(["curl", "-L", type(self).urls["train"],
-                                   "--output", save_path])
+            # Extract file ID from the Google Drive URL
+            file_id = "0B7EVK8r0v71pZjFTYXZWM3FlRnM"
+            try:
+                gdown.download(id=file_id, output=save_path, quiet=False)
+            except Exception as e:
+                self.logger.error(f"Failed to download CelebA dataset: {e}")
+                raise
         else:
             self.logger.info("CelebA zip file already exists, skipping download.")
 
@@ -156,16 +169,19 @@ class CelebA(torch.utils.data.Dataset):
         """Download face landmark annotations."""
         landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
         
-        # Always use curl to download from Google Drive
-        self.logger.info("Attempting direct download of face landmarks with curl...")
+        if gdown is None:
+            self.logger.error("gdown is required for downloading face landmarks. Install it with: pip install gdown")
+            self.crop_faces = False
+            return
+        
+        # Extract file ID from the Google Drive URL
+        file_id = "0B7EVK8r0v71pd0FJY3Blby1HUTQ"
+        
+        self.logger.info("Downloading face landmarks with gdown...")
         try:
-            subprocess.check_call([
-                "curl", "-L",
-                "https://drive.google.com/uc?export=download&id=0B7EVK8r0v71pd0FJY3Blby1HUTQ",
-                "--output", landmarks_path
-            ])
-        except subprocess.CalledProcessError:
-            self.logger.error("Failed to download landmarks. Face cropping will be disabled.")
+            gdown.download(id=file_id, output=landmarks_path, quiet=False)
+        except Exception as e:
+            self.logger.error(f"Failed to download landmarks: {e}. Face cropping will be disabled.")
             self.crop_faces = False
             return
         
