@@ -111,11 +111,17 @@ class CelebA(torch.utils.data.Dataset):
         else:
             self.transforms = transforms
 
-        # Download dataset if it doesn't exist or force_download is True
-        if not os.path.isdir(self.train_data) or force_download:
-            self.logger.info("Downloading {} ...".format(str(type(self))))
-            self.download()
-            self.logger.info("Finished Downloading.")
+        # Check if dataset exists; no automatic download
+        if not os.path.isdir(self.train_data):
+            raise FileNotFoundError(
+                f"CelebA dataset not found at {self.train_data}. "
+                "Please download manually:\n"
+                "1. Main images: https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM/view "
+                "(save as data/celeba/celeba.zip and extract to data/celeba/img_align_celeba/)\n"
+                "2. For face cropping: https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ "
+                "(save as data/celeba/list_landmarks_align_celeba.txt)\n"
+                "Then re-initialize the dataset."
+            )
 
         # Load image paths
         self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*')))
@@ -151,10 +157,10 @@ class CelebA(torch.utils.data.Dataset):
                 raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
             
             self.logger.info("Downloading CelebA dataset...")
-            # Extract file ID from the Google Drive URL
-            file_id = "0B7EVK8r0v71pZjFTYXZWM3FlRnM"
+            # Use direct download URL for large files
+            url = "https://drive.google.com/uc?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM"
             try:
-                success = gdown.download(id=file_id, output=save_path, quiet=False)
+                success = gdown.download(url=url, output=save_path, quiet=False, confirm=True)
                 if not success:
                     raise RuntimeError("gdown.download returned False - download failed")
                 
@@ -215,12 +221,12 @@ class CelebA(torch.utils.data.Dataset):
                 self.logger.warning("Existing landmarks file is corrupted, will re-download.")
                 os.remove(landmarks_path)
         
-        # Extract file ID from the Google Drive URL
-        file_id = "0B7EVK8r0v71pd0FJY3Blby1HUTQ"
+        # Use direct download URL
+        url = "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"
         
         self.logger.info("Downloading face landmarks with gdown...")
         try:
-            success = gdown.download(id=file_id, output=landmarks_path, quiet=False)
+            success = gdown.download(url=url, output=landmarks_path, quiet=False, confirm=True)
             if not success:
                 raise RuntimeError("gdown.download returned False - download failed")
                 
