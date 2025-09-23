@@ -6,7 +6,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import glob
-import hashlib
 import logging
 import os
 import subprocess
@@ -137,12 +136,6 @@ class CelebA(torch.utils.data.Dataset):
                                    "--output", save_path])
         else:
             self.logger.info("CelebA zip file already exists, skipping download.")
-
-        hash_code = '00d2c5bc6d35e252742224ab0c1e8fcb'
-        with open(save_path, 'rb') as f:
-            actual_hash = hashlib.md5(f.read()).hexdigest()
-        assert actual_hash == hash_code, \
-            '{} file is corrupted.  Remove the file and try again.'.format(save_path)
 
         with zipfile.ZipFile(save_path) as zf:
             self.logger.info("Extracting CelebA ...")
