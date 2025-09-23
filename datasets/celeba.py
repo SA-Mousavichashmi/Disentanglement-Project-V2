@@ -50,7 +50,7 @@ class CelebA(torch.utils.data.Dataset):
         on computer vision (pp. 3730-3738).
     """
     urls = {
-        "train": "https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM",
+        "train": "https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM/edit?resourcekey=0-dYn9z10tMJOBAkviAcfdyQ",
         "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
     }
     files = {"train": "img_align_celeba.zip", "landmarks": "list_landmarks_align_celeba.txt"}
