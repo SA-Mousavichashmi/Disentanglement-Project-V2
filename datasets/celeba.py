@@ -50,7 +50,7 @@ class CelebA(torch.utils.data.Dataset):
         on computer vision (pp. 3730-3738).
     """
     urls = {
-        "train": "https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM/view?usp=drive_link&resourcekey=0-dYn9z10tMJOBAkviAcfdyQ",
+        "train": "https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM",
         "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
     }
     files = {"train": "img_align_celeba.zip", "landmarks": "list_landmarks_align_celeba.txt"}
@@ -86,7 +86,6 @@ class CelebA(torch.utils.data.Dataset):
             Additional arguments for compatibility.
         """
         self.root = root
-        self.train_data = os.path.join(root, type(self).files["train"])
         self.subset = subset
         self.logger = logger or logging.getLogger(__name__)
         self.resize_algorithm = resize_algorithm.upper()
@@ -111,17 +110,13 @@ class CelebA(torch.utils.data.Dataset):
         else:
             self.transforms = transforms
 
-        # Check if dataset exists; no automatic download
-        if not os.path.isdir(self.train_data):
-            raise FileNotFoundError(
-                f"CelebA dataset not found at {self.train_data}. "
-                "Please download manually:\n"
-                "1. Main images: https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM/view "
-                "(save as data/celeba/celeba.zip and extract to data/celeba/img_align_celeba/)\n"
-                "2. For face cropping: https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ "
-                "(save as data/celeba/list_landmarks_align_celeba.txt)\n"
-                "Then re-initialize the dataset."
-            )
+        # Set train_data to processed images directory
+        self.train_data = os.path.join(root, 'cropped_celeba')
+        
+        # Auto-download if dataset doesn't exist
+        if not os.path.exists(self.train_data):
+            self.logger.info("Dataset not found, downloading...")
+            self.download()
 
         # Load image paths
         self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*')))
@@ -137,7 +132,7 @@ class CelebA(torch.utils.data.Dataset):
 
     def download(self):
         """Download the dataset."""
-        save_path = os.path.join(self.root, 'celeba.zip')
+        save_path = os.path.join(self.root, type(self).files["train"])
         os.makedirs(self.root, exist_ok=True)
         
         # Check if zip file already exists and is valid
@@ -158,7 +153,7 @@ class CelebA(torch.utils.data.Dataset):
             
             self.logger.info("Downloading CelebA dataset...")
             # Use direct download URL for large files
-            url = "https://drive.google.com/uc?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM"
+            url = self.urls["train"]
             try:
                 success = gdown.download(url=url, output=save_path, quiet=False, confirm=True)
                 if not success:
@@ -176,7 +171,8 @@ class CelebA(torch.utils.data.Dataset):
                     os.remove(save_path)
                 raise
 
-        # Extract the zip file
+        # Extract the zip file to temporary location
+        temp_extract_dir = os.path.join(self.root, 'img_align_celeba')
         try:
             with zipfile.ZipFile(save_path) as zf:
                 self.logger.info("Extracting CelebA ...")
@@ -196,8 +192,14 @@ class CelebA(torch.utils.data.Dataset):
             self.logger.info("Downloading face landmarks...")
             self._download_annotations()
 
-        self.logger.info("Resizing CelebA ...")
-        self._preprocess_images()
+        self.logger.info("Processing and saving CelebA images...")
+        self._preprocess_images(temp_extract_dir, self.train_data)
+        
+        # Clean up temporary extraction directory
+        import shutil
+        if os.path.exists(temp_extract_dir):
+            shutil.rmtree(temp_extract_dir)
+            self.logger.info("Cleaned up temporary extraction directory.")
 
     def _download_annotations(self):
         """Download face landmark annotations."""
@@ -222,7 +224,7 @@ class CelebA(torch.utils.data.Dataset):
                 os.remove(landmarks_path)
         
         # Use direct download URL
-        url = "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"
+        url = self.urls["landmarks"]
         
         self.logger.info("Downloading face landmarks with gdown...")
         try:
@@ -323,10 +325,20 @@ class CelebA(torch.utils.data.Dataset):
         
         return (x_min, y_min, x_max, y_max)
 
-    def _preprocess_images(self):
-        """Preprocess images to the target size."""
-        img_dir = self.train_data
-        img_paths = glob.glob(os.path.join(img_dir, '*'))
+    def _preprocess_images(self, source_dir, dest_dir):
+        """Preprocess images to the target size and save to destination directory.
+        
+        Parameters
+        ----------
+        source_dir : str
+            Directory containing the extracted raw images
+        dest_dir : str  
+            Directory where processed images will be saved
+        """
+        img_paths = glob.glob(os.path.join(source_dir, '*'))
+        
+        # Create destination directory
+        os.makedirs(dest_dir, exist_ok=True)
         
         target_size = type(self).img_size[1:]  # (H, W)
         
@@ -362,8 +374,9 @@ class CelebA(torch.utils.data.Dataset):
             # Resize image with configurable algorithm
             img_resized = img.resize(target_size, resize_method)
             
-            # Save back
-            img_resized.save(img_path)
+            # Save to destination directory
+            dest_path = os.path.join(dest_dir, os.path.basename(img_path))
+            img_resized.save(dest_path)
     
     def __len__(self):
         """Return the number of samples in the dataset."""
