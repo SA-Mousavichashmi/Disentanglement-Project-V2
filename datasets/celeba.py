@@ -10,6 +10,8 @@ import logging
 import os
 import subprocess
 import zipfile
+import urllib.request
+import urllib.error
 
 import numpy as np
 from PIL import Image
@@ -50,7 +52,7 @@ class CelebA(torch.utils.data.Dataset):
         on computer vision (pp. 3730-3738).
     """
     urls = {
-        "train": "https://drive.google.com/file/d/0B7EVK8r0v71pZjFTYXZWM3FlRnM/edit?resourcekey=0-dYn9z10tMJOBAkviAcfdyQ",
+        "train": "https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip",
         "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
     }
     files = {"train": "img_align_celeba.zip", "landmarks": "list_landmarks_align_celeba.txt"}
@@ -148,23 +150,24 @@ class CelebA(torch.utils.data.Dataset):
                 os.remove(save_path)
         
         if not valid_zip:
-            if gdown is None:
-                raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
-            
-            self.logger.info("Downloading CelebA dataset...")
-            # Use direct download URL for large files
+            self.logger.info("Downloading CelebA dataset from AWS S3...")
             url = self.urls["train"]
             try:
-                success = gdown.download(url=url, output=save_path, quiet=False, fuzzy=True)
-                if not success:
-                    raise RuntimeError("gdown.download returned False - download failed")
+                # Download with urllib.request
+                def _progress_hook(block_num, block_size, total_size):
+                    if total_size > 0:
+                        progress = min(1.0, (block_num * block_size) / total_size)
+                        self.logger.info(f"Download progress: {progress:.1%}")
+                
+                urllib.request.urlretrieve(url, save_path, reporthook=_progress_hook)
+                self.logger.info("Download completed.")
                 
                 # Verify the downloaded file is a valid zip
                 with zipfile.ZipFile(save_path, 'r') as zf:
                     zf.testzip()
                 self.logger.info("Download successful and zip file validated.")
                 
-            except Exception as e:
+            except (urllib.error.URLError, urllib.error.HTTPError, zipfile.BadZipFile) as e:
                 self.logger.error(f"Failed to download CelebA dataset: {e}")
                 # Clean up corrupted file
                 if os.path.exists(save_path):
