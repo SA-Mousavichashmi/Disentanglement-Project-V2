@@ -45,12 +45,17 @@ class CelebA(torch.utils.data.Dataset):
         attributes in the wild. In Proceedings of the IEEE international conference
         on computer vision (pp. 3730-3738).
     """
-    urls = {"train": "https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip"}
-    files = {"train": "img_align_celeba"}
+    urls = {
+        "train": "https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip",
+        "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
+    }
+    files = {"train": "img_align_celeba", "landmarks": "list_landmarks_align_celeba.txt"}
     img_size = (3, 64, 64)
     background_color = datasets.COLOUR_WHITE
 
-    def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, **kwargs):
+    def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
+                 resize_algorithm='LANCZOS', crop_faces=False, download_annotations=True, 
+                 crop_margin=0.3, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters
@@ -63,6 +68,14 @@ class CelebA(torch.utils.data.Dataset):
             Fraction of the dataset to use (between 0 and 1).
         logger : logging.Logger, optional
             Logger instance. If None, creates a default logger.
+        resize_algorithm : str, default='LANCZOS'
+            Image resizing algorithm. Options: 'LANCZOS', 'BICUBIC'.
+        crop_faces : bool, default=False
+            Whether to crop images to face regions based on landmarks.
+        download_annotations : bool, default=True
+            Whether to download face landmarks (required for face cropping).
+        crop_margin : float, default=0.3
+            Margin factor for face cropping to include head and hair (0.3 = 30% margin).
         **kwargs : 
             Additional arguments for compatibility.
         """
@@ -70,6 +83,19 @@ class CelebA(torch.utils.data.Dataset):
         self.train_data = os.path.join(root, type(self).files["train"])
         self.subset = subset
         self.logger = logger or logging.getLogger(__name__)
+        self.resize_algorithm = resize_algorithm.upper()
+        self.crop_faces = crop_faces
+        self.download_annotations = download_annotations
+        self.crop_margin = crop_margin
+        self.face_landmarks = {}  # Store face landmarks
+        
+        # Validate resize algorithm
+        if self.resize_algorithm not in ['LANCZOS', 'BICUBIC']:
+            raise ValueError("resize_algorithm must be 'LANCZOS' or 'BICUBIC'")
+        
+        # Validate crop margin
+        if not (0.0 <= crop_margin <= 1.0):
+            raise ValueError("crop_margin must be between 0.0 and 1.0")
         
         # Set up transforms
         if transforms is None:
@@ -87,6 +113,10 @@ class CelebA(torch.utils.data.Dataset):
 
         # Load image paths
         self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*')))
+        
+        # Load face annotations if needed
+        if self.crop_faces and self.download_annotations:
+            self._load_face_annotations()
         
         # Apply subset if specified
         if self.subset < 1.0:
@@ -114,8 +144,112 @@ class CelebA(torch.utils.data.Dataset):
 
         os.remove(save_path)
 
+        # Download face annotations if required
+        if self.download_annotations or self.crop_faces:
+            self.logger.info("Downloading face landmarks...")
+            self._download_annotations()
+
         self.logger.info("Resizing CelebA ...")
         self._preprocess_images()
+
+    def _download_annotations(self):
+        """Download face landmark annotations."""
+        landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
+        
+        # Use gdown to download from Google Drive
+        try:
+            import gdown
+            gdown.download(type(self).urls["landmarks"], landmarks_path, quiet=False)
+        except ImportError:
+            # Fallback to curl with Google Drive download 
+            self.logger.warning("gdown not found. Attempting direct download...")
+            try:
+                subprocess.check_call([
+                    "curl", "-L", 
+                    "https://drive.google.com/uc?export=download&id=0B7EVK8r0v71pd0FJY3Blby1HUTQ",
+                    "--output", landmarks_path
+                ])
+            except subprocess.CalledProcessError:
+                self.logger.error("Failed to download landmarks. Face cropping will be disabled.")
+                self.crop_faces = False
+                return
+        
+        if not os.path.exists(landmarks_path):
+            self.logger.error("Landmarks file not found after download. Face cropping will be disabled.")
+            self.crop_faces = False
+
+    def _load_face_annotations(self):
+        """Load and parse face landmark annotations."""
+        landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
+        
+        if not os.path.exists(landmarks_path):
+            self.logger.warning("Face landmarks file not found. Face cropping will be disabled.")
+            self.crop_faces = False
+            return
+            
+        self.logger.info("Loading face landmarks...")
+        
+        with open(landmarks_path, 'r') as f:
+            lines = f.readlines()
+            
+        # Parse landmarks - format: image_name lefteye_x lefteye_y righteye_x righteye_y nose_x nose_y leftmouth_x leftmouth_y rightmouth_x rightmouth_y
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('lefteye_x'):  # Skip header line if present
+                continue
+                
+            parts = line.split()
+            if len(parts) == 11:  # image_name + 10 coordinates (5 landmarks * 2 coordinates each)
+                img_name = parts[0]
+                # Parse landmarks: left_eye, right_eye, nose, left_mouth, right_mouth
+                landmarks = []
+                for i in range(1, 11, 2):  # Step by 2 to get (x, y) pairs
+                    x, y = int(parts[i]), int(parts[i + 1])
+                    landmarks.append((x, y))
+                self.face_landmarks[img_name] = landmarks
+        
+        self.logger.info(f"Loaded {len(self.face_landmarks)} face landmark annotations.")
+
+    def _compute_face_bbox_from_landmarks(self, landmarks):
+        """Compute face bounding box from landmarks with margin for head and hair.
+        
+        Parameters
+        ----------
+        landmarks : list of tuples
+            List of 5 (x, y) landmark coordinates: 
+            [left_eye, right_eye, nose_tip, left_mouth, right_mouth]
+            
+        Returns
+        -------
+        tuple
+            (x_min, y_min, x_max, y_max) bounding box coordinates
+        """
+        if len(landmarks) != 5:
+            return None
+            
+        # Extract coordinates
+        xs = [point[0] for point in landmarks]
+        ys = [point[1] for point in landmarks]
+        
+        # Get face region bounds
+        x_min, x_max = min(xs), max(xs)
+        y_min, y_max = min(ys), max(ys)
+        
+        # Calculate face dimensions
+        face_width = x_max - x_min
+        face_height = y_max - y_min
+        
+        # Add margin to include head and hair
+        margin_x = face_width * self.crop_margin
+        margin_y = face_height * self.crop_margin
+        
+        # Expand bounding box with margins
+        x_min = max(0, int(x_min - margin_x))
+        y_min = max(0, int(y_min - margin_y * 1.5))  # More margin on top for hair
+        x_max = int(x_max + margin_x)
+        y_max = int(y_max + margin_y * 0.5)  # Less margin on bottom
+        
+        return (x_min, y_min, x_max, y_max)
 
     def _preprocess_images(self):
         """Preprocess images to the target size."""
@@ -124,12 +258,37 @@ class CelebA(torch.utils.data.Dataset):
         
         target_size = type(self).img_size[1:]  # (H, W)
         
+        # Get resize algorithm
+        resize_method = getattr(Image, self.resize_algorithm)
+        
         for img_path in img_paths:
             # Load image
             img = Image.open(img_path)
+            original_size = img.size  # (width, height)
             
-            # Resize image
-            img_resized = img.resize(target_size, Image.LANCZOS)
+            # Apply face cropping if enabled
+            if self.crop_faces:
+                img_name = os.path.basename(img_path)
+                if img_name in self.face_landmarks:
+                    landmarks = self.face_landmarks[img_name]
+                    bbox = self._compute_face_bbox_from_landmarks(landmarks)
+                    if bbox:
+                        x_min, y_min, x_max, y_max = bbox
+                        # Ensure bbox is within image bounds
+                        x_min = max(0, x_min)
+                        y_min = max(0, y_min)
+                        x_max = min(original_size[0], x_max)
+                        y_max = min(original_size[1], y_max)
+                        
+                        # Crop to face region with margin
+                        img = img.crop((x_min, y_min, x_max, y_max))
+                    else:
+                        self.logger.warning(f"Could not compute face bbox for {img_name}, using full image.")
+                else:
+                    self.logger.warning(f"No face landmarks found for {img_name}, using full image.")
+            
+            # Resize image with configurable algorithm
+            img_resized = img.resize(target_size, resize_method)
             
             # Save back
             img_resized.save(img_path)
