@@ -55,7 +55,7 @@ class CelebA(torch.utils.data.Dataset):
 
     def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
                  resize_algorithm='LANCZOS', crop_faces=False, download_annotations=True, 
-                 crop_margin=0.3, **kwargs):
+                 crop_margin=0.3, force_download=False, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters
@@ -76,6 +76,8 @@ class CelebA(torch.utils.data.Dataset):
             Whether to download face landmarks (required for face cropping).
         crop_margin : float, default=0.3
             Margin factor for face cropping to include head and hair (0.3 = 30% margin).
+        force_download : bool, default=False
+            Whether to force redownload and reprocess the dataset, useful when changing flags like crop_faces.
         **kwargs : 
             Additional arguments for compatibility.
         """
@@ -105,8 +107,8 @@ class CelebA(torch.utils.data.Dataset):
         else:
             self.transforms = transforms
 
-        # Download dataset if it doesn't exist
-        if not os.path.isdir(root):
+        # Download dataset if it doesn't exist or force_download is True
+        if not os.path.isdir(root) or force_download:
             self.logger.info("Downloading {} ...".format(str(type(self))))
             self.download()
             self.logger.info("Finished Downloading.")
