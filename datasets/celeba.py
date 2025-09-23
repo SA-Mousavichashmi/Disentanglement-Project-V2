@@ -108,7 +108,7 @@ class CelebA(torch.utils.data.Dataset):
             self.transforms = transforms
 
         # Download dataset if it doesn't exist or force_download is True
-        if not os.path.isdir(root) or force_download:
+        if not os.path.isdir(self.train_data) or force_download:
             self.logger.info("Downloading {} ...".format(str(type(self))))
             self.download()
             self.logger.info("Finished Downloading.")
@@ -130,9 +130,13 @@ class CelebA(torch.utils.data.Dataset):
         save_path = os.path.join(self.root, 'celeba.zip')
         os.makedirs(self.root, exist_ok=True)
         
-        self.logger.info("Downloading CelebA dataset...")
-        subprocess.check_call(["curl", "-L", type(self).urls["train"],
-                               "--output", save_path])
+        # Check if zip file already exists
+        if not os.path.exists(save_path):
+            self.logger.info("Downloading CelebA dataset...")
+            subprocess.check_call(["curl", "-L", type(self).urls["train"],
+                                   "--output", save_path])
+        else:
+            self.logger.info("CelebA zip file already exists, skipping download.")
 
         hash_code = '00d2c5bc6d35e252742224ab0c1e8fcb'
         with open(save_path, 'rb') as f:
@@ -144,7 +148,8 @@ class CelebA(torch.utils.data.Dataset):
             self.logger.info("Extracting CelebA ...")
             zf.extractall(self.root)
 
-        os.remove(save_path)
+        # Keep the zip file for future use; do not delete it
+        # os.remove(save_path)
 
         # Download face annotations if required
         if self.download_annotations or self.crop_faces:
