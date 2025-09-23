@@ -49,7 +49,7 @@ class CelebA(torch.utils.data.Dataset):
         "train": "https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip",
         "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
     }
-    files = {"train": "img_align_celeba", "landmarks": "list_landmarks_align_celeba.txt"}
+    files = {"train": "img_align_celeba.zip", "landmarks": "list_landmarks_align_celeba.txt"}
     img_size = (3, 64, 64)
     background_color = datasets.COLOUR_WHITE
 
