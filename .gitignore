@@ -192,3 +192,9 @@ back_up/
 # Folders commonly created by training/experiments; use the project's canonical name
 # (configured default: see `config/config_schema/trainer_config.py` -> `results_dir`)
 experiments/
+
+.Trash-0
+.ssh/id_ed25519.pub
+.ssh/id_ed25519
+init.sh
+code

@@ -52,10 +52,10 @@ class CelebA(torch.utils.data.Dataset):
         on computer vision (pp. 3730-3738).
     """
     urls = {
-        "train": "https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip",
-        "landmarks": "https://drive.google.com/uc?id=0B7EVK8r0v71pd0FJY3Blby1HUTQ"  # Face landmarks
+        "train": "https://drive.google.com/uc?id=16iSaRTazPPEEs3y68pQPSeXjOiJ9o7VX",
+        "annotations": "https://drive.google.com/file/d/1doqk-enfMbxU3T_KZ1UVIxA58rBZAPyV/view?usp=drive_link"  # CelebA annotations
     }
-    files = {"train": "img_align_celeba.zip", "landmarks": "list_landmarks_align_celeba.txt"}
+    files = {"train": "img_align_celeba.zip", "annotations": "celeba_annotations.zip"}
     img_size = (3, 64, 64)
     background_color = datasets.COLOUR_WHITE
 
@@ -112,8 +112,11 @@ class CelebA(torch.utils.data.Dataset):
         else:
             self.transforms = transforms
 
-        # Set train_data to processed images directory
-        self.train_data = os.path.join(root, 'cropped_celeba')
+        # Set train_data based on crop_faces flag
+        if self.crop_faces:
+            self.train_data = os.path.join(root, 'img_align_celeba_cropped')
+        else:
+            self.train_data = os.path.join(root, 'img_align_celeba')
         
         # Auto-download if dataset doesn't exist
         if not os.path.exists(self.train_data):
@@ -121,9 +124,9 @@ class CelebA(torch.utils.data.Dataset):
             self.download()
 
         # Load image paths
-        self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*')))
+        self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*.jpg')))
         
-        # Load face annotations if needed
+        # Load face annotations if needed for cropping
         if self.crop_faces and self.download_annotations:
             self._load_face_annotations()
         
@@ -134,137 +137,166 @@ class CelebA(torch.utils.data.Dataset):
 
     def download(self):
         """Download the dataset."""
-        save_path = os.path.join(self.root, type(self).files["train"])
+        if gdown is None:
+            raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
+        
+        # Check if directories already exist and force_download is False
+        img_dir = os.path.join(self.root, 'img_align_celeba')
+        ann_dir = os.path.join(self.root, 'celeba_annotations')
+        
+        if not self.force_download and os.path.exists(img_dir) and os.path.exists(ann_dir):
+            self.logger.info("Dataset directories already exist, skipping download.")
+            # Check if we need to do face cropping preprocessing
+            if self.crop_faces:
+                self._maybe_preprocess_images()
+            return
+        
+        # Create directory structure
         os.makedirs(self.root, exist_ok=True)
+        original_zip_dir = os.path.join(self.root, 'original_zip_files')
+        os.makedirs(original_zip_dir, exist_ok=True)
         
-        # Check if zip file already exists and is valid
-        valid_zip = False
+        # Download and extract images
+        img_zip_path = os.path.join(original_zip_dir, self.files["train"])
+        if not self._download_file("train", img_zip_path):
+            return
+        self._extract_zip(img_zip_path, self.root, 'img_align_celeba')
+        
+        # Download and extract annotations
+        if self.download_annotations or self.crop_faces:
+            ann_zip_path = os.path.join(original_zip_dir, self.files["annotations"])
+            if self._download_file("annotations", ann_zip_path):
+                self._extract_zip(ann_zip_path, self.root, 'celeba_annotations')
+            else:
+                self.crop_faces = False
+                self.logger.warning("Failed to download annotations, face cropping disabled.")
+        
+        self.logger.info("CelebA dataset download and extraction completed.")
+        
+        # Do face cropping preprocessing if needed
+        if self.crop_faces:
+            self._maybe_preprocess_images()
+
+    def _download_file(self, file_key, save_path):
+        """Download a file using gdown.
+        
+        Parameters
+        ----------
+        file_key : str
+            Key in the urls dictionary ('train' or 'annotations')
+        save_path : str
+            Path where the file should be saved
+            
+        Returns
+        -------
+        bool
+            True if download was successful, False otherwise
+        """
+        # Check if file already exists and is valid
         if os.path.exists(save_path):
-            try:
-                with zipfile.ZipFile(save_path, 'r') as zf:
-                    zf.testzip()  # Test if zip file is valid
-                valid_zip = True
-                self.logger.info("Valid CelebA zip file already exists, skipping download.")
-            except (zipfile.BadZipFile, zipfile.LargeZipFile):
-                self.logger.warning("Existing zip file is corrupted, will re-download.")
-                os.remove(save_path)
+            if file_key == "train" or file_key == "annotations":
+                try:
+                    with zipfile.ZipFile(save_path, 'r') as zf:
+                        zf.testzip()  # Test if zip file is valid
+                    self.logger.info(f"Valid {file_key} file already exists, skipping download.")
+                    return True
+                except (zipfile.BadZipFile, zipfile.LargeZipFile):
+                    self.logger.warning(f"Existing {file_key} file is corrupted, will re-download.")
+                    os.remove(save_path)
         
-        if not valid_zip:
-            self.logger.info("Downloading CelebA dataset from AWS S3...")
-            url = self.urls["train"]
-            try:
-                # Download with urllib.request
-                def _progress_hook(block_num, block_size, total_size):
-                    if total_size > 0:
-                        progress = min(1.0, (block_num * block_size) / total_size)
-                        self.logger.info(f"Download progress: {progress:.1%}")
+        # Download with gdown
+        url = self.urls[file_key]
+        self.logger.info(f"Downloading {file_key} from Google Drive...")
+        
+        try:
+            success = gdown.download(url=url, output=save_path, quiet=False, fuzzy=True)
+            if not success:
+                raise RuntimeError(f"gdown.download returned False for {file_key}")
                 
-                urllib.request.urlretrieve(url, save_path, reporthook=_progress_hook)
-                self.logger.info("Download completed.")
-                
-                # Verify the downloaded file is a valid zip
+            # Validate downloaded file
+            if file_key == "train" or file_key == "annotations":
                 with zipfile.ZipFile(save_path, 'r') as zf:
                     zf.testzip()
-                self.logger.info("Download successful and zip file validated.")
-                
-            except (urllib.error.URLError, urllib.error.HTTPError, zipfile.BadZipFile) as e:
-                self.logger.error(f"Failed to download CelebA dataset: {e}")
-                # Clean up corrupted file
-                if os.path.exists(save_path):
-                    os.remove(save_path)
-                raise
-
-        # Extract the zip file to temporary location
-        temp_extract_dir = os.path.join(self.root, 'img_align_celeba')
-        try:
-            with zipfile.ZipFile(save_path) as zf:
-                self.logger.info("Extracting CelebA ...")
-                zf.extractall(self.root)
-        except zipfile.BadZipFile as e:
-            self.logger.error(f"Downloaded file is not a valid zip file: {e}")
-            # Clean up corrupted file and raise error
-            if os.path.exists(save_path):
-                os.remove(save_path)
-            raise
-
-        # Keep the zip file for future use; do not delete it
-        # os.remove(save_path)
-
-        # Download face annotations if required
-        if self.download_annotations or self.crop_faces:
-            self.logger.info("Downloading face landmarks...")
-            self._download_annotations()
-
-        self.logger.info("Processing and saving CelebA images...")
-        self._preprocess_images(temp_extract_dir, self.train_data)
-        
-        # Clean up temporary extraction directory
-        import shutil
-        if os.path.exists(temp_extract_dir):
-            shutil.rmtree(temp_extract_dir)
-            self.logger.info("Cleaned up temporary extraction directory.")
-
-    def _download_annotations(self):
-        """Download face landmark annotations."""
-        landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
-        
-        if gdown is None:
-            self.logger.error("gdown is required for downloading face landmarks. Install it with: pip install gdown")
-            self.crop_faces = False
-            return
-        
-        # Check if landmarks file already exists and is valid
-        if os.path.exists(landmarks_path):
-            try:
-                # Try to read a few lines to validate the file
-                with open(landmarks_path, 'r') as f:
-                    lines = f.readlines()[:5]
-                    if len(lines) > 0 and not all(line.strip().startswith('<') for line in lines):
-                        self.logger.info("Valid landmarks file already exists, skipping download.")
-                        return
-            except Exception:
-                self.logger.warning("Existing landmarks file is corrupted, will re-download.")
-                os.remove(landmarks_path)
-        
-        # Use direct download URL
-        url = self.urls["landmarks"]
-        
-        self.logger.info("Downloading face landmarks with gdown...")
-        try:
-            success = gdown.download(url=url, output=landmarks_path, quiet=False, fuzzy=True)
-            if not success:
-                raise RuntimeError("gdown.download returned False - download failed")
-                
-            # Validate the downloaded file
-            with open(landmarks_path, 'r') as f:
-                first_line = f.readline().strip()
-                if first_line.startswith('<') or 'error' in first_line.lower():
-                    raise RuntimeError("Downloaded file appears to be an error page, not the landmarks file")
                     
-            self.logger.info("Landmarks download successful and file validated.")
+            self.logger.info(f"{file_key.capitalize()} download successful and validated.")
+            return True
             
         except Exception as e:
-            self.logger.error(f"Failed to download landmarks: {e}. Face cropping will be disabled.")
-            self.crop_faces = False
-            # Clean up corrupted file
-            if os.path.exists(landmarks_path):
-                os.remove(landmarks_path)
-            return
+            self.logger.error(f"Failed to download {file_key}: {e}")
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            return False
+
+    def _extract_zip(self, zip_path, extract_root, target_dir_name):
+        """Extract zip file to target directory.
         
-        if not os.path.exists(landmarks_path):
-            self.logger.error("Landmarks file not found after download. Face cropping will be disabled.")
-            self.crop_faces = False
+        Parameters
+        ----------
+        zip_path : str
+            Path to the zip file
+        extract_root : str
+            Root directory for extraction
+        target_dir_name : str
+            Name of the target directory within extract_root
+        """
+        target_dir = os.path.join(extract_root, target_dir_name)
+        
+        # Skip extraction if target directory already exists and has content
+        if os.path.exists(target_dir) and os.listdir(target_dir):
+            self.logger.info(f"Target directory {target_dir} already exists with content, skipping extraction.")
+            return
+            
+        os.makedirs(target_dir, exist_ok=True)
+        
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                self.logger.info(f"Extracting {os.path.basename(zip_path)} to {target_dir_name}/...")
+                
+                # Extract all files and flatten the directory structure
+                for member in zf.namelist():
+                    # Skip directories
+                    if member.endswith('/'):
+                        continue
+                        
+                    # Get the filename (last part of the path)
+                    filename = os.path.basename(member)
+                    if filename:  # Make sure we have a filename
+                        # Extract file directly to target directory
+                        source = zf.open(member)
+                        target_path = os.path.join(target_dir, filename)
+                        
+                        with open(target_path, 'wb') as target_file:
+                            target_file.write(source.read())
+                        source.close()
+                
+        except zipfile.BadZipFile as e:
+            self.logger.error(f"Invalid zip file {zip_path}: {e}")
+            raise
+
 
     def _load_face_annotations(self):
         """Load and parse face landmark annotations."""
-        landmarks_path = os.path.join(self.root, type(self).files["landmarks"])
+        # Look for landmarks file in the annotations directory
+        annotations_dir = os.path.join(self.root, 'celeba_annotations')
+        landmarks_path = None
+        
+        # Search for landmarks file in annotations directory
+        if os.path.exists(annotations_dir):
+            for file in os.listdir(annotations_dir):
+                if 'landmark' in file.lower() or 'landmarks' in file.lower():
+                    landmarks_path = os.path.join(annotations_dir, file)
+                    break
+        
+        # Fallback to old location if not found in annotations directory
+        if not landmarks_path:
+            landmarks_path = os.path.join(self.root, 'list_landmarks_align_celeba.txt')
         
         if not os.path.exists(landmarks_path):
             self.logger.warning("Face landmarks file not found. Face cropping will be disabled.")
             self.crop_faces = False
             return
             
-        self.logger.info("Loading face landmarks...")
+        self.logger.info(f"Loading face landmarks from {landmarks_path}...")
         
         with open(landmarks_path, 'r') as f:
             lines = f.readlines()
@@ -328,8 +360,34 @@ class CelebA(torch.utils.data.Dataset):
         
         return (x_min, y_min, x_max, y_max)
 
+    def _maybe_preprocess_images(self):
+        """Check if face cropping preprocessing is needed and do it if necessary."""
+        cropped_dir = os.path.join(self.root, 'img_align_celeba_cropped')
+        
+        # Skip preprocessing if cropped directory already exists with content
+        if os.path.exists(cropped_dir) and os.listdir(cropped_dir):
+            self.logger.info("Face-cropped images directory already exists, skipping preprocessing.")
+            return
+        
+        # Load face annotations if needed
+        if not self.face_landmarks:
+            self._load_face_annotations()
+        
+        if not self.face_landmarks:
+            self.logger.warning("No face landmarks available, cannot perform face cropping.")
+            self.crop_faces = False
+            # Fall back to original images
+            self.train_data = os.path.join(self.root, 'img_align_celeba')
+            return
+        
+        # Perform face cropping preprocessing
+        source_dir = os.path.join(self.root, 'img_align_celeba')
+        self.logger.info("Starting face cropping preprocessing...")
+        self._preprocess_images(source_dir, cropped_dir)
+        self.logger.info("Face cropping preprocessing completed.")
+
     def _preprocess_images(self, source_dir, dest_dir):
-        """Preprocess images to the target size and save to destination directory.
+        """Preprocess images to crop faces and resize to target size.
         
         Parameters
         ----------
@@ -338,7 +396,9 @@ class CelebA(torch.utils.data.Dataset):
         dest_dir : str  
             Directory where processed images will be saved
         """
-        img_paths = glob.glob(os.path.join(source_dir, '*'))
+        import glob
+        
+        img_paths = glob.glob(os.path.join(source_dir, '*.jpg'))
         
         # Create destination directory
         os.makedirs(dest_dir, exist_ok=True)
@@ -348,31 +408,35 @@ class CelebA(torch.utils.data.Dataset):
         # Get resize algorithm
         resize_method = getattr(Image, self.resize_algorithm)
         
-        for img_path in img_paths:
+        self.logger.info(f"Processing {len(img_paths)} images for face cropping...")
+        
+        for i, img_path in enumerate(img_paths):
+            if i % 10000 == 0:
+                self.logger.info(f"Processed {i}/{len(img_paths)} images...")
+                
             # Load image
             img = Image.open(img_path)
             original_size = img.size  # (width, height)
             
-            # Apply face cropping if enabled
-            if self.crop_faces:
-                img_name = os.path.basename(img_path)
-                if img_name in self.face_landmarks:
-                    landmarks = self.face_landmarks[img_name]
-                    bbox = self._compute_face_bbox_from_landmarks(landmarks)
-                    if bbox:
-                        x_min, y_min, x_max, y_max = bbox
-                        # Ensure bbox is within image bounds
-                        x_min = max(0, x_min)
-                        y_min = max(0, y_min)
-                        x_max = min(original_size[0], x_max)
-                        y_max = min(original_size[1], y_max)
-                        
-                        # Crop to face region with margin
-                        img = img.crop((x_min, y_min, x_max, y_max))
-                    else:
-                        self.logger.warning(f"Could not compute face bbox for {img_name}, using full image.")
+            # Apply face cropping
+            img_name = os.path.basename(img_path)
+            if img_name in self.face_landmarks:
+                landmarks = self.face_landmarks[img_name]
+                bbox = self._compute_face_bbox_from_landmarks(landmarks)
+                if bbox:
+                    x_min, y_min, x_max, y_max = bbox
+                    # Ensure bbox is within image bounds
+                    x_min = max(0, x_min)
+                    y_min = max(0, y_min)
+                    x_max = min(original_size[0], x_max)
+                    y_max = min(original_size[1], y_max)
+                    
+                    # Crop to face region with margin
+                    img = img.crop((x_min, y_min, x_max, y_max))
                 else:
-                    self.logger.warning(f"No face landmarks found for {img_name}, using full image.")
+                    self.logger.warning(f"Could not compute face bbox for {img_name}, using full image.")
+            else:
+                self.logger.warning(f"No face landmarks found for {img_name}, using full image.")
             
             # Resize image with configurable algorithm
             img_resized = img.resize(target_size, resize_method)
@@ -380,6 +444,8 @@ class CelebA(torch.utils.data.Dataset):
             # Save to destination directory
             dest_path = os.path.join(dest_dir, os.path.basename(img_path))
             img_resized.save(dest_path)
+        
+        self.logger.info(f"Completed processing {len(img_paths)} images.")
     
     def __len__(self):
         """Return the number of samples in the dataset."""
