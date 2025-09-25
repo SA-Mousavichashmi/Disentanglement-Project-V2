@@ -8,10 +8,7 @@
 import glob
 import logging
 import os
-import subprocess
 import zipfile
-import urllib.request
-import urllib.error
 
 import numpy as np
 from PIL import Image
@@ -61,7 +58,7 @@ class CelebA(torch.utils.data.Dataset):
 
     def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
                  resize_algorithm='LANCZOS', crop_faces=False, download_annotations=True, 
-                 crop_margin=0.3, force_download=False, **kwargs):
+                 crop_margin=0.6, force_download=False, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters
@@ -94,6 +91,7 @@ class CelebA(torch.utils.data.Dataset):
         self.crop_faces = crop_faces
         self.download_annotations = download_annotations
         self.crop_margin = crop_margin
+        self.force_download = force_download
         self.face_landmarks = {}  # Store face landmarks
         
         # Validate resize algorithm
@@ -356,7 +354,7 @@ class CelebA(torch.utils.data.Dataset):
         x_min = max(0, int(x_min - margin_x))
         y_min = max(0, int(y_min - margin_y * 1.5))  # More margin on top for hair
         x_max = int(x_max + margin_x)
-        y_max = int(y_max + margin_y * 0.5)  # Less margin on bottom
+        y_max = int(y_max + margin_y * 0.8)  # Less margin on bottom
         
         return (x_min, y_min, x_max, y_max)
 
