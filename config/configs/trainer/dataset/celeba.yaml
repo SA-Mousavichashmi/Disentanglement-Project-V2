@@ -4,3 +4,7 @@
 name: "celeba"
 root: "data/celeba/"
 subset: 1.0
+resize_algorithm: "LANCZOS"
+crop_faces: True
+crop_margin: 0.6
+force_download: false

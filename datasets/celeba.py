@@ -8,6 +8,7 @@
 import glob
 import logging
 import os
+import shutil
 import zipfile
 
 import numpy as np
@@ -57,8 +58,8 @@ class CelebA(torch.utils.data.Dataset):
     background_color = datasets.COLOUR_WHITE
 
     def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
-                 resize_algorithm='LANCZOS', crop_faces=False, download_annotations=True, 
-                 crop_margin=0.6, force_download=False, **kwargs):
+                 resize_algorithm='LANCZOS', crop_faces=False, 
+                 crop_margin=0.6, force_download=False, load_into_memory=True, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters
@@ -75,12 +76,12 @@ class CelebA(torch.utils.data.Dataset):
             Image resizing algorithm. Options: 'LANCZOS', 'BICUBIC'.
         crop_faces : bool, default=False
             Whether to crop images to face regions based on landmarks.
-        download_annotations : bool, default=True
-            Whether to download face landmarks (required for face cropping).
         crop_margin : float, default=0.3
             Margin factor for face cropping to include head and hair (0.3 = 30% margin).
         force_download : bool, default=False
             Whether to force redownload and reprocess the dataset, useful when changing flags like crop_faces.
+        load_into_memory : bool, default=False
+            Load all images into RAM during initialization for faster subsequent access.
         **kwargs : 
             Additional arguments for compatibility.
         """
@@ -89,10 +90,14 @@ class CelebA(torch.utils.data.Dataset):
         self.logger = logger or logging.getLogger(__name__)
         self.resize_algorithm = resize_algorithm.upper()
         self.crop_faces = crop_faces
-        self.download_annotations = download_annotations
         self.crop_margin = crop_margin
         self.force_download = force_download
+        self.load_into_memory = load_into_memory
+        self._img_cache = None
         self.face_landmarks = {}  # Store face landmarks
+        self.raw_data_dir = os.path.join(self.root, 'img_align_celeba')
+        self.processed_data_dir = os.path.join(self.root, 'img_align_celeba_preprocssed')
+        self.annotations_dir = os.path.join(self.root, 'celeba_annotations')
         
         # Validate resize algorithm
         if self.resize_algorithm not in ['LANCZOS', 'BICUBIC']:
@@ -110,43 +115,73 @@ class CelebA(torch.utils.data.Dataset):
         else:
             self.transforms = transforms
 
-        # Set train_data based on crop_faces flag
+        needs_download = self.force_download or not os.path.exists(self.raw_data_dir)
         if self.crop_faces:
-            self.train_data = os.path.join(root, 'img_align_celeba_cropped')
-        else:
-            self.train_data = os.path.join(root, 'img_align_celeba')
-        
-        # Auto-download if dataset doesn't exist
-        if not os.path.exists(self.train_data):
-            self.logger.info("Dataset not found, downloading...")
+            needs_download = needs_download or not os.path.exists(self.annotations_dir)
+
+        if needs_download:
+            self.logger.info("Dataset not found or force download requested, downloading...")
             self.download()
+
+        self.train_data = self.raw_data_dir
+
+        if self.crop_faces:
+            processed_exists = os.path.exists(self.processed_data_dir)
+            if processed_exists:
+                self.logger.info("Face-preprocessed images directory already exists, skipping preprocessing.")
+                self.train_data = self.processed_data_dir
+            else:
+                self._load_face_annotations()
+                if not self.face_landmarks:
+                    self.logger.warning("No face landmarks available, cannot perform face cropping.")
+                    self.crop_faces = False
+                else:
+                    self.logger.info("Starting face preprocessing...")
+                    self._preprocess_images(self.raw_data_dir, self.processed_data_dir)
+                    if os.path.exists(self.processed_data_dir):
+                        self.logger.info("Face preprocessing completed.")
+                        self.train_data = self.processed_data_dir
+                    else:
+                        self.logger.warning("Face preprocessing failed to create processed images directory, using original images.")
+                        self.crop_faces = False
 
         # Load image paths
         self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*.jpg')))
-        
-        # Load face annotations if needed for cropping
-        if self.crop_faces and self.download_annotations:
-            self._load_face_annotations()
+
+        if not self.img_paths and self.train_data == self.processed_data_dir and os.path.exists(self.raw_data_dir):
+            self.logger.warning("Preprocessed directory is empty, falling back to original images.")
+            self.crop_faces = False
+            self.train_data = self.raw_data_dir
+            self.img_paths = sorted(glob.glob(os.path.join(self.train_data, '*.jpg')))
         
         # Apply subset if specified
         if self.subset < 1.0:
             num_samples = int(len(self.img_paths) * self.subset)
             self.img_paths = self.img_paths[:num_samples]
 
+        if self.load_into_memory:
+            if not self.img_paths:
+                self.logger.warning("No images found to load into memory.")
+            else:
+                self._img_cache = [None] * len(self.img_paths)
+                self._load_images_into_memory()
+
     def download(self):
         """Download the dataset."""
         if gdown is None:
             raise ImportError("gdown is required for downloading CelebA dataset. Install it with: pip install gdown")
         
-        # Check if directories already exist and force_download is False
-        img_dir = os.path.join(self.root, 'img_align_celeba')
-        ann_dir = os.path.join(self.root, 'celeba_annotations')
-        
-        if not self.force_download and os.path.exists(img_dir) and os.path.exists(ann_dir):
-            self.logger.info("Dataset directories already exist, skipping download.")
-            # Check if we need to do face cropping preprocessing
-            if self.crop_faces:
-                self._maybe_preprocess_images()
+        # Determine which components need downloading
+        img_dir = self.raw_data_dir
+        ann_dir = self.annotations_dir
+
+        download_images = self.force_download or not os.path.exists(img_dir)
+        download_annotations = False
+        if self.crop_faces:
+            download_annotations = self.force_download or not os.path.exists(ann_dir)
+
+        if not download_images and not download_annotations:
+            self.logger.info("Required dataset directories already exist, skipping download.")
             return
         
         # Create directory structure
@@ -154,26 +189,31 @@ class CelebA(torch.utils.data.Dataset):
         original_zip_dir = os.path.join(self.root, 'original_zip_files')
         os.makedirs(original_zip_dir, exist_ok=True)
         
-        # Download and extract images
-        img_zip_path = os.path.join(original_zip_dir, self.files["train"])
-        if not self._download_file("train", img_zip_path):
-            return
-        self._extract_zip(img_zip_path, self.root, 'img_align_celeba')
-        
-        # Download and extract annotations
-        if self.download_annotations or self.crop_faces:
+        # Download and extract images if needed
+        if download_images:
+            if self.force_download and os.path.exists(img_dir):
+                shutil.rmtree(img_dir)
+            img_zip_path = os.path.join(original_zip_dir, self.files["train"])
+            if not self._download_file("train", img_zip_path):
+                return
+            self._extract_zip(img_zip_path, self.root, 'img_align_celeba')
+        else:
+            self.logger.info("Image directory already present, skipping image download.")
+
+        # Download and extract annotations if needed
+        if download_annotations:
+            if self.force_download and os.path.exists(ann_dir):
+                shutil.rmtree(ann_dir)
             ann_zip_path = os.path.join(original_zip_dir, self.files["annotations"])
             if self._download_file("annotations", ann_zip_path):
                 self._extract_zip(ann_zip_path, self.root, 'celeba_annotations')
             else:
                 self.crop_faces = False
                 self.logger.warning("Failed to download annotations, face cropping disabled.")
+        elif self.crop_faces:
+            self.logger.info("Annotations directory already present, skipping annotation download.")
         
         self.logger.info("CelebA dataset download and extraction completed.")
-        
-        # Do face cropping preprocessing if needed
-        if self.crop_faces:
-            self._maybe_preprocess_images()
 
     def _download_file(self, file_key, save_path):
         """Download a file using gdown.
@@ -275,7 +315,7 @@ class CelebA(torch.utils.data.Dataset):
     def _load_face_annotations(self):
         """Load and parse face landmark annotations."""
         # Look for landmarks file in the annotations directory
-        annotations_dir = os.path.join(self.root, 'celeba_annotations')
+        annotations_dir = self.annotations_dir
         landmarks_path = None
         
         # Search for landmarks file in annotations directory
@@ -358,32 +398,6 @@ class CelebA(torch.utils.data.Dataset):
         
         return (x_min, y_min, x_max, y_max)
 
-    def _maybe_preprocess_images(self):
-        """Check if face cropping preprocessing is needed and do it if necessary."""
-        cropped_dir = os.path.join(self.root, 'img_align_celeba_cropped')
-        
-        # Skip preprocessing if cropped directory already exists with content
-        if os.path.exists(cropped_dir) and os.listdir(cropped_dir):
-            self.logger.info("Face-cropped images directory already exists, skipping preprocessing.")
-            return
-        
-        # Load face annotations if needed
-        if not self.face_landmarks:
-            self._load_face_annotations()
-        
-        if not self.face_landmarks:
-            self.logger.warning("No face landmarks available, cannot perform face cropping.")
-            self.crop_faces = False
-            # Fall back to original images
-            self.train_data = os.path.join(self.root, 'img_align_celeba')
-            return
-        
-        # Perform face cropping preprocessing
-        source_dir = os.path.join(self.root, 'img_align_celeba')
-        self.logger.info("Starting face cropping preprocessing...")
-        self._preprocess_images(source_dir, cropped_dir)
-        self.logger.info("Face cropping preprocessing completed.")
-
     def _preprocess_images(self, source_dir, dest_dir):
         """Preprocess images to crop faces and resize to target size.
         
@@ -444,6 +458,24 @@ class CelebA(torch.utils.data.Dataset):
             img_resized.save(dest_path)
         
         self.logger.info(f"Completed processing {len(img_paths)} images.")
+
+    def _load_images_into_memory(self):
+        """Eagerly load images into RAM to speed up training."""
+        total = len(self.img_paths)
+        self.logger.info(f"Loading {total} images into memory...")
+
+        for idx, img_path in enumerate(self.img_paths):
+            try:
+                img_array = skimage.io.imread(img_path)
+                self._img_cache[idx] = img_array
+            except Exception as exc:
+                self._img_cache[idx] = None
+                self.logger.warning(f"Failed to cache image {img_path}: {exc}")
+
+            if (idx + 1) % 5000 == 0:
+                self.logger.info(f"Cached {idx + 1}/{total} images...")
+
+        self.logger.info("Finished loading images into memory.")
     
     def __len__(self):
         """Return the number of samples in the dataset."""
@@ -467,7 +499,11 @@ class CelebA(torch.utils.data.Dataset):
         img_path = self.img_paths[idx]
         
         # Load and transform image
-        img = skimage.io.imread(img_path)
+        if self._img_cache is not None:
+            img = self._img_cache[idx]
+        else:
+            img = skimage.io.imread(img_path)
+
         img = self.transforms(img)
         
         # Return image with placeholder label (0) for compatibility

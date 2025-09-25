@@ -36,6 +36,17 @@ class DSpritesConfig(DatasetConfig):
 
 
 @dataclass
+class CelebAConfig(DatasetConfig):
+    """Configuration for CelebA dataset."""
+    name: str = "celeba"
+    root: str = "data/celeba/"
+    crop_faces: bool = False
+    crop_margin: float = 0.6
+    resize_algorithm: str = "LANCZOS"
+    force_download: bool = False
+
+
+@dataclass
 class Shapes3DConfig(DatasetConfig):
     """Configuration for Shapes3D dataset."""
     name: str = "shapes3d"
