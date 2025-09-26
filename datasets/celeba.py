@@ -166,6 +166,24 @@ class CelebA(torch.utils.data.Dataset):
                 self._img_cache = [None] * len(self.img_paths)
                 self._load_images_into_memory()
 
+    @property
+    def name(self):
+        """Name of the dataset."""
+        return 'celeba'
+
+    @property
+    def kwargs(self):
+        """Keyword arguments for the dataset."""
+        return {
+            'root': self.root,
+            'subset': self.subset,
+            'resize_algorithm': self.resize_algorithm,
+            'crop_faces': self.crop_faces,
+            'crop_margin': self.crop_margin,
+            'force_download': self.force_download,
+            'load_into_memory': self.load_into_memory
+        }
+    
     def download(self):
         """Download the dataset."""
         if gdown is None:
