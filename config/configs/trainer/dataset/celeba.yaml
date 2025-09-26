@@ -6,5 +6,6 @@ root: "data/celeba/"
 subset: 1.0
 resize_algorithm: "LANCZOS"
 crop_faces: True
-crop_margin: 0.6
+crop_margins: [0.7, 0.7, 2.0, 0.8]
 force_download: false
+load_into_memory: true

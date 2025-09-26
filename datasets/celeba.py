@@ -59,7 +59,7 @@ class CelebA(torch.utils.data.Dataset):
 
     def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
                  resize_algorithm='LANCZOS', crop_faces=False, 
-                 crop_margin=0.6, force_download=False, load_into_memory=True, **kwargs):
+                 crop_margins=(0.7, 0.7, 2, 0.8), force_download=False, load_into_memory=True, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters
@@ -76,8 +76,10 @@ class CelebA(torch.utils.data.Dataset):
             Image resizing algorithm. Options: 'LANCZOS', 'BICUBIC'.
         crop_faces : bool, default=False
             Whether to crop images to face regions based on landmarks.
-        crop_margin : float, default=0.3
-            Margin factor for face cropping to include head and hair (0.3 = 30% margin).
+        crop_margins : sequence of four positive floats, default=(0.7, 0.7, 1.5, 0.7)
+            Directional margin multipliers (right, left, up, down) applied to the detected face
+            width or height when expanding the crop. Values represent fractions of the detected
+            face size (e.g. 0.3 = 30%).
         force_download : bool, default=False
             Whether to force redownload and reprocess the dataset, useful when changing flags like crop_faces.
         load_into_memory : bool, default=False
@@ -90,7 +92,15 @@ class CelebA(torch.utils.data.Dataset):
         self.logger = logger or logging.getLogger(__name__)
         self.resize_algorithm = resize_algorithm.upper()
         self.crop_faces = crop_faces
-        self.crop_margin = crop_margin
+
+        if not isinstance(crop_margins, list) or isinstance(crop_margins, tuple):
+            raise TypeError("crop_margins must be a sequence of four positive numbers (right, left, up, down)")
+        if len(crop_margins) != 4:
+            raise ValueError("crop_margins sequence must contain exactly four values: (right, left, up, down)")
+        if not all(isinstance(margin, (int, float)) for margin in crop_margins):
+            raise TypeError("All crop margin values must be numbers (int or float)")
+
+        self.crop_margins = crop_margins
         self.force_download = force_download
         self.load_into_memory = load_into_memory
         self._img_cache = None
@@ -102,10 +112,6 @@ class CelebA(torch.utils.data.Dataset):
         # Validate resize algorithm
         if self.resize_algorithm not in ['LANCZOS', 'BICUBIC']:
             raise ValueError("resize_algorithm must be 'LANCZOS' or 'BICUBIC'")
-        
-        # Validate crop margin
-        if not (0.0 <= crop_margin <= 1.0):
-            raise ValueError("crop_margin must be between 0.0 and 1.0")
         
         # Set up transforms
         if transforms is None:
@@ -179,7 +185,7 @@ class CelebA(torch.utils.data.Dataset):
             'subset': self.subset,
             'resize_algorithm': self.resize_algorithm,
             'crop_faces': self.crop_faces,
-            'crop_margin': self.crop_margin,
+            'crop_margins': self.crop_margins,
             'force_download': self.force_download,
             'load_into_memory': self.load_into_memory
         }
@@ -403,16 +409,19 @@ class CelebA(torch.utils.data.Dataset):
         # Calculate face dimensions
         face_width = x_max - x_min
         face_height = y_max - y_min
-        
-        # Add margin to include head and hair
-        margin_x = face_width * self.crop_margin
-        margin_y = face_height * self.crop_margin
-        
+
+        # Add directional margins to include head and hair
+        margin_right, margin_left, margin_up, margin_down = self.crop_margins
+        margin_right *= face_width
+        margin_left *= face_width
+        margin_up *= face_height
+        margin_down *= face_height
+
         # Expand bounding box with margins
-        x_min = max(0, int(x_min - margin_x))
-        y_min = max(0, int(y_min - margin_y * 1.5))  # More margin on top for hair
-        x_max = int(x_max + margin_x)
-        y_max = int(y_max + margin_y * 0.8)  # Less margin on bottom
+        x_min = max(0, int(x_min - margin_left))
+        y_min = max(0, int(y_min - margin_up))
+        x_max = int(x_max + margin_right)
+        y_max = int(y_max + margin_down)
         
         return (x_min, y_min, x_max, y_max)
 
