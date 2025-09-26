@@ -59,7 +59,7 @@ class CelebA(torch.utils.data.Dataset):
 
     def __init__(self, root='data/celeba', transforms=None, subset=1.0, logger=None, 
                  resize_algorithm='LANCZOS', crop_faces=False, 
-                 crop_margins=(0.7, 0.7, 2, 0.8), force_download=False, load_into_memory=True, **kwargs):
+                 crop_margins=(0.8, 0.8, 2.2, 0.9), force_download=False, load_into_memory=True, **kwargs):
         """Initialize the CelebA dataset.
         
         Parameters

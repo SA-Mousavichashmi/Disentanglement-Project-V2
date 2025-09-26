@@ -41,7 +41,7 @@ class CelebAConfig(DatasetConfig):
     name: str = "celeba"
     root: str = "data/celeba/"
     crop_faces: bool = False
-    crop_margins: List[float] = field(default_factory=lambda: [0.7, 0.7, 2.0, 0.8])
+    crop_margins: List[float] = field(default_factory=lambda: [0.8, 0.8, 2.2, 0.9])
     resize_algorithm: str = "LANCZOS"
     force_download: bool = False
     load_into_memory: bool = False
